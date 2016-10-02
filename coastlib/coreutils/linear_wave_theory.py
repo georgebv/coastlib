@@ -1,6 +1,34 @@
-import coastal_module as cm
+from coastlib.coreutils.design_tools import sea_water_density as swd
+from coastlib.coreutils.design_tools import g
 from math import sinh, pi, sqrt, sin, asin, cos, cosh, exp, tanh
 from copy import deepcopy
+from scipy.optimize import newton
+
+
+def solve_dispersion_relation(t, h):
+    """Solves dispersion relation for wavelength, given period and depth.
+
+    Find wavelength by solving the dispersion relation given period 't' and depth 'h'.
+    Solves the dispersion relation using the secant method.
+
+    Parameters
+    ----------
+
+    t : float
+        Wave period (sec) for which the dispersion relation is solved.
+    h : float
+        Water depth (m) for which the dispersion relation is solved.
+
+    Returns
+    -------
+    l : float
+        Estimated wavelength (m) for parameters entered.
+    """
+    def disprel(var_l):
+        k = 2 * pi / var_l
+        omega = 2 * pi / t
+        return omega ** 2 - g * k * tanh(k * h)
+    return newton(disprel, 1)
 
 
 class LinearWave:
@@ -36,14 +64,14 @@ class LinearWave:
         self.period = float(period)
         if depth == 'deep':
             self.depth = 'deep'
-            self.L = cm.g*(self.period**2)/(2*pi)
+            self.L = g*(self.period**2)/(2*pi)
         else:
             self.depth = float(depth)
-            self.L = cm.solve_disprel(self.period, self.depth)
+            self.L = solve_dispersion_relation(self.period, self.depth)
         self.Hm0 = float(Hm0)
         self.c = self.L/self.period
         self.angle = float(angle)
-        self.E = cm.swden*cm.g*(self.Hm0**2)/8
+        self.E = swd*g*(self.Hm0**2)/8
         self.k = 2*pi/self.L
         if depth == 'deep':
             self.cg = 0.5*self.c
@@ -61,6 +89,40 @@ class LinearWave:
         self.x = None
         self.t = None
 
+    def dynprop(self, z, t, x=0):
+        """
+        For a specified vertical co-ordinate *z* (m) (positive upward, origin at still water level)
+        caclulates the following dynamic properties at time *t* (sec) (t can take values in interval
+        [0;*wave period*]) for a fixed position *x* (m) [0;*L*], or vice versa:
+            dynamic pressure *pd* (Pa),
+            horizontal particle acceleration *ua* (m/s^2),
+            horizontal particle velocity *u* (m/s),
+            vertical particle acceleration *va* (m/s^2),
+            vertical particle velocity *v* (m/s),
+            wave profile (free surface elevation) *S* (m, above still water surface).
+        """
+        if z > 0:
+            raise ValueError('ERROR: Value *z* should be negative')
+        elif self.depth != 'deep':
+            if z+self.depth < 0:
+                raise ValueError('ERROR: Value *z* should be less or equal to negative depth')
+        self.z = z
+        self.x = x
+        self.t = t
+        self.S = self.a * sin(self.w * t - self.k * x)
+        if self.depth == 'deep':
+            self.pd = swd * g * self.a * exp(self.k*z) * sin(self.w * t - self.k * x)
+            self.ua = (self.w ** 2) * self.a * exp(self.k*z) * cos(self.w * t - self.k * x)
+            self.u = self.w * self.a * exp(self.k*z) * sin(self.w * t - self.k * x)
+            self.va = -(self.w ** 2) * self.a * exp(self.k*z) * sin(self.w * t - self.k * x)
+            self.v = self.w * self.a * exp(self.k*z) * cos(self.w * t - self.k * x)
+        else:
+            self.pd = swd*g*self.a*cosh(self.k*(z+self.depth))*sin(self.w*t-self.k*x)/cosh(self.k*self.depth)
+            self.ua = (self.w**2)*self.a*cosh(self.k*(z+self.depth))*cos(self.w*t-self.k*x)/sinh(self.k*self.depth)
+            self.u = self.w*self.a*cosh(self.k*(z+self.depth))*sin(self.w*t-self.k*x)/sinh(self.k*self.depth)
+            self.va = -(self.w**2)*self.a*sinh(self.k*(z+self.depth))*sin(self.w*t-self.k*x)/sinh(self.k*self.depth)
+            self.v = self.w*self.a*sinh(self.k*(z+self.depth))*cos(self.w*t-self.k*x)/sinh(self.k*self.depth)
+
     def propagate(self, ndepth):
         """
         Using the linear wave theory propagate wave to the new depth *ndepth*
@@ -75,7 +137,7 @@ class LinearWave:
         -------
         Updated linear wave parameters at the new depth *ndepth*.
         """
-        nL = cm.solve_disprel(self.period, ndepth)
+        nL = solve_dispersion_relation(self.period, ndepth)
         nc = nL / self.period
         # Shoaling
         k = 2*pi/nL
@@ -90,7 +152,7 @@ class LinearWave:
         self.c = nc
         self.depth = ndepth
         self.L = nL
-        self.E = cm.swden * cm.g * (self.Hm0 ** 2) / 8
+        self.E = swd * g * (self.Hm0 ** 2) / 8
         self.k = 2 * pi / self.L
         self.cg = 0.5 * self.c * (1 + 2 * self.k * self.depth / sinh(2 * self.k * self.depth))
         self.w = 2 * pi / self.period
@@ -129,37 +191,3 @@ class LinearWave:
                 depth += 0.01
                 break
         self.propagate(depth)
-
-    def dynprop(self, z, t, x=0):
-        """
-        For a specified vertical co-ordinate *z* (m) (positive upward, origin at still water level)
-        caclulates the following dynamic properties at time *t* (sec) (t can take values in interval
-        [0;*wave period*]) for a fixed position *x* (m) [0;*L*], or vice versa:
-            dynamic pressure *pd* (Pa),
-            horizontal particle acceleration *ua* (m/s^2),
-            horizontal particle velocity *u* (m/s),
-            vertical particle acceleration *va* (m/s^2),
-            vertical particle velocity *v* (m/s),
-            wave profile (free surface elevation) *S* (m, above still water surface).
-        """
-        if z > 0:
-            raise ValueError('ERROR: Value *z* should be negative')
-        elif self.depth != 'deep':
-            if z+self.depth < 0:
-                raise ValueError('ERROR: Value *z* should be less or equal to negative depth')
-        self.z = z
-        self.x = x
-        self.t = t
-        self.S = self.a * sin(self.w * t - self.k * x)
-        if self.depth == 'deep':
-            self.pd = cm.swden * cm.g * self.a * exp(self.k*z) * sin(self.w * t - self.k * x)
-            self.ua = (self.w ** 2) * self.a * exp(self.k*z) * cos(self.w * t - self.k * x)
-            self.u = self.w * self.a * exp(self.k*z) * sin(self.w * t - self.k * x)
-            self.va = -(self.w ** 2) * self.a * exp(self.k*z) * sin(self.w * t - self.k * x)
-            self.v = self.w * self.a * exp(self.k*z) * cos(self.w * t - self.k * x)
-        else:
-            self.pd = cm.swden*cm.g*self.a*cosh(self.k*(z+self.depth))*sin(self.w*t-self.k*x)/cosh(self.k*self.depth)
-            self.ua = (self.w**2)*self.a*cosh(self.k*(z+self.depth))*cos(self.w*t-self.k*x)/sinh(self.k*self.depth)
-            self.u = self.w*self.a*cosh(self.k*(z+self.depth))*sin(self.w*t-self.k*x)/sinh(self.k*self.depth)
-            self.va = -(self.w**2)*self.a*sinh(self.k*(z+self.depth))*sin(self.w*t-self.k*x)/sinh(self.k*self.depth)
-            self.v = self.w*self.a*sinh(self.k*(z+self.depth))*cos(self.w*t-self.k*x)/sinh(self.k*self.depth)
