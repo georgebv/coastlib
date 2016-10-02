@@ -4,8 +4,9 @@
 * numpy
 * scipy
 * pandas
-* colorlover
-* plotly
+* matplotlib
+* statsmodels
+* seaborn
 
 ## Installing
 In order to use this library you have to do the following:
