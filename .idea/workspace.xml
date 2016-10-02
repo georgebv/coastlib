@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="e11064da-f08c-4c00-9903-2cb2f87ba4f5" name="Default" comment="" />
+    <list default="true" id="e11064da-f08c-4c00-9903-2cb2f87ba4f5" name="Default" comment="">
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/coastlib/coreutils/adcp_tools.py" afterPath="$PROJECT_DIR$/coastlib/coreutils/adcp_tools.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/coastlib/coreutils/plot_tools.py" afterPath="$PROJECT_DIR$/coastlib/coreutils/plot_tools.py" />
+    </list>
     <ignored path="coastlib.iws" />
     <ignored path=".idea/workspace.xml" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -20,12 +24,26 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="setup.py" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/setup.py">
+      <file leaf-file-name="adcp_tools.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/coastlib/coreutils/adcp_tools.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="204">
-              <caret line="12" column="0" selection-start-line="12" selection-start-column="0" selection-end-line="12" selection-end-column="0" />
+            <state relative-caret-position="357">
+              <caret line="23" column="43" selection-start-line="23" selection-start-column="43" selection-end-line="23" selection-end-column="43" />
               <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="plot_tools.py" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/coastlib/coreutils/plot_tools.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="102">
+              <caret line="54" column="0" selection-start-line="54" selection-start-column="0" selection-end-line="54" selection-end-column="0" />
+              <folding>
+                <element signature="e#197#1517#0" expanded="false" />
+                <element signature="e#1570#4641#0" expanded="false" />
+                <element signature="e#4704#6904#0" expanded="false" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -50,12 +68,12 @@
         <option value="$PROJECT_DIR$/coastlib/coreutils/__init__.py" />
         <option value="$PROJECT_DIR$/coastlib/thirdpartyutils/__init__.py" />
         <option value="$PROJECT_DIR$/coastlib/__init__.py" />
-        <option value="$PROJECT_DIR$/coastlib/coreutils/plot_tools.py" />
         <option value="$PROJECT_DIR$/coastlib/coreutils/design_tools.py" />
-        <option value="$PROJECT_DIR$/coastlib/coreutils/adcp_tools.py" />
         <option value="$PROJECT_DIR$/coastlib/coreutils/linear_wave_theory.py" />
         <option value="$PROJECT_DIR$/setup.cfg" />
         <option value="$PROJECT_DIR$/setup.py" />
+        <option value="$PROJECT_DIR$/coastlib/coreutils/adcp_tools.py" />
+        <option value="$PROJECT_DIR$/coastlib/coreutils/plot_tools.py" />
       </list>
     </option>
   </component>
@@ -90,6 +108,8 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="Scope" />
+      <pane id="Scratches" />
       <pane id="ProjectPane">
         <subPane>
           <PATH>
@@ -178,8 +198,6 @@
           </PATH>
         </subPane>
       </pane>
-      <pane id="Scratches" />
-      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -375,11 +393,26 @@
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
-      <option name="time" value="1" />
+      <option name="time" value="3" />
     </breakpoint-manager>
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
+    <entry file="file://$PROJECT_DIR$/coastlib/coreutils/adcp_tools.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/setup.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/coastlib/coreutils/adcp_tools.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1666">
@@ -490,13 +523,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/coastlib/coreutils/adcp_tools.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1666">
-          <caret line="100" column="0" selection-start-line="100" selection-start-column="0" selection-end-line="100" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/coastlib/coreutils/linear_wave_theory.py" />
     <entry file="file://$PROJECT_DIR$/coastlib/coreutils/design_tools.py">
       <provider selected="true" editor-type-id="text-editor">
@@ -509,13 +535,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="272">
           <caret line="16" column="13" selection-start-line="16" selection-start-column="13" selection-end-line="16" selection-end-column="13" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/coastlib/coreutils/plot_tools.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="17">
-          <caret line="7" column="0" selection-start-line="7" selection-start-column="0" selection-end-line="7" selection-end-column="0" />
         </state>
       </provider>
     </entry>
@@ -537,7 +556,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="272">
           <caret line="16" column="0" selection-start-line="16" selection-start-column="0" selection-end-line="16" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -545,7 +563,26 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="204">
           <caret line="12" column="0" selection-start-line="12" selection-start-column="0" selection-end-line="12" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/coastlib/coreutils/adcp_tools.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="357">
+          <caret line="23" column="43" selection-start-line="23" selection-start-column="43" selection-end-line="23" selection-end-column="43" />
           <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/coastlib/coreutils/plot_tools.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="102">
+          <caret line="54" column="0" selection-start-line="54" selection-start-column="0" selection-end-line="54" selection-end-column="0" />
+          <folding>
+            <element signature="e#197#1517#0" expanded="false" />
+            <element signature="e#1570#4641#0" expanded="false" />
+            <element signature="e#4704#6904#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>

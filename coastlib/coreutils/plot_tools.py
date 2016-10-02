@@ -9,7 +9,7 @@ import statsmodels.api as sm
 
 def pdf_plot(df, **kwargs):
     """
-    Plot probability density function (pdf) for parameter *val* (df[val])
+    Plot probability density function (PDF) for parameter *val* (df[val])
 
     Paramters
     ---------
@@ -18,33 +18,37 @@ def pdf_plot(df, **kwargs):
         Column name in *df* (i.e. 'Hs')
     savepath : string
         Save folder location
-    adcp, month : strings
-        Adcp and month values (i.e. 'ADCP1', 'June')
-    unit : string
-        Unit to display in legend
+    xlabel, ylabel, title : string
+        X and Y axis labels and plot title
+    savename : string
+        Name of file
+    bins : int
+        Number of histogram bins (default = 50)
     """
 
     val = kwargs.get('val', 'Hs')
     savepath = kwargs.get('savepath', None)
-    adcp = kwargs.get('adcp', 'ADCP#')
-    month = kwargs.get('month', 'Month')
-    unit = kwargs.get('unit', 'ft')
+    title = kwargs.get('title', 'ADCP# Month Value PDF')
+    xlabel = kwargs.get('xlabel', 'Value [ft]')
+    ylabel = kwargs.get('ylabel', 'PDF')
+    savename = kwargs.get('savename', 'ADCP# Month Value PDF')
+    bins = kwargs.get('bins', 50)
 
     a = df[pd.notnull(df[val])][val].as_matrix()
     dens = sm.nonparametric.KDEUnivariate(a)
     dens.fit()
     plt.style.use('seaborn-dark')
-    fig = plt.figure(figsize=(12,8))
+    fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(111)
-    ax.hist(a, bins=50, normed=True, color='blue', rwidth=0.9, label=val+' histogram')
-    ax.plot(dens.support, dens.density, lw=2, color='red', label='pdf')
+    ax.hist(a, bins=bins, normed=True, color='blue', rwidth=0.9, label='Histogram')
+    ax.plot(dens.support, dens.density, lw=2, color='red', label='PDF')
     plt.grid()
-    plt.xlabel(val + ' [' + unit + ']')
-    plt.ylabel('pdf')
-    plt.title(adcp + ' ' + month + ' ' + val + ' pdf')
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
     plt.legend()
     if savepath is not None:
-        plt.savefig(savepath + '\\' + adcp + ' ' + month + ' ' + val + ' pdf.png')
+        plt.savefig(savepath + '\\' + savename + '.png')
         plt.close()
 
 

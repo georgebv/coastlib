@@ -12,7 +12,7 @@ class ADCPModel:
 
     def waves_parse(self):
         """
-        Generates pandas dataframe from the matlab file with the wave data.
+        Generates pandas dataframe from the matlab file with the waves data.
         """
         dtype = self.mat['waves']
         dindex = dtype.dtype
