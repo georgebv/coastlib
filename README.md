@@ -1,4 +1,4 @@
-# COWI-coastal-library
+# coastlib introduction
 
 ## Prerequisites
 * numpy
