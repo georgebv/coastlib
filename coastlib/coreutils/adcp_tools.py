@@ -4,12 +4,15 @@ import datetime
 import functools
 
 
-class ADCPModel:
-
+class SentinelV:
+    """
+    Sentinel V Workhorse ADCP data output class.
+    """
     def __init__(self, path):
         self.mat = scipy.io.loadmat(path)
         self.waves = 'Execute the waves_parse method first'
         self.currents = 'Execute the currents_parse method first'
+        self.model = 'Sentinel V Workhorse ADCP'
 
     def waves_parse(self):
         """
