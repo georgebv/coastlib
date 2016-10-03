@@ -94,13 +94,10 @@ class SentinelV:
             self.currents = df
 
 
-def splice(*args, sort=True):
+def splice(df_list, sort=True):
     """
-    Takes multiple dataframes and returns merged dataframe (sorted by default).
+    Takes a list of dataframes and returns a merged dataframe (sorted by default).
     """
-    df_list = []
-    for df in args:
-        df_list += [df]
     df = functools.reduce((lambda x, y: pd.concat([x, y])), df_list)
     if sort:
         df.sort_index(inplace=True)

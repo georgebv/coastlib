@@ -1,8 +1,9 @@
 import pandas as pd
-import detect_peaks
+import coastlib.thirdpartyutils.detect_peaks as detect_peaks
 from coastlib.thirdpartyutils import windrose
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import numpy as np
 import statsmodels.api as sm
 
@@ -56,6 +57,7 @@ def pdf_plot(df, **kwargs):
     if savepath is not None:
         plt.savefig(savepath + '\\' + savename + '.png')
         plt.close()
+    mpl.rcParams.update(mpl.rcParamsDefault)
 
 
 def time_series_plot(df, **kwargs):
@@ -63,7 +65,7 @@ def time_series_plot(df, **kwargs):
     Plots timeseries of *values* against *time*. Optionally plots peaks over timeseries
     and saves output (figure and peaks table) to a specified location.
 
-    dfparam : pandas DataFrame
+    df : pandas DataFrame
         Pandas dataframe with time as index
     val : string
         Column in the pandas dataframe (i.e. 'Hs')
@@ -90,7 +92,7 @@ def time_series_plot(df, **kwargs):
     savename = kwargs.get('savename', 'Time Series')
     linewidth = kwargs.get('linewidth', 1)
     figsize = kwargs.get('figsize', (16, 8))
-    title = kwargs.get('title', 'PDF')
+    title = kwargs.get('title', 'Time Series')
     xlabel = kwargs.get('xlabel', 'Time')
     ylabel = kwargs.get('ylabel', 'Value')
 
@@ -165,7 +167,7 @@ def rose_plot(df, **kwargs):
     startfromzero : bool
         Indicates if plot starts from 0 (N) (default = False)
     valbinsize : float
-        Set binsize to override *valbins* parameter(default = None, assigns bins automatically)
+        Set binsize to override *valbins* parameter (default = None, assigns bins automatically)
     title
     """
     direction = kwargs.get('direction', 'Dp')

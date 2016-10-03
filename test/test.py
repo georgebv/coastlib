@@ -6,8 +6,7 @@ from coastlib.coreutils.data_analysis_tools import associated_value
 # Set paths to adcp *.mat data file
 adcproot = 'C:\\Users\GRBH.COWI.001\Desktop\desktop projects\Living breakwaters\ADCP data processing\Data'
 paths = [
-    adcproot + '\ADCP1 May.mat',
-    adcproot + '\ADCP2 August.mat'
+    adcproot + '\ADCP1\ADCP1 034 May.mat',
 ]
 data = SlV(paths[0])
 data.waves_parse()
