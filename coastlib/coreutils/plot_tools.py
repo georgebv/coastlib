@@ -1,6 +1,6 @@
 import pandas as pd
 import detect_peaks
-import windrose
+from coastlib.thirdpartyutils import windrose
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,8 +14,9 @@ def pdf_plot(df, **kwargs):
     Paramters
     ---------
     df : dataframe
+        Dataframe with column *val*
     val : string
-        Column name in *df* (i.e. 'Hs')
+        Column name in *df* (i.e. 'Hs') containing values
     savepath : string
         Save folder location
     xlabel, ylabel, title : string
@@ -24,21 +25,26 @@ def pdf_plot(df, **kwargs):
         Name of file
     bins : int
         Number of histogram bins (default = 50)
+    plot_style : string
+        Plot style (default = 'seavorn-dark')
+    figsize : tuple
+        Figure size (default = (12, 8))
     """
-
     val = kwargs.get('val', 'Hs')
     savepath = kwargs.get('savepath', None)
     title = kwargs.get('title', 'ADCP# Month Value PDF')
     xlabel = kwargs.get('xlabel', 'Value [ft]')
     ylabel = kwargs.get('ylabel', 'PDF')
-    savename = kwargs.get('savename', 'ADCP# Month Value PDF')
+    savename = kwargs.get('savename', 'PDF')
     bins = kwargs.get('bins', 50)
+    plot_style = kwargs.get('plot_style', 'seaborn-dark')
+    figsize = kwargs.get('figsize', (12, 8))
 
     a = df[pd.notnull(df[val])][val].as_matrix()
     dens = sm.nonparametric.KDEUnivariate(a)
     dens.fit()
-    plt.style.use('seaborn-dark')
-    fig = plt.figure(figsize=(12, 8))
+    plt.style.use(plot_style)
+    fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
     ax.hist(a, bins=bins, normed=True, color='blue', rwidth=0.9, label='Histogram')
     ax.plot(dens.support, dens.density, lw=2, color='red', label='PDF')
@@ -52,85 +58,90 @@ def pdf_plot(df, **kwargs):
         plt.close()
 
 
-def time_series_plot(df, col='Hs', **kwargs):
+def time_series_plot(df, **kwargs):
     """
     Plots timeseries of *values* against *time*. Optionally plots peaks over timeseries
     and saves output (figure and peaks table) to a specified location.
 
     dfparam : pandas DataFrame
         Pandas dataframe with time as index
-    col : string
+    val : string
         Column in the pandas dataframe (i.e. 'Hs')
-    showpeaks : string (optional)
-        'Yes' to find and show peaks, 'No' to not show them
+    showpeaks : bool
+        Indicates if peaks are found and plotted
     savepath : string (optional)
         Path to folder which timeseries plot and peaks table are saved to (i.e. 'C:\\foldername').
-        Doesn't save files by default (value 'No')
-    adcp : string
-        Number of the adcp (i.e. 'ADCP1')
-    month : string
-        Month (i.e. 'June')
+        If not specified, shows plot in a pop-up window.
+    savename : string
+        Name of file
     linewidth : float
         Time series line width (default = 1)
     figsize : tuple
         Figure size (default = (16, 8))
+    xlabel, ylabel, title : string
+        X and Y axis labels and plot title
+    peaks_outname : string
+        Peaks .xlsx output file name
     """
-
+    val = kwargs.get('val', 'Hs')
     showpeaks = kwargs.get('showpeaks', True)
-    savepath = kwargs.get('savepath', 'No')
-    adcp = kwargs.get('adcp', 'ADCP#')
-    month = kwargs.get('month', 'Month')
+    peaks_outname = kwargs.get('peaks_outname', 'Peaks')
+    savepath = kwargs.get('savepath', None)
+    savename = kwargs.get('savename', 'Time Series')
     linewidth = kwargs.get('linewidth', 1)
     figsize = kwargs.get('figsize', (16, 8))
+    title = kwargs.get('title', 'PDF')
+    xlabel = kwargs.get('xlabel', 'Time')
+    ylabel = kwargs.get('ylabel', 'Value')
 
-    if showpeaks is True:
-        indexes = detect_peaks.detect_peaks(df[col].as_matrix())
-        x = df[col][indexes].index.values
-        y = df[col][indexes].as_matrix()
-        if savepath != 'No':
+    if showpeaks:
+        indexes = detect_peaks.detect_peaks(df[val].as_matrix())
+        x = df[val][indexes].index.values
+        y = df[val][indexes].as_matrix()
+        if savepath is not None:
             fig, ax = plt.subplots(figsize=figsize)
-            ax.plot(df[col], '-', linewidth=linewidth)
+            ax.plot(df[val], '-', linewidth=linewidth)
             ax.scatter(x, y, s=20, label='Peaks', facecolors='none', edgecolors='r')
             ax.grid()
-            plt.xlabel('Time')
-            plt.ylabel(col + ' (ft)')
-            plt.title(adcp + ' ' + month + ' ' + col + ' time series')
+            plt.xlabel(xlabel)
+            plt.ylabel(ylabel)
+            plt.title(title)
             plt.legend()
-            plt.savefig(savepath + '\\' + adcp + ' ' + month + ' ' + col + ' time series.png')
+            plt.savefig(savepath + '\\' + savename + '.png')
             plt.close()
-            writer = pd.ExcelWriter(savepath + '\\' + adcp + ' ' + month + ' ' + col + ' peaks.xlsx')
-            df[col][indexes].to_frame().to_excel(writer, sheet_name=col + ' peaks')
+            writer = pd.ExcelWriter(savepath + '\\' + peaks_outname + '.xlsx')
+            df[val][indexes].to_frame().to_excel(writer, sheet_name=val + ' peaks')
             writer.save()
         else:
             fig, ax = plt.subplots(figsize=figsize)
-            ax.plot(df[col], '-', linewidth=linewidth)
+            ax.plot(df[val], '-', linewidth=linewidth)
             ax.scatter(x, y, s=20, label='Peaks', facecolors='none', edgecolors='r')
             ax.grid()
-            plt.xlabel('Time')
-            plt.ylabel(col + ' (ft)')
-            plt.title(adcp + ' ' + month + ' ' + col + ' time series')
+            plt.xlabel(xlabel)
+            plt.ylabel(ylabel)
+            plt.title(title)
             plt.legend()
-    elif savepath != 'No':
+    elif savepath is not None:
         fig, ax = plt.subplots(figsize=figsize)
-        ax.plot(df[col], '-', linewidth=linewidth)
+        ax.plot(df[val], '-', linewidth=linewidth)
         ax.grid()
-        plt.xlabel('Time')
-        plt.ylabel(col + ' (ft)')
-        plt.title(adcp + ' ' + month + ' ' + col + ' time series')
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
         plt.legend()
-        plt.savefig(savepath + '\\' + adcp + ' ' + month + ' ' + col + ' time series.png')
+        plt.savefig(savepath + '\\' + savename + '.png')
         plt.close()
     else:
         fig, ax = plt.subplots(figsize=figsize)
-        ax.plot(df[col], '-', linewidth=linewidth)
+        ax.plot(df[val], '-', linewidth=linewidth)
         ax.grid()
-        plt.xlabel('Time')
-        plt.ylabel(col + ' (ft)')
-        plt.title(adcp + ' ' + month + ' ' + col + ' time series')
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
         plt.legend()
 
 
-def rose_plot(df, val='Hs', direction='Dp',  **kwargs):
+def rose_plot(df, **kwargs):
     """
     Plots rose of values *val* for directions *direction*
     in dtaframe *df* and saves it to folder *savepath*.
@@ -149,23 +160,22 @@ def rose_plot(df, val='Hs', direction='Dp',  **kwargs):
         Number of directional bins (default = 12)
     savepath : string
         Path to output folder (default = doesn't save) (i.e. 'C:\\folder')
-    adcp : string
-        Adcp name (used for output naming) (i.e. 'ADCP#')
-    month : string
-        Month (used for output naming) (i.e. 'June')
-    unit : string
-        Unit of *val* (i.e. 'ft')
+    savename : string
+        Name of file
     startfromzero : bool
         Indicates if plot starts from 0 (N) (default = False)
     valbinsize : float
         Set binsize to override *valbins* parameter(default = None, assigns bins automatically)
+    title
     """
+    direction = kwargs.get('direction', 'Dp')
+    val = kwargs.get('val', 'Hs')
     valbins = kwargs.get('valbins', 6)
     dirbins = kwargs.get('dirbins', 12)
-    savepath = kwargs.get('savepath', 'No')
-    adcp = kwargs.get('adcp', 'ADCP#')
-    month = kwargs.get('month', 'Month')
-    unit = kwargs.get('unit', 'ft')
+    savepath = kwargs.get('savepath', None)
+    savename = kwargs.get('savename', 'Rose')
+    title = kwargs.get('title', 'Rose')
+    legend = kwargs.get('legend', 'Value [unit]')
     startfromzero = kwargs.get('startfromzero', False)
     valbinsize = kwargs.get('valbinsize', None)
 
@@ -188,9 +198,8 @@ def rose_plot(df, val='Hs', direction='Dp',  **kwargs):
         startfromzero=startfromzero
     )
     ax.set_legend()
-    ax.legend(loc=(-0.1, 0.75), title=val + ' ' + '[' + unit + ']')
-    plt.title(adcp + ' ' + month + ' ' + val + ' ' + 'rose', y=1.08)
-    if savepath != 'No':
-        plt.savefig(savepath + '\\' + adcp + ' ' + month + ' ' + val + ' rose.png')
+    ax.legend(loc=(-0.1, 0.75), title=legend)
+    plt.title(title, y=1.08)
+    if savepath is not None:
+        plt.savefig(savepath + '\\' + savename + '.png')
         plt.close()
-

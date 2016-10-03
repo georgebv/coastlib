@@ -1,6 +1,7 @@
 import pandas as pd
 import scipy.io
 import datetime
+import functools
 
 
 class ADCPModel:
@@ -90,11 +91,14 @@ class ADCPModel:
             self.currents = df
 
 
-def splice(df1, df2, sort=True):
+def splice(*args, sort=True):
     """
-    Splices dataframes df1 and df2 and sorts by index.
+    Takes multiple dataframes and returns merged dataframe (sorted by default).
     """
-    df = pd.concat([df1, df2])
+    df_list = []
+    for df in args:
+        df_list += [df]
+    df = functools.reduce((lambda x, y: pd.concat([x, y])), df_list)
     if sort:
         df.sort_index(inplace=True)
     return df
