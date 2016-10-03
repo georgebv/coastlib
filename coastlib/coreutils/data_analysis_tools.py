@@ -1,12 +1,5 @@
 import pandas as pd
-import scipy.io
-import datetime
-import detect_peaks
-import windrose
-import matplotlib.cm as cm
-import matplotlib.pyplot as plt
 import numpy as np
-import statsmodels.api as sm
 import math
 import openpyxl
 
