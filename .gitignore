@@ -9,6 +9,13 @@ Desktop.ini
 # Recycle Bin used on file shares
 $RECYCLE.BIN/
 
+# Output files for the test folder
+*.xlsx
+*.slx
+*.png
+*.txt
+*.jpg
+
 # Windows Installer files
 *.cab
 *.msi
