@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
 import statsmodels.api as sm
+import seaborn as sns
 
 
 def pdf_plot(df, **kwargs):
@@ -27,7 +28,7 @@ def pdf_plot(df, **kwargs):
     bins : int
         Number of histogram bins (default = 50)
     plot_style : string
-        Plot style (default = 'seavorn-dark')
+        Plot style (default = 'bmh')
     figsize : tuple
         Figure size (default = (12, 8))
     """
@@ -38,7 +39,7 @@ def pdf_plot(df, **kwargs):
     ylabel = kwargs.get('ylabel', 'PDF')
     savename = kwargs.get('savename', 'PDF')
     bins = kwargs.get('bins', 50)
-    plot_style = kwargs.get('plot_style', 'seaborn-dark')
+    plot_style = kwargs.get('plot_style', 'bmh')
     figsize = kwargs.get('figsize', (12, 8))
 
     a = df[pd.notnull(df[val])][val].as_matrix()
@@ -49,7 +50,6 @@ def pdf_plot(df, **kwargs):
     ax = fig.add_subplot(111)
     ax.hist(a, bins=bins, normed=True, color='blue', rwidth=0.9, label='Histogram')
     ax.plot(dens.support, dens.density, lw=2, color='red', label='PDF')
-    plt.grid()
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(title)
@@ -84,6 +84,8 @@ def time_series_plot(df, **kwargs):
         X and Y axis labels and plot title
     peaks_outname : string
         Peaks .xlsx output file name
+    plot_style : string
+        Plot style (default = 'bmh')
     """
     val = kwargs.get('val', 'Hs')
     showpeaks = kwargs.get('showpeaks', True)
@@ -95,7 +97,9 @@ def time_series_plot(df, **kwargs):
     title = kwargs.get('title', 'Time Series')
     xlabel = kwargs.get('xlabel', 'Time')
     ylabel = kwargs.get('ylabel', 'Value')
+    plot_style = kwargs.get('plot_style', 'bmh')
 
+    plt.style.use(plot_style)
     if showpeaks:
         indexes = detect_peaks.detect_peaks(df[val].as_matrix())
         x = df[val][indexes].index.values
@@ -141,6 +145,7 @@ def time_series_plot(df, **kwargs):
         plt.ylabel(ylabel)
         plt.title(title)
         plt.legend()
+    mpl.rcParams.update(mpl.rcParamsDefault)
 
 
 def rose_plot(df, **kwargs):
@@ -202,6 +207,25 @@ def rose_plot(df, **kwargs):
     ax.set_legend()
     ax.legend(loc=(-0.1, 0.75), title=legend)
     plt.title(title, y=1.08)
+    if savepath is not None:
+        plt.savefig(savepath + '\\' + savename + '.png')
+        plt.close()
+
+
+def joint_plot(df, **kwargs):
+    val1 = kwargs.get('val1', 'Hs')
+    val2 = kwargs.get('val2', 'Tp')
+    xlabel = kwargs.get('xlabel', 'X')
+    ylabel = kwargs.get('ylabel', 'Y')
+    savepath = kwargs.get('savepath', None)
+    savename = kwargs.get('savename', 'Bivariate Distribution')
+
+    sns.set()
+    sns.set_color_codes()
+    g = sns.jointplot(x=val1, y=val2, data=df, kind='kde', color='m')
+    g.plot_joint(plt.scatter, c='black', s=10, linewidth=0.5, marker="+")
+    g.ax_joint.collections[0].set_alpha(0)
+    g.set_axis_labels(xlabel, ylabel)
     if savepath is not None:
         plt.savefig(savepath + '\\' + savename + '.png')
         plt.close()
