@@ -113,6 +113,7 @@ def time_series_plot(df, **kwargs):
             plt.ylabel(ylabel)
             plt.title(title)
             plt.legend()
+            plt.grid()
             plt.savefig(savepath + '\\' + savename + '.png')
             plt.close()
             writer = pd.ExcelWriter(savepath + '\\' + peaks_outname + '.xlsx')
@@ -127,6 +128,7 @@ def time_series_plot(df, **kwargs):
             plt.ylabel(ylabel)
             plt.title(title)
             plt.legend()
+            plt.grid()
     elif savepath is not None:
         fig, ax = plt.subplots(figsize=figsize)
         ax.plot(df[val], '-', linewidth=linewidth)
@@ -135,6 +137,7 @@ def time_series_plot(df, **kwargs):
         plt.ylabel(ylabel)
         plt.title(title)
         plt.legend()
+        plt.grid()
         plt.savefig(savepath + '\\' + savename + '.png')
         plt.close()
     else:
@@ -145,6 +148,7 @@ def time_series_plot(df, **kwargs):
         plt.ylabel(ylabel)
         plt.title(title)
         plt.legend()
+        plt.grid()
     mpl.rcParams.update(mpl.rcParamsDefault)
 
 
@@ -229,3 +233,4 @@ def joint_plot(df, **kwargs):
     if savepath is not None:
         plt.savefig(savepath + '\\' + savename + '.png')
         plt.close()
+    mpl.rcParams.update(mpl.rcParamsDefault)
