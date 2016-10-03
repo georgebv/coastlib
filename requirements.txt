@@ -1,0 +1,7 @@
+matplotlib==2.0.0b4
+numpy==1.11.2rc1+mkl
+openpyxl==2.4.0
+pandas==0.19.0rc1
+scipy==0.18.1
+seaborn==0.7.1
+statsmodels==0.8.0rc1
