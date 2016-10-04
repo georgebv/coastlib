@@ -5,6 +5,7 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import statsmodels.api as sm
+import seaborn as sns
 
 
 def pdf_plot(df, **kwargs):
@@ -206,3 +207,20 @@ def rose_plot(df, **kwargs):
         plt.savefig(savepath + '\\' + savename + '.png')
         plt.close()
 
+
+def joint_plot(df, **kwargs):
+    val1 = kwargs.get('val1', 'Hs')
+    val2 = kwargs.get('val2', 'Tp')
+    xlabel = kwargs.get('xlabel', 'Hs [ft]')
+    ylabel = kwargs.get('ylabel', 'Tp [sec]')
+    savepath = kwargs.get('savepath', None)
+    savename = kwargs.get('savename', 'Bivariate Distribution')
+
+    with plt.style.context('bmh'):
+        g = (sns.JointGrid(x=val1, y=val2, data=df).set_axis_labels(xlabel, ylabel))
+        g = g.plot_marginals(sns.distplot, kde=True, color='navy')
+        g = g.plot_joint(sns.kdeplot, cmap='plasma')
+        g.plot_joint(plt.scatter, c='navy', s=5, linewidth=0.5, marker='x')
+    if savepath is not None:
+        plt.savefig(savepath + '\\' + savename + '.png')
+        plt.close()
