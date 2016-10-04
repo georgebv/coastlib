@@ -1,11 +1,11 @@
-import pandas as pd
 import coastlib.thirdpartyutils.detect_peaks as detect_peaks
-from coastlib.thirdpartyutils import windrose
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
-import statsmodels.api as sm
+import pandas as pd
 import seaborn.apionly as sns
+import statsmodels.api as sm
+from coastlib.thirdpartyutils import windrose
 
 
 def pdf_plot(df, **kwargs):
@@ -187,7 +187,7 @@ def rose_plot(df, **kwargs):
         a[direction] = a[direction].apply(lambda x: x - 0.5 * 360 / dirbins)
     ax = windrose.WindroseAxes.from_ax()
     if valbinsize is not None:
-        valbins = np.arange(0, a[val].max()+valbinsize, valbinsize)
+        valbins = np.arange(0, a[val].max() + valbinsize, valbinsize)
     ax.bar(
         a[direction],
         a[val],

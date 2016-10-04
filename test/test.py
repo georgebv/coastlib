@@ -1,6 +1,6 @@
 "TEST FUNCTIONS"
-from coastlib.coreutils.adcp_tools import SentinelV as SlV
 import coastlib.coreutils.plot_tools as plots
+from coastlib.coreutils.adcp_tools import SentinelV as SlV
 
 # Set paths to adcp *.mat data file
 adcproot = 'C:\\Users\GRBH.COWI.001\Desktop\desktop projects\Living breakwaters\ADCP data processing\Data'
