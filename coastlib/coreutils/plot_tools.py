@@ -47,7 +47,7 @@ def pdf_plot(df, **kwargs):
         dens.fit()
         fig, ax = plt.subplots(figsize=figsize)
         ax.hist(a, bins=bins, normed=True, color='lightskyblue', rwidth=0.9, label='Histogram')
-        ax.plot(dens.support, dens.density, lw=2, color='navy', label='PDF')
+        ax.plot(dens.support, dens.density, lw=2, color='navy', label='Kernel PDF')
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.title(title)
@@ -166,7 +166,8 @@ def rose_plot(df, **kwargs):
         Indicates if plot starts from 0 (N) (default = False)
     valbinsize : float
         Set binsize to override *valbins* parameter (default = None, assigns bins automatically)
-    title
+    title : str
+        Plot title
     """
     direction = kwargs.get('direction', 'Dp')
     val = kwargs.get('val', 'Hs')
@@ -200,7 +201,7 @@ def rose_plot(df, **kwargs):
         startfromzero=startfromzero
     )
     ax.set_legend()
-    ax.legend(loc=(-0.1, 0.75), title=legend, fontsize=9)
+    ax.legend(loc=(-0.12, 0.75), title=legend, fontsize=9)
     ax.get_legend().get_title().set_fontsize('9')
     plt.title(title, y=1.08, fontsize=16)
     if savepath is not None:
@@ -209,15 +210,34 @@ def rose_plot(df, **kwargs):
 
 
 def joint_plot(df, **kwargs):
+    """
+    Plots bivariate distribution.
+
+    Parameters
+    ----------
+    df : dataframe
+        Pandas dataframe
+    val1 : string
+        Value 1 (i.e. 'Hs')
+    val2 : string
+        Value 2 (i.e. 'Tp')
+    xlabel, ylabel : string
+        Axes labels
+    savepath, savename : string
+        Path to save folder and file name
+    figsize : float
+        Figure size ( will be a square)
+    """
     val1 = kwargs.get('val1', 'Hs')
     val2 = kwargs.get('val2', 'Tp')
     xlabel = kwargs.get('xlabel', 'Hs [ft]')
     ylabel = kwargs.get('ylabel', 'Tp [sec]')
     savepath = kwargs.get('savepath', None)
     savename = kwargs.get('savename', 'Bivariate Distribution')
+    figsize = kwargs.get('figsize', 10)
 
     with plt.style.context('bmh'):
-        g = (sns.JointGrid(x=val1, y=val2, data=df).set_axis_labels(xlabel, ylabel))
+        g = (sns.JointGrid(x=val1, y=val2, data=df, size=figsize).set_axis_labels(xlabel, ylabel))
         g = g.plot_marginals(sns.distplot, kde=True, color='navy')
         g = g.plot_joint(sns.kdeplot, cmap='plasma')
         g.plot_joint(plt.scatter, c='navy', s=5, linewidth=0.5, marker='x')
