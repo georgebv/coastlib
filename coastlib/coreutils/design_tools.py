@@ -1,7 +1,6 @@
-from numpy import tan, exp
 from math import pi
 import scipy.constants
-
+from numpy import tan, exp
 
 g = scipy.constants.g  # gravity constant (m/s^2) as defined by ISO 80000-3
 sea_water_density = 1025  # sea water density (kg/m^3)
@@ -49,20 +48,20 @@ def runup(Hm0, Tp, slp, **kwargs):
     strtype = kwargs.get('strtype', 'sap')
     dmethod = kwargs.get('dmethod', 'det')
 
-    Lm10 = g*(Tp**2)/(2*pi)  # Deep water wave length
-    Sm10 = Hm0/Lm10  # Wave steepness
-    Em10 = tan(slp)/Sm10**0.5  # Breaker type
+    Lm10 = g * (Tp ** 2) / (2 * pi)  # Deep water wave length
+    Sm10 = Hm0 / Lm10  # Wave steepness
+    Em10 = tan(slp) / Sm10 ** 0.5  # Breaker type
     rB /= Lb
-    Yb = 1-rB*(1-rdb)  # Berm factor (1 for no berm)
+    Yb = 1 - rB * (1 - rdb)  # Berm factor (1 for no berm)
 
     if B < 80:
-        YB = 1-0.0022*B
+        YB = 1 - 0.0022 * B
     else:
         YB = 0.824
     if Em10 > 10:
         Yfsurg = 1
     else:
-        Yfsurg = Yf+(Em10-1.8)*(1-Yf)/8.2
+        Yfsurg = Yf + (Em10 - 1.8) * (1 - Yf) / 8.2
 
     if strtype is 'sap':
         if dmethod is 'det':
@@ -86,7 +85,6 @@ def overtopping(Hm0, Rc, **kwargs):
 
     Parameters
     ----------
-
     Hm0 : float
         Significant wave height at structure toe (m).
     Rc : float
@@ -95,7 +93,6 @@ def overtopping(Hm0, Rc, **kwargs):
         Roughness factor (1 for concrete), p.88 EurOtop manual (2007).
     B : float (optional)
         Wave attack angle (deg).
-
     strtype : string (optional)
         Structure type: 'sap' for simple armored slope (default);
     dmethod : string (optional)
@@ -118,7 +115,7 @@ def overtopping(Hm0, Rc, **kwargs):
 
     if strtype is 'sap':
         if dmethod is 'det':
-            q = ((g*(Hm0**3))**0.5)*0.2*exp(-2.3*Rc/(Hm0*Yf*YB))
+            q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * exp(-2.3 * Rc / (Hm0 * Yf * YB))
             return q
         elif dmethod is 'prob':
             q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * exp(-2.6 * Rc / (Hm0 * Yf * YB))

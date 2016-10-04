@@ -45,12 +45,12 @@ def joint_probability(df, **kwargs):
         for i in range(0, bins1):
             bin1_low = math.ceil(i * binsize1 * 10) / 10
             bin1_up = math.ceil((bin1_low + binsize1) * 10) / 10
-            ws1.cell(column=1, row=i+2, value=str(bin1_low) + '-' + str(bin1_up))
+            ws1.cell(column=1, row=i + 2, value=str(bin1_low) + '-' + str(bin1_up))
             for j in range(0, bins2):
                 bin2_low = math.ceil(j * binsize2 * 10) / 10
                 bin2_up = math.ceil((bin2_low + binsize2) * 10) / 10
-                ws1.cell(column=j+2, row=1, value=str(bin2_low) + '-' + str(bin2_up))
-                ws1.cell(column=j+2, row=i+2, value=jp_table[i, j])
+                ws1.cell(column=j + 2, row=1, value=str(bin2_low) + '-' + str(bin2_up))
+                ws1.cell(column=j + 2, row=i + 2, value=jp_table[i, j])
         book.save(filename=savepath + '\\' + savename + '.xlsx')
     else:
         return jp_table

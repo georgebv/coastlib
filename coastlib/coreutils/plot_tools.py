@@ -5,7 +5,7 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import statsmodels.api as sm
-import seaborn as sns
+import seaborn.apionly as sns
 
 
 def pdf_plot(df, **kwargs):

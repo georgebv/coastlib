@@ -24,10 +24,12 @@ def solve_dispersion_relation(t, h):
     l : float
         Estimated wavelength (m) for parameters entered.
     """
+
     def disprel(var_l):
         k = 2 * pi / var_l
         omega = 2 * pi / t
         return omega ** 2 - g * k * tanh(k * h)
+
     return newton(disprel, 1)
 
 
@@ -64,20 +66,20 @@ class LinearWave:
         self.period = float(period)
         if depth == 'deep':
             self.depth = 'deep'
-            self.L = g*(self.period**2)/(2*pi)
+            self.L = g * (self.period ** 2) / (2 * pi)
         else:
             self.depth = float(depth)
             self.L = solve_dispersion_relation(self.period, self.depth)
         self.Hm0 = float(Hm0)
-        self.c = self.L/self.period
+        self.c = self.L / self.period
         self.angle = float(angle)
-        self.E = swd*g*(self.Hm0**2)/8
-        self.k = 2*pi/self.L
+        self.E = swd * g * (self.Hm0 ** 2) / 8
+        self.k = 2 * pi / self.L
         if depth == 'deep':
-            self.cg = 0.5*self.c
+            self.cg = 0.5 * self.c
         else:
-            self.cg = 0.5*self.c*(1+(2*self.k*self.depth)/sinh(2*self.k*self.depth))
-        self.w = 2*pi/self.period
+            self.cg = 0.5 * self.c * (1 + (2 * self.k * self.depth) / sinh(2 * self.k * self.depth))
+        self.w = 2 * pi / self.period
         self.a = self.Hm0 / 2
         self.S = None
         self.z = None
@@ -104,24 +106,29 @@ class LinearWave:
         if z > 0:
             raise ValueError('ERROR: Value *z* should be negative')
         elif self.depth != 'deep':
-            if z+self.depth < 0:
+            if z + self.depth < 0:
                 raise ValueError('ERROR: Value *z* should be less or equal to negative depth')
         self.z = z
         self.x = x
         self.t = t
         self.S = self.a * sin(self.w * t - self.k * x)
         if self.depth == 'deep':
-            self.pd = swd * g * self.a * exp(self.k*z) * sin(self.w * t - self.k * x)
-            self.ua = (self.w ** 2) * self.a * exp(self.k*z) * cos(self.w * t - self.k * x)
-            self.u = self.w * self.a * exp(self.k*z) * sin(self.w * t - self.k * x)
-            self.va = -(self.w ** 2) * self.a * exp(self.k*z) * sin(self.w * t - self.k * x)
-            self.v = self.w * self.a * exp(self.k*z) * cos(self.w * t - self.k * x)
+            self.pd = swd * g * self.a * exp(self.k * z) * sin(self.w * t - self.k * x)
+            self.ua = (self.w ** 2) * self.a * exp(self.k * z) * cos(self.w * t - self.k * x)
+            self.u = self.w * self.a * exp(self.k * z) * sin(self.w * t - self.k * x)
+            self.va = -(self.w ** 2) * self.a * exp(self.k * z) * sin(self.w * t - self.k * x)
+            self.v = self.w * self.a * exp(self.k * z) * cos(self.w * t - self.k * x)
         else:
-            self.pd = swd*g*self.a*cosh(self.k*(z+self.depth))*sin(self.w*t-self.k*x)/cosh(self.k*self.depth)
-            self.ua = (self.w**2)*self.a*cosh(self.k*(z+self.depth))*cos(self.w*t-self.k*x)/sinh(self.k*self.depth)
-            self.u = self.w*self.a*cosh(self.k*(z+self.depth))*sin(self.w*t-self.k*x)/sinh(self.k*self.depth)
-            self.va = -(self.w**2)*self.a*sinh(self.k*(z+self.depth))*sin(self.w*t-self.k*x)/sinh(self.k*self.depth)
-            self.v = self.w*self.a*sinh(self.k*(z+self.depth))*cos(self.w*t-self.k*x)/sinh(self.k*self.depth)
+            self.pd = swd * g * self.a * cosh(self.k * (z + self.depth)) * sin(self.w * t - self.k * x) / cosh(
+                self.k * self.depth)
+            self.ua = (self.w ** 2) * self.a * cosh(self.k * (z + self.depth)) * cos(self.w * t - self.k * x) / sinh(
+                self.k * self.depth)
+            self.u = self.w * self.a * cosh(self.k * (z + self.depth)) * sin(self.w * t - self.k * x) / sinh(
+                self.k * self.depth)
+            self.va = -(self.w ** 2) * self.a * sinh(self.k * (z + self.depth)) * sin(self.w * t - self.k * x) / sinh(
+                self.k * self.depth)
+            self.v = self.w * self.a * sinh(self.k * (z + self.depth)) * cos(self.w * t - self.k * x) / sinh(
+                self.k * self.depth)
 
     def propagate(self, ndepth):
         """
@@ -140,15 +147,15 @@ class LinearWave:
         nL = solve_dispersion_relation(self.period, ndepth)
         nc = nL / self.period
         # Shoaling
-        k = 2*pi/nL
+        k = 2 * pi / nL
         ncg = 0.5 * nc * (1 + 2 * k * ndepth / sinh(2 * k * ndepth))
-        Ks = sqrt(self.cg/ncg)
+        Ks = sqrt(self.cg / ncg)
         # Refraction
-        Ac = (nL/self.L)*sin(self.angle*pi/180)
-        A = asin(Ac)*(180/pi)
-        Kr = sqrt(cos(self.angle*pi/180)/cos(A*pi/180))
+        Ac = (nL / self.L) * sin(self.angle * pi / 180)
+        A = asin(Ac) * (180 / pi)
+        Kr = sqrt(cos(self.angle * pi / 180) / cos(A * pi / 180))
         self.angle = A
-        self.Hm0 *= (Ks*Kr)
+        self.Hm0 *= (Ks * Kr)
         self.c = nc
         self.depth = ndepth
         self.L = nL
@@ -156,7 +163,7 @@ class LinearWave:
         self.k = 2 * pi / self.L
         self.cg = 0.5 * self.c * (1 + 2 * self.k * self.depth / sinh(2 * self.k * self.depth))
         self.w = 2 * pi / self.period
-        self.a = self.Hm0/2
+        self.a = self.Hm0 / 2
         if self.z is not None:
             if self.z + self.depth >= 0:
                 self.dynprop(self.z, self.x, self.t)
@@ -177,16 +184,16 @@ class LinearWave:
         Updates wave parameters at the moment of breaking.
         """
         if self.depth == 'deep':
-            self.depth = 0.6*self.L
+            self.depth = 0.6 * self.L
         depth = self.depth
         while True:
             b = deepcopy(self)
             depth -= 0.01
             b.propagate(depth)
-            Kr = sqrt(cos(self.angle*pi/180)/cos(b.angle*pi/180))
+            Kr = sqrt(cos(self.angle * pi / 180) / cos(b.angle * pi / 180))
             Ks = sqrt(self.cg / b.cg)
-            crt1 = b.depth - b.Hm0*1.28
-            crt2 = Kr/Ks-b.Hm0/self.Hm0
+            crt1 = b.depth - b.Hm0 * 1.28
+            crt2 = Kr / Ks - b.Hm0 / self.Hm0
             if crt1 < 0 and crt2 < 0:
                 depth += 0.01
                 break
