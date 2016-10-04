@@ -3,10 +3,8 @@ import coastlib.thirdpartyutils.detect_peaks as detect_peaks
 from coastlib.thirdpartyutils import windrose
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import numpy as np
 import statsmodels.api as sm
-import seaborn as sns
 
 
 def pdf_plot(df, **kwargs):
@@ -42,22 +40,20 @@ def pdf_plot(df, **kwargs):
     plot_style = kwargs.get('plot_style', 'bmh')
     figsize = kwargs.get('figsize', (12, 8))
 
-    a = df[pd.notnull(df[val])][val].as_matrix()
-    dens = sm.nonparametric.KDEUnivariate(a)
-    dens.fit()
-    plt.style.use(plot_style)
-    fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot(111)
-    ax.hist(a, bins=bins, normed=True, color='blue', rwidth=0.9, label='Histogram')
-    ax.plot(dens.support, dens.density, lw=2, color='red', label='PDF')
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.title(title)
-    plt.legend()
-    if savepath is not None:
-        plt.savefig(savepath + '\\' + savename + '.png')
-        plt.close()
-    mpl.rcParams.update(mpl.rcParamsDefault)
+    with plt.style.context(plot_style):
+        a = df[pd.notnull(df[val])][val].as_matrix()
+        dens = sm.nonparametric.KDEUnivariate(a)
+        dens.fit()
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.hist(a, bins=bins, normed=True, color='lightskyblue', rwidth=0.9, label='Histogram')
+        ax.plot(dens.support, dens.density, lw=2, color='navy', label='PDF')
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
+        plt.legend()
+        if savepath is not None:
+            plt.savefig(savepath + '\\' + savename + '.png')
+            plt.close()
 
 
 def time_series_plot(df, **kwargs):
@@ -92,64 +88,56 @@ def time_series_plot(df, **kwargs):
     peaks_outname = kwargs.get('peaks_outname', 'Peaks')
     savepath = kwargs.get('savepath', None)
     savename = kwargs.get('savename', 'Time Series')
-    linewidth = kwargs.get('linewidth', 1)
+    linewidth = kwargs.get('linewidth', 0.5)
     figsize = kwargs.get('figsize', (16, 8))
     title = kwargs.get('title', 'Time Series')
     xlabel = kwargs.get('xlabel', 'Time')
     ylabel = kwargs.get('ylabel', 'Value')
     plot_style = kwargs.get('plot_style', 'bmh')
+    line_color = kwargs.get('line_color', 'navy')
 
-    plt.style.use(plot_style)
-    if showpeaks:
-        indexes = detect_peaks.detect_peaks(df[val].as_matrix())
-        x = df[val][indexes].index.values
-        y = df[val][indexes].as_matrix()
-        if savepath is not None:
+    with plt.style.context(plot_style):
+        if showpeaks:
+            indexes = detect_peaks.detect_peaks(df[val].as_matrix())
+            x = df[val][indexes].index.values
+            y = df[val][indexes].as_matrix()
+            if savepath is not None:
+                fig, ax = plt.subplots(figsize=figsize)
+                ax.plot(df[val], '-', color=line_color, linewidth=linewidth)
+                ax.scatter(x, y, s=20, label='Peaks', facecolors='none', edgecolors='r')
+                plt.xlabel(xlabel)
+                plt.ylabel(ylabel)
+                plt.title(title)
+                plt.legend()
+                plt.savefig(savepath + '\\' + savename + '.png')
+                plt.close()
+                writer = pd.ExcelWriter(savepath + '\\' + peaks_outname + '.xlsx')
+                df[val][indexes].to_frame().to_excel(writer, sheet_name=val + ' peaks')
+                writer.save()
+            else:
+                fig, ax = plt.subplots(figsize=figsize)
+                ax.plot(df[val], '-', color=line_color, linewidth=linewidth)
+                ax.scatter(x, y, s=20, label='Peaks', facecolors='none', edgecolors='r')
+                plt.xlabel(xlabel)
+                plt.ylabel(ylabel)
+                plt.title(title)
+                plt.legend()
+        elif savepath is not None:
             fig, ax = plt.subplots(figsize=figsize)
-            ax.plot(df[val], '-', linewidth=linewidth)
-            ax.scatter(x, y, s=20, label='Peaks', facecolors='none', edgecolors='r')
-            ax.grid()
+            ax.plot(df[val], '-', color=line_color, linewidth=linewidth)
             plt.xlabel(xlabel)
             plt.ylabel(ylabel)
             plt.title(title)
             plt.legend()
-            plt.grid()
             plt.savefig(savepath + '\\' + savename + '.png')
             plt.close()
-            writer = pd.ExcelWriter(savepath + '\\' + peaks_outname + '.xlsx')
-            df[val][indexes].to_frame().to_excel(writer, sheet_name=val + ' peaks')
-            writer.save()
         else:
             fig, ax = plt.subplots(figsize=figsize)
-            ax.plot(df[val], '-', linewidth=linewidth)
-            ax.scatter(x, y, s=20, label='Peaks', facecolors='none', edgecolors='r')
-            ax.grid()
+            ax.plot(df[val], '-', color=line_color, linewidth=linewidth)
             plt.xlabel(xlabel)
             plt.ylabel(ylabel)
             plt.title(title)
             plt.legend()
-            plt.grid()
-    elif savepath is not None:
-        fig, ax = plt.subplots(figsize=figsize)
-        ax.plot(df[val], '-', linewidth=linewidth)
-        ax.grid()
-        plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
-        plt.title(title)
-        plt.legend()
-        plt.grid()
-        plt.savefig(savepath + '\\' + savename + '.png')
-        plt.close()
-    else:
-        fig, ax = plt.subplots(figsize=figsize)
-        ax.plot(df[val], '-', linewidth=linewidth)
-        ax.grid()
-        plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
-        plt.title(title)
-        plt.legend()
-        plt.grid()
-    mpl.rcParams.update(mpl.rcParamsDefault)
 
 
 def rose_plot(df, **kwargs):
@@ -190,6 +178,8 @@ def rose_plot(df, **kwargs):
     startfromzero = kwargs.get('startfromzero', False)
     valbinsize = kwargs.get('valbinsize', None)
 
+    plt.hist([0, 1])
+    plt.close()
     a = df[pd.notnull(df[val])]
     a = a[pd.notnull(a[direction])]
     if startfromzero:
@@ -209,28 +199,10 @@ def rose_plot(df, **kwargs):
         startfromzero=startfromzero
     )
     ax.set_legend()
-    ax.legend(loc=(-0.1, 0.75), title=legend)
-    plt.title(title, y=1.08)
+    ax.legend(loc=(-0.1, 0.75), title=legend, fontsize=9)
+    ax.get_legend().get_title().set_fontsize('9')
+    plt.title(title, y=1.08, fontsize=16)
     if savepath is not None:
         plt.savefig(savepath + '\\' + savename + '.png')
         plt.close()
 
-
-def joint_plot(df, **kwargs):
-    val1 = kwargs.get('val1', 'Hs')
-    val2 = kwargs.get('val2', 'Tp')
-    xlabel = kwargs.get('xlabel', 'X')
-    ylabel = kwargs.get('ylabel', 'Y')
-    savepath = kwargs.get('savepath', None)
-    savename = kwargs.get('savename', 'Bivariate Distribution')
-
-    sns.set()
-    sns.set_color_codes()
-    g = sns.jointplot(x=val1, y=val2, data=df, kind='kde', color='m')
-    g.plot_joint(plt.scatter, c='black', s=10, linewidth=0.5, marker="+")
-    g.ax_joint.collections[0].set_alpha(0)
-    g.set_axis_labels(xlabel, ylabel)
-    if savepath is not None:
-        plt.savefig(savepath + '\\' + savename + '.png')
-        plt.close()
-    mpl.rcParams.update(mpl.rcParamsDefault)
