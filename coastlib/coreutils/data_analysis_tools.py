@@ -35,33 +35,34 @@ def joint_probability(df, **kwargs):
     vals2 = a[val2]
     bins1 = math.ceil(vals1.max() / binsize1)
     bins2 = math.ceil(vals2.max() / binsize2)
-    jp_table = np.zeros((bins1, bins2))
-    tot = len(vals1)
-    for i in range(0, bins1):
-        bin1_low = i * binsize1
-        bin1_up = bin1_low + binsize1
-        for j in range(0, bins2):
-            bin2_low = j * binsize2
-            bin2_up = bin2_low + binsize2
-            p1 = (((vals1 >= bin1_low) & (vals1 < bin1_up)).sum()) / tot
-            p2 = (((vals2 >= bin2_low) & (vals2 < bin2_up)).sum()) / tot
-            jp_table[i, j] = p1 * p2
+    columns = []
+    low = 0
+    for i in range(bins1):
+        up = low + binsize1
+        columns += [str(int(low * 10) / 10) + ' - ' + str(int(up * 10) / 10)]
+        low += binsize1
+    rows = []
+    low = 0
+    for i in range(bins2):
+        up = low + binsize2
+        rows += [str(int(low * 10) / 10) + ' - ' + str(int(up * 10) / 10)]
+        low += binsize2
+    jp_raw = pd.DataFrame(0, index=rows, columns=columns)
+    for i in range(bins2):
+        bin2_low = i * binsize2
+        bin2_up = bin2_low + binsize2
+        for j in range(bins1):
+            bin1_low = j * binsize1
+            bin1_up = bin1_low + binsize1
+            count = 0
+            for k in range(len(a)):
+                if bin1_up > a[val1][k] > bin1_low and bin2_up > a[val2][k] > bin2_low:
+                    count += 1
+            jp_raw[columns[j]][i] = count
     if savepath is not None:
-        book = openpyxl.Workbook()
-        ws1 = book.active
-        ws1.title = val1 + ' vs ' + val2
-        for i in range(0, bins1):
-            bin1_low = math.ceil(i * binsize1 * 10) / 10
-            bin1_up = math.ceil((bin1_low + binsize1) * 10) / 10
-            ws1.cell(column=1, row=i + 2, value=str(bin1_low) + '-' + str(bin1_up))
-            for j in range(0, bins2):
-                bin2_low = math.ceil(j * binsize2 * 10) / 10
-                bin2_up = math.ceil((bin2_low + binsize2) * 10) / 10
-                ws1.cell(column=j + 2, row=1, value=str(bin2_low) + '-' + str(bin2_up))
-                ws1.cell(column=j + 2, row=i + 2, value=jp_table[i, j])
-        book.save(filename=savepath + '\\' + savename + '.xlsx')
+        jp_raw.to_excel(pd.ExcelWriter(savepath + '\\' + savename + '.xlsx'), sheet_name='joint_prob', )
     else:
-        return jp_table
+        return jp_raw
 
 
 def associated_value(df, val, par, value, search_range=0.1):
