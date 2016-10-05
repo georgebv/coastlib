@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import seaborn.apionly as sns
 import statsmodels.api as sm
+from scipy import stats
 from coastlib.thirdpartyutils import windrose
 
 
@@ -168,6 +169,8 @@ def rose_plot(df, **kwargs):
         Set binsize to override *valbins* parameter (default = None, assigns bins automatically)
     title : str
         Plot title
+    colormap : module link
+        Matplotlib colormap (cm.colormap, i.e. cm.viridis)
     """
     direction = kwargs.get('direction', 'Dp')
     val = kwargs.get('val', 'Hs')
@@ -179,6 +182,7 @@ def rose_plot(df, **kwargs):
     legend = kwargs.get('legend', 'Value [unit]')
     startfromzero = kwargs.get('startfromzero', False)
     valbinsize = kwargs.get('valbinsize', None)
+    colormap = kwargs.get('colormap', cm.jet)
 
     plt.hist([0, 1])
     plt.close()
@@ -193,16 +197,17 @@ def rose_plot(df, **kwargs):
         a[direction],
         a[val],
         normed=True,
-        opening=1,
-        edgecolor='black',
+        opening=0.95,
+        edgecolor=None,
         bins=valbins,
         nsector=dirbins,
-        cmap=cm.jet,
+        cmap=colormap,
         startfromzero=startfromzero
     )
     ax.set_legend()
     ax.legend(loc=(-0.12, 0.75), title=legend, fontsize=9)
     ax.get_legend().get_title().set_fontsize('9')
+    ax.grid('on', linestyle=':')
     plt.title(title, y=1.08, fontsize=16)
     if savepath is not None:
         plt.savefig(savepath + '\\' + savename + '.png')
@@ -240,7 +245,14 @@ def joint_plot(df, **kwargs):
         g = (sns.JointGrid(x=val1, y=val2, data=df, size=figsize).set_axis_labels(xlabel, ylabel))
         g = g.plot_marginals(sns.distplot, kde=True, color='navy')
         g = g.plot_joint(sns.kdeplot, cmap='plasma')
-        g.plot_joint(plt.scatter, c='navy', s=5, linewidth=0.5, marker='x')
+        g = g.plot_joint(plt.scatter, c='navy', s=5, linewidth=0.5, marker='x')
+        g.annotate(
+            (lambda a, b: stats.pearsonr(a, b)[0] ** 2),
+            template='{stat} = {val:.2f}',
+            stat='$R^2$',
+            fontsize=12,
+            loc='upper right'
+        )
     if savepath is not None:
         plt.savefig(savepath + '\\' + savename + '.png')
         plt.close()
