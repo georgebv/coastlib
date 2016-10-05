@@ -1,4 +1,4 @@
-"TEST FUNCTIONS"
+"""TEST FUNCTIONS"""
 import coastlib.coreutils.plot_tools as plots
 import coastlib.coreutils.data_analysis_tools as dat
 from coastlib.coreutils.adcp_tools import SentinelV as SlV
@@ -13,8 +13,12 @@ data.waves_parse()
 data.convert('waves', 'Hs', 'HsSea', 'HsSwell', systems='m to ft')
 df = data.waves
 savepath = 'C:\\Users\GRBH.COWI.001\Desktop\GitHub repositories\coastlib\\test'
+data.export('waves', save_format='csv', save_name='waves dataframe', save_path=savepath)
+data.export('waves', save_format='xlsx', save_name='waves dataframe', save_path=savepath)
 
 plots.pdf_plot(df, savepath=savepath)
 plots.time_series_plot(df, savepath=savepath)
-plots.rose_plot(df, val='Hs', direction='Dp', dirbins=24, valbinsize=0.5, startfromzero=True, savepath=savepath)
-plots.joint_plot(df, val1='Hs', val2='SHmax', xlabel='HsSea [ft]', ylabel='HsSwell [ft]', savepath=savepath)
+plots.rose_plot(df, val='Hs', direction='Dp', dirbins=24, valbinsize=0.5, valbin_max=3,
+                startfromzero=True, savepath=savepath)
+plots.joint_plot(df, val1='Hs', val2='SHmax', xlabel='Hs [ft]', ylabel='Hmax [ft]', savepath=savepath)
+dat

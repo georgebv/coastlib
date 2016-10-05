@@ -1,6 +1,6 @@
 import datetime
 import functools
-
+import os
 import pandas as pd
 import scipy.io
 
@@ -57,6 +57,25 @@ class SentinelV:
             time[i] = datetime.datetime.fromtimestamp(time[i])
         self.currents = pd.DataFrame(data, index=time)
 
+    def export(self, par, save_format='xlsx', save_name='data frame', save_path=None):
+
+        if par == 'waves':
+            df = self.waves
+        elif par == 'currents':
+            df = self.currents
+        else:
+            raise ImportError('ERROR: incorrect parameter entered. Use \'waves\' or \'currents\'')
+
+        if save_path is None:
+            full_path = os.getcwd() + '\\' + save_name
+        else:
+            full_path = save_path + '\\' + save_name
+
+        if save_format == 'csv':
+            df.to_csv(full_path + '.csv', sep=' ', na_rep='NaN')
+        elif save_format == 'xlsx':
+            df.to_excel(pd.ExcelWriter(full_path + '.xlsx'), na_rep='NaN', sheet_name='waves')
+
     def convert(self, par, *args, systems='m to ft'):
         """
         Converts selected values in dataframe *df* between metric and customary systems.
@@ -80,6 +99,7 @@ class SentinelV:
             df = self.currents
         else:
             raise ImportError('ERROR: incorrect parameter entered. Use \'waves\' or \'currents\'')
+
         if isinstance(df, str):
             raise ValueError('ERROR: Execute the _parse method first')
         else:
@@ -90,6 +110,7 @@ class SentinelV:
                     df[argument] = df[argument].map(lambda x: x * 0.3048)
                 else:
                     raise ValueError('ERROR: inappropriate systems parameter')
+
         if par == 'waves':
             self.waves = df
         elif par == 'currents':

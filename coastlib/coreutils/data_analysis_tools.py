@@ -12,7 +12,14 @@ def joint_probability(df, **kwargs):
 
     Parameters
     ----------
-    df:
+    df : dataframe
+        Pandas dataframe
+    val1, val2 : str
+        Column names in df
+    binsize1, binsize2 : float
+        Bin sizes for variables val1 and val2
+    savepath, savename : str
+        Save folder path and file save name
     kwargs:
     """
     val1 = kwargs.get('val1', 'Hs')

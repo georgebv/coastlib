@@ -167,6 +167,9 @@ def rose_plot(df, **kwargs):
         Indicates if plot starts from 0 (N) (default = False)
     valbinsize : float
         Set binsize to override *valbins* parameter (default = None, assigns bins automatically)
+    valbin_max : float
+        Set the upper limit for value bins (can be useful if bin and color
+        consistency is required across multiple roses or to highlight spicific domains)
     title : str
         Plot title
     colormap : module link
@@ -182,6 +185,7 @@ def rose_plot(df, **kwargs):
     legend = kwargs.get('legend', 'Value [unit]')
     startfromzero = kwargs.get('startfromzero', False)
     valbinsize = kwargs.get('valbinsize', None)
+    valbin_max = kwargs.get('valbin_max', None)
     colormap = kwargs.get('colormap', cm.jet)
 
     plt.hist([0, 1])
@@ -192,7 +196,9 @@ def rose_plot(df, **kwargs):
         a[direction] = a[direction].apply(lambda x: x - 0.5 * 360 / dirbins)
     ax = windrose.WindroseAxes.from_ax()
     if valbinsize is not None:
-        valbins = np.arange(0, a[val].max() + valbinsize, valbinsize)
+        if valbin_max is None:
+            valbin_max = a[val].max()
+        valbins = np.arange(0, valbin_max + valbinsize, valbinsize)
     ax.bar(
         a[direction],
         a[val],
