@@ -174,7 +174,7 @@ class WindroseAxes(PolarAxes):
                 elif rngltb > i > 0:
                     labels1[i] = "%.1f - %0.1f" % (labels[i], labels[i + 1])
                 else:
-                    labels1[i] = ">= %0.1f" % (labels[i])
+                    labels1[i] = "≥ %0.1f" % (labels[i])
             return labels1
 
         kwargs.pop('labels', None)
