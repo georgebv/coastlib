@@ -1,5 +1,6 @@
 import os
 import functools
+import pandas as pd
 
 
 def splice(df_list, sort=True):
