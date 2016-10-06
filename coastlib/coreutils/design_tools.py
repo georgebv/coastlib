@@ -41,13 +41,14 @@ def runup(Hm0, Tp, slp, **kwargs):
         Estimated 2% runup (m) for parameters entered.
     """
 
-    B = kwargs.get('B', 0)
-    Yf = kwargs.get('Yf', 1)
-    rB = kwargs.get('rB', 0)
-    Lb = kwargs.get('Lb', 1)
-    rdb = kwargs.get('rdb', 0)
-    strtype = kwargs.get('strtype', 'sap')
-    dmethod = kwargs.get('dmethod', 'det')
+    B = kwargs.pop('B', 0)
+    Yf = kwargs.pop('Yf', 1)
+    rB = kwargs.pop('rB', 0)
+    Lb = kwargs.pop('Lb', 1)
+    rdb = kwargs.pop('rdb', 0)
+    strtype = kwargs.pop('strtype', 'sap')
+    dmethod = kwargs.pop('dmethod', 'det')
+    assert len(kwargs) == 0, "unrecognized arguments passed in: %s" % ", ".join(kwargs.keys())
 
     Lm10 = g * (Tp ** 2) / (2 * pi)  # Deep water wave length
     Sm10 = Hm0 / Lm10  # Wave steepness
@@ -104,10 +105,11 @@ def overtopping(Hm0, Rc, **kwargs):
     q : float
         Estimated mean overtopping discharge (m^2/s) for parameters entered.
     """
-    B = kwargs.get('B', 0)
-    Yf = kwargs.get('Yf', 1)
-    strtype = kwargs.get('strtype', 'sap')
-    dmethod = kwargs.get('dmethod', 'det')
+    B = kwargs.pop('B', 0)
+    Yf = kwargs.pop('Yf', 1)
+    strtype = kwargs.pop('strtype', 'sap')
+    dmethod = kwargs.pop('dmethod', 'det')
+    assert len(kwargs) == 0, "unrecognized arguments passed in: %s" % ", ".join(kwargs.keys())
 
     if B < 80:
         YB = 1 - 0.0033 * B

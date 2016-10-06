@@ -20,13 +20,14 @@ def joint_probability(df, **kwargs):
     output_format : str
         Joint table values (absolute 'abs' or relative / percent 'rel')
     """
-    val1 = kwargs.get('val1', 'Hs')
-    val2 = kwargs.get('val2', 'Tp')
-    binsize1 = kwargs.get('binsize1', 0.3)
-    binsize2 = kwargs.get('binsize2', 4)
-    savepath = kwargs.get('savepath', None)
-    savename = kwargs.get('savename', 'Joint Probability')
-    output_format = kwargs.get('output_format', 'rel')
+    val1 = kwargs.pop('val1', 'Hs')
+    val2 = kwargs.pop('val2', 'Tp')
+    binsize1 = kwargs.pop('binsize1', 0.3)
+    binsize2 = kwargs.pop('binsize2', 4)
+    savepath = kwargs.pop('savepath', None)
+    savename = kwargs.pop('savename', 'Joint Probability')
+    output_format = kwargs.pop('output_format', 'rel')
+    assert len(kwargs) == 0, "unrecognized arguments passed in: %s" % ", ".join(kwargs.keys())
 
     a = df[pd.notnull(df[val1])]
     a = a[pd.notnull(a[val2])]
