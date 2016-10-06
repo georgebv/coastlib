@@ -1,6 +1,5 @@
 from copy import deepcopy
 from math import sinh, pi, sqrt, sin, asin, cos, cosh, exp, tanh
-
 from coastlib.coreutils.design_tools import g
 from coastlib.coreutils.design_tools import sea_water_density as swd
 from scipy.optimize import newton

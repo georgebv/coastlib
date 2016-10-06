@@ -1,5 +1,4 @@
 import datetime
-import functools
 import os
 import pandas as pd
 import scipy.io
@@ -116,12 +115,3 @@ class SentinelV:
         elif par == 'currents':
             self.currents = df
 
-
-def splice(df_list, sort=True):
-    """
-    Takes a list of dataframes and returns a merged dataframe (sorted by default).
-    """
-    df = functools.reduce((lambda x, y: pd.concat([x, y])), df_list)
-    if sort:
-        df.sort_index(inplace=True)
-    return df
