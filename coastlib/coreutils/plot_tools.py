@@ -265,12 +265,28 @@ def joint_plot(df, **kwargs):
 
 
 def heatmap(df, **kwargs):
+    """
+    Plots heatmap with cell values displayed.
+
+    figsize : tuple
+        Figure size (optional)
+    xlabel, ylabel, title : string
+        X and Y axis labels and plot title
+    savepath : string (optional)
+        Path to folder which timeseries plot and peaks table are saved to (i.e. 'C:\\foldername').
+        If not specified, shows plot in a pop-up window.
+    savename : string
+        Name of file
+    yaxflip : bool
+        Flip y axis (default = True)
+    """
     title = kwargs.get('title', 'Joint probability')
     xlabel = kwargs.get('xlabel', 'Hs [ft]')
     ylabel = kwargs.get('ylabel', 'Tp [sec]')
     savepath = kwargs.get('savepath', None)
     savename = kwargs.get('savename', 'Heatmap')
     figsize = kwargs.get('figsize', (1.5 * len(df.columns), 1.2 * len(df)))
+    yaxflip = kwargs.get('yaxflip', True)
 
     plt.figure(figsize=figsize)
     ax = sns.heatmap(df, annot=True, linewidths=.5, fmt='.2f', square=True)
@@ -280,6 +296,8 @@ def heatmap(df, **kwargs):
     plt.title(title, y=1.04)
     ax.xaxis.set_label_coords(0.5, -0.08)
     ax.yaxis.set_label_coords(-0.04, 1.04)
+    if yaxflip:
+        ax.invert_yaxis()
     if savepath is not None:
         plt.savefig(savepath + '\\' + savename + '.png')
         plt.close()
