@@ -1,7 +1,4 @@
 import math
-
-import numpy as np
-import openpyxl
 import pandas as pd
 import statsmodels.api as sm
 
@@ -20,7 +17,8 @@ def joint_probability(df, **kwargs):
         Bin sizes for variables val1 and val2
     savepath, savename : str
         Save folder path and file save name
-    kwargs:
+    output_format : str
+        Joint table values (absolute 'abs' or relative / percent 'rel')
     """
     val1 = kwargs.get('val1', 'Hs')
     val2 = kwargs.get('val2', 'Tp')
@@ -28,37 +26,44 @@ def joint_probability(df, **kwargs):
     binsize2 = kwargs.get('binsize2', 4)
     savepath = kwargs.get('savepath', None)
     savename = kwargs.get('savename', 'Joint Probability')
+    output_format = kwargs.get('output_format', 'rel')
 
     a = df[pd.notnull(df[val1])]
     a = a[pd.notnull(a[val2])]
-    vals1 = a[val1]
-    vals2 = a[val2]
-    bins1 = math.ceil(vals1.max() / binsize1)
-    bins2 = math.ceil(vals2.max() / binsize2)
+    bins1 = math.ceil(a[val1].max() / binsize1)
+    bins2 = math.ceil(a[val2].max() / binsize2)
     columns = []
     low = 0
     for i in range(bins1):
         up = low + binsize1
-        columns += [str(int(low * 10) / 10) + ' - ' + str(int(up * 10) / 10)]
+        columns += ['{0:.1f} - {1:.1f}'.format(low, up)]
         low += binsize1
     rows = []
     low = 0
     for i in range(bins2):
         up = low + binsize2
-        rows += [str(int(low * 10) / 10) + ' - ' + str(int(up * 10) / 10)]
+        rows += ['{0:.1f} - {1:.1f}'.format(low, up)]
         low += binsize2
-    jp_raw = pd.DataFrame(0, index=rows, columns=columns)
+    if output_format == 'abs':
+        jp_raw = pd.DataFrame(0, index=rows, columns=columns)
+    else:
+        jp_raw = pd.DataFrame(.0, index=rows, columns=columns)
     for i in range(bins2):
         bin2_low = i * binsize2
         bin2_up = bin2_low + binsize2
         for j in range(bins1):
             bin1_low = j * binsize1
             bin1_up = bin1_low + binsize1
-            count = 0
-            for k in range(len(a)):
-                if bin1_up > a[val1][k] > bin1_low and bin2_up > a[val2][k] > bin2_low:
-                    count += 1
-            jp_raw[columns[j]][i] = count
+            b = a[(a[val1] < bin1_up) &
+                  (a[val1] > bin1_low) &
+                  (a[val2] < bin2_up) &
+                  (a[val2] > bin2_low)]
+            if output_format == 'abs':
+                jp_raw[columns[j]][i] = len(b)
+            elif output_format == 'rel':
+                jp_raw[columns[j]][i] = len(b) / len(a)
+            else:
+                raise ValueError('output format should be either *abs* or *rel*')
     if savepath is not None:
         jp_raw.to_excel(pd.ExcelWriter(savepath + '\\' + savename + '.xlsx'), sheet_name='joint_prob', )
     else:

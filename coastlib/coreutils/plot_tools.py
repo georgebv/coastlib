@@ -262,3 +262,24 @@ def joint_plot(df, **kwargs):
     if savepath is not None:
         plt.savefig(savepath + '\\' + savename + '.png')
         plt.close()
+
+
+def heatmap(df, **kwargs):
+    title = kwargs.get('title', 'Joint probability')
+    xlabel = kwargs.get('xlabel', 'Hs [ft]')
+    ylabel = kwargs.get('ylabel', 'Tp [sec]')
+    savepath = kwargs.get('savepath', None)
+    savename = kwargs.get('savename', 'Heatmap')
+    figsize = kwargs.get('figsize', (1.5 * len(df.columns), 1.2 * len(df)))
+
+    plt.figure(figsize=figsize)
+    ax = sns.heatmap(df, annot=True, linewidths=.5, fmt='.2f', square=True)
+    plt.yticks(rotation=0)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel, rotation=0)
+    plt.title(title, y=1.04)
+    ax.xaxis.set_label_coords(0.5, -0.08)
+    ax.yaxis.set_label_coords(-0.04, 1.04)
+    if savepath is not None:
+        plt.savefig(savepath + '\\' + savename + '.png')
+        plt.close()
