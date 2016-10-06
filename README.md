@@ -20,7 +20,6 @@ This package is still in early development. Until the proper setup tools are imp
 * coreutils
     * adcp_tools
         * `SentinelV` class that is used to extract, convert, store, and export waves and currents data
-        * `splice` function used to splice together multiple dataframes
     * data_analysis_tools    
         * `joint_probability` function that generates joint probability tables
         * `associated_value` function that finds a value statistically associated with another value
@@ -37,6 +36,7 @@ This package is still in early development. Until the proper setup tools are imp
     * convenience_tools
         * `ensure_dir` looks for a folder path and if it doesn't exist - creates it and all  parent folders
         * `intersection` finds a list of intersections of horizontal line with a custom profile
+        * `splice` function used to splice together multiple dataframes
 * models
     * linear_wave_theory
         * `solve_dispersion_relation`
