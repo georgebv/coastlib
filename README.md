@@ -1,4 +1,4 @@
-# coastlib introduction
+# coastlib general information
 
 ## Prerequisites
 * numpy
@@ -30,7 +30,7 @@ This package is still in early development. Until the proper setup tools are imp
         * `pdf_plots` plots probability density function with a kernel overlay
         * `time_Series_plot` plots time series and finds peaks
         * `rose_plot` plots polar rose plot
-        * 'joint_plot` plots bivariate distribution and histrograms on one plot
+        * `joint_plot` plots bivariate distribution and histrograms on one plot
         * `heatmap` plots heatmap given 2d data (i.e. joint probability table)
 * miscutils
     * convenience_tools
@@ -40,4 +40,4 @@ This package is still in early development. Until the proper setup tools are imp
 * models
     * linear_wave_theory
         * `solve_dispersion_relation`
-        * `LinearWave` descrbed in the Wiki
+        * `LinearWave` described in the Wiki
