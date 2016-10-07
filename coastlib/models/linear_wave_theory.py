@@ -180,13 +180,13 @@ class LinearWave:
         # Shoaling
         k = 2 * pi / nL
         ncg = 0.5 * nc * (1 + 2 * k * ndepth / sinh(2 * k * ndepth))
-        Ks = sqrt(self.cg / ncg)
+        ks = sqrt(self.cg / ncg)
         # Refraction
-        Ac = (nL / self.L) * sin(self.angle * pi / 180)
-        A = asin(Ac) * (180 / pi)
-        Kr = sqrt(cos(self.angle * pi / 180) / cos(A * pi / 180))
-        self.angle = A
-        self.Hm0 *= (Ks * Kr)
+        ac = (nL / self.L) * sin(self.angle * pi / 180)
+        a = asin(ac) * (180 / pi)
+        kr = sqrt(cos(self.angle * pi / 180) / cos(a * pi / 180))
+        self.angle = a
+        self.Hm0 *= (ks * kr)
         self.c = nc
         self.depth = ndepth
         self.L = nL
@@ -221,10 +221,10 @@ class LinearWave:
             b = deepcopy(self)
             depth -= 0.01
             b.propagate(depth)
-            Kr = sqrt(cos(self.angle * pi / 180) / cos(b.angle * pi / 180))
-            Ks = sqrt(self.cg / b.cg)
+            kr = sqrt(cos(self.angle * pi / 180) / cos(b.angle * pi / 180))
+            ks = sqrt(self.cg / b.cg)
             crt1 = b.depth - b.Hm0 * 1.28
-            crt2 = Kr / Ks - b.Hm0 / self.Hm0
+            crt2 = kr / ks - b.Hm0 / self.Hm0
             if crt1 < 0 and crt2 < 0:
                 depth += 0.01
                 break

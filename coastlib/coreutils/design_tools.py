@@ -1,7 +1,5 @@
-from math import pi
-
+from math import pi, tan, exp
 import scipy.constants
-from numpy import tan, exp
 
 g = scipy.constants.g  # gravity constant (m/s^2) as defined by ISO 80000-3
 sea_water_density = 1025  # sea water density (kg/m^3)
@@ -127,3 +125,37 @@ def overtopping(Hm0, Rc, **kwargs):
             raise ValueError('ERROR: Design method not recognized')
     else:
         raise ValueError('ERROR: Structure type not recognized')
+
+
+def hudson(Hs, alfa, rock_density, **kwargs):
+    """
+    Solves Hudson equation for median rock diameter. Checks stability (Ns < 2)
+
+    Paramters
+    ---------
+    Hs : float
+        Significant wave height at structure's toe (m)
+    alfa : float
+        Structure angle (degrees to horizontal)
+    rock_density : float
+        Rock density (kg/m^3)
+    Kd : float
+        Dimensionless stability coefficient (3 for quarry rock (default), 10 for concrete blocks)
+
+    Returns
+    -------
+    Dn50 : float
+        Nominal median diameter of armour blocks (m)
+    """
+    Kd = kwargs.pop('Kd', 3)
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+    delta = rock_density / sea_water_density - 1
+
+    def cot(x):
+        return 1 / tan(x)
+    Dn50 = (Hs * 1.27) / (((Kd * cot(alfa * pi / 180)) ** (1 / 3)) * delta)
+    Ns = Hs / (delta * Dn50)
+    if Ns > 2:
+        print('Armour is not stable with the stability number Ns={0}'.format(round(Ns, 2)))
+    return Dn50
