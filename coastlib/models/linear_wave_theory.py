@@ -1,3 +1,4 @@
+import pandas as pd
 from copy import deepcopy
 from math import sinh, pi, sqrt, sin, asin, cos, cosh, exp, tanh
 from coastlib.coreutils.design_tools import g
@@ -90,6 +91,36 @@ class LinearWave:
         self.pd = None
         self.x = None
         self.t = None
+
+    def as_dataframe(self):
+        if self.depth is float:
+            depth = round(self.depth, 2)
+        else:
+            depth = self.depth
+        return pd.DataFrame(
+            data={
+                'value': [
+                    round(self.L, 2),
+                    round(self.Hm0, 2),
+                    round(self.period, 2),
+                    depth,
+                    round(self.angle, 2),
+                    round(self.k, 3),
+                    round(self.E, 2),
+                    round(self.c, 2)
+                ]
+            },
+            index=[
+                'Wave length [m]',
+                'Wave height [m]',
+                'Period [s]',
+                'Water depth [m]',
+                'Approach angle [deg]',
+                'Wave number',
+                'Wave energy [J]',
+                'Phase speed [m/s]'
+            ]
+        )
 
     def dynprop(self, z, t, x=0):
         """
