@@ -26,6 +26,8 @@ This package is still in early development. Until the proper setup tools are imp
     * design_tools
         * `runup`
         * `overtopping`
+        * `hudson`
+        * `goda_1974`
     * plot_tools
         * `pdf_plots` plots probability density function with a kernel overlay
         * `time_Series_plot` plots time series and finds peaks
