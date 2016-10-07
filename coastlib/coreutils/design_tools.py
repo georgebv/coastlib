@@ -1,4 +1,5 @@
-from math import pi, tan, exp
+from math import pi, tan, exp, cos, sinh, cosh
+from coastlib.models.linear_wave_theory import LinearWave as lw
 import scipy.constants
 
 g = scipy.constants.g  # gravity constant (m/s^2) as defined by ISO 80000-3
@@ -159,3 +160,82 @@ def hudson(Hs, alfa, rock_density, **kwargs):
     if Ns > 2:
         print('Armour is not stable with the stability number Ns={0}'.format(round(Ns, 2)))
     return Dn50
+
+
+def goda_1974(Hs, hs, T, d, hc, hw, **kwargs):
+    """
+    Calculates wave load on vertical wall according to Goda (1974) formula
+    (Coastal Engineering Manual, VI-5-154)
+
+    Parameters
+    ----------
+    Hs : float
+        Significant wave height (m)
+    hs : float
+        Water depth at structure toe (m)
+    T : float
+        Wave period (s)
+    d : float
+        Water depth at the wall (m)
+    hc : float
+        Freeboard (m)
+    hw : float
+        Vertical wall height (m)
+    angle : float (optional)
+        Angle of wave attack (degrees, 0 - normal to structure)
+    lambda_1, .._2, .._3 : float (optional)
+        Modification factors (tables in CEM)
+    hb : float (optional)
+        Water depth at distance 5Hs seaard from the structure
+    Hdesign : float (optional)
+        Design wave height = highest of the random breaking
+        waves at a distance 5Hs seaward of the structure
+        (if structure is located within the surf zone)
+
+    Returns
+    -------
+    A dictionary with: total wave load (N/m), three horizontal pressure components (Pa),
+    vertical pressure component (Pa)
+    """
+    angle = kwargs.pop('angle', 0)
+    lambda_1 = kwargs.pop('lambda_1', 1)
+    lambda_2 = kwargs.pop('lambda_2', 1)
+    lambda_3 = kwargs.pop('lambda_3', 1)
+    Hdesign = kwargs.pop('Hdesign', None)
+    hb = kwargs.pop('hb', hs)
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+    if Hdesign is None:
+        Hdesign = 1.8 * Hs
+    wave = lw(T, Hs, depth=hs)
+    alpha_1 = 0.6 + 0.5 * (
+        ((4 * pi * hs / wave.L) / (sinh(4 * pi * hs / wave.L))) ** 2)
+    alpha_2 = min(
+        (((hb - d) / (3 * hb)) * ((Hdesign / d) ** 2)),
+        ((2 * d) / Hdesign)
+    )
+    alpha_3 = 1 - ((hw - hc) / hs) * (1 - 1 / cosh(2 * pi * hs / wave.L))
+    alpha_star = alpha_2
+    S = 0.75 * (1 + cos(angle * pi / 180)) * lambda_1 * Hdesign
+    p1 = 0.5 * (1 + cos(angle * pi / 180)) * (lambda_1 * alpha_1 + lambda_2 * alpha_star *
+                                              (cos(angle * pi / 180) ** 2)) * sea_water_density * g * Hdesign
+    if S > hc:
+        p2 = (1 - hc / S) * p1
+    else:
+        p2 = 0
+    p3 = alpha_3 * p1
+    pu = 0.5 * (1 + cos(angle * pi / 180)) * lambda_3 * alpha_1 * alpha_3 * sea_water_density * g * Hdesign
+    if S > hc:
+        load_aw = (S - hc) * p2 + (S - hc) * (p1 - p2) * 0.5
+    else:
+        load_aw = p1 * S
+    load_uw = (hw - hc) * p3 + (hw - hc) * (p1 - p3) * 0.5
+    load = load_aw + load_uw
+    return {
+        'Total wave load (N/m)': load,
+        'Total wave load (lbf/ft)': load * 0.3048 / 4.4482216152605,
+        'p1': p1,
+        'p2': p2,
+        'p3': p3,
+        'pu': pu
+    }

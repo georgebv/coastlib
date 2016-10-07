@@ -1,9 +1,11 @@
 import pandas as pd
+import scipy.constants
 from copy import deepcopy
 from math import sinh, pi, sqrt, sin, asin, cos, cosh, exp, tanh
-from coastlib.coreutils.design_tools import g
-from coastlib.coreutils.design_tools import sea_water_density as swd
 from scipy.optimize import newton
+
+g = scipy.constants.g  # gravity constant (m/s^2) as defined by ISO 80000-3
+sea_water_density = 1025  # sea water density (kg/m^3)
 
 
 def solve_dispersion_relation(t, h):
@@ -74,7 +76,7 @@ class LinearWave:
         self.Hm0 = float(Hm0)
         self.c = self.L / self.period
         self.angle = float(angle)
-        self.E = swd * g * (self.Hm0 ** 2) / 8
+        self.E = sea_water_density * g * (self.Hm0 ** 2) / 8
         self.k = 2 * pi / self.L
         if depth == 'deep':
             self.cg = 0.5 * self.c
@@ -144,13 +146,13 @@ class LinearWave:
         self.t = t
         self.S = self.a * sin(self.w * t - self.k * x)
         if self.depth == 'deep':
-            self.pd = swd * g * self.a * exp(self.k * z) * sin(self.w * t - self.k * x)
+            self.pd = sea_water_density * g * self.a * exp(self.k * z) * sin(self.w * t - self.k * x)
             self.ua = (self.w ** 2) * self.a * exp(self.k * z) * cos(self.w * t - self.k * x)
             self.u = self.w * self.a * exp(self.k * z) * sin(self.w * t - self.k * x)
             self.va = -(self.w ** 2) * self.a * exp(self.k * z) * sin(self.w * t - self.k * x)
             self.v = self.w * self.a * exp(self.k * z) * cos(self.w * t - self.k * x)
         else:
-            self.pd = swd * g * self.a * cosh(self.k * (z + self.depth)) * sin(self.w * t - self.k * x) / cosh(
+            self.pd = sea_water_density * g * self.a * cosh(self.k * (z + self.depth)) * sin(self.w * t - self.k * x) / cosh(
                 self.k * self.depth)
             self.ua = (self.w ** 2) * self.a * cosh(self.k * (z + self.depth)) * cos(self.w * t - self.k * x) / sinh(
                 self.k * self.depth)
@@ -190,7 +192,7 @@ class LinearWave:
         self.c = nc
         self.depth = ndepth
         self.L = nL
-        self.E = swd * g * (self.Hm0 ** 2) / 8
+        self.E = sea_water_density * g * (self.Hm0 ** 2) / 8
         self.k = 2 * pi / self.L
         self.cg = 0.5 * self.c * (1 + 2 * self.k * self.depth / sinh(2 * self.k * self.depth))
         self.w = 2 * pi / self.period
