@@ -241,3 +241,81 @@ def goda_1974(Hs, hs, T, d, hc, hw, **kwargs):
         'p3': p3,
         'pu': pu
     }
+
+
+def goda_2000(H13, T13, h, hc, **kwargs):
+    """
+    Calculates wave load on vertical wall according to Goda (2000) formula
+    (Random seas and design of maritime structures, p.134 - p.139)
+
+    Parameters
+    ----------
+    H13 : float
+        Significant wave height (m)
+    h : float
+        Water depth at structure toe (m)
+    T13 : float
+        Wave period (s)
+    d : float
+        Water depth at the wall (m)
+    hc : float
+        Freeboard (m)
+    h_prime : float
+        Vertical wall submerged height (m)
+    angle : float (optional)
+        Angle of wave attack (degrees, 0 - normal to structure)
+    hb : float (optional)
+        Water depth at distance 5H13 seaard from the structure
+    Hmax : float (optional)
+        Design wave height = highest of the random breaking
+        waves at a distance 5H13 seaward of the structure
+        (if structure is located within the surf zone)
+
+    Returns
+    -------
+    A dictionary with: total wave load (N/m), wave load application depth (m),
+    three horizontal pressure components (Pa), vertical pressure component (Pa)
+    """
+    d = kwargs.pop('d', h)
+    Hmax = kwargs.pop('Hmax', None)
+    angle = kwargs.pop('angle', 0)
+    hb = kwargs.pop('hb', h)
+    h_prime = kwargs.pop('h_prime', d)
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+    B = angle * pi / 180
+    if Hmax is None:
+        Hmax = 1.8 * H13
+    wave = lw(T13, H13, depth=h)
+    L = wave.L
+    s = 0.75 * (1 + cos(B)) * Hmax
+    a_1 = 0.6 + 0.5 * (((4 * pi * h / L) / (sinh(4 * pi * h / L))) ** 2)
+    a_2 = min(
+        (((hb - d) / (3 * hb)) * ((Hmax / d) ** 2)),
+        ((2 * d) / Hmax)
+    )
+    a_3 = 1 - (h_prime / h) * (1 - (1 / cosh(2 * pi * h / L)))
+    p1 = 0.5 * (1 + cos(B)) * (a_1 + a_2 * (cos(B) ** 2)) * swd * g * Hmax
+    p2 = p1 / cosh(2 * pi * h / L)
+    p3 = a_3 * p1
+    if s > hc:
+        p4 = p1 * (1 - hc / s)
+    else:
+        p4 = 0
+    hc_star = min(s, hc)
+    pu = 0.5 * (1 + cos(B)) * a_1 * a_3 * swd * g * Hmax
+    P = 0.5 * (p1 + p3) * h_prime + 0.5 * (p1 + p4) * hc_star
+    Mp = (1 / 6) * (2 * p1 + p3) * (h_prime ** 2) + 0.5 * (p1 + p4) * h_prime * hc_star +\
+         (1 / 6) * (p1 + 2 * p4) * (hc_star ** 2)
+    P_dep = h_prime - (Mp / P)
+    return {
+        'Total wave load [N/m]': P,
+        'Total wave load [lbf/ft]': P * 0.3048 / 4.4482216152605,
+        'Load centerline depth [m]': P_dep,
+        'Load centerline depth [ft]': P_dep / 0.3048,
+        'p1, [Pa]': p1,
+        'p2, [Pa]': p2,
+        'p3, [Pa]': p3,
+        'p4, [Pa]': p4,
+        'pu, [Pa]': pu
+    }
