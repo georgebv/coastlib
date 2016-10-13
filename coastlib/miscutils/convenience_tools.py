@@ -1,4 +1,5 @@
 import os
+import sys
 import functools
 import pandas as pd
 
@@ -45,3 +46,12 @@ def intersection(z, tab):
                     (tab[row + 1, 1] - tab[row, 1]) + tab[row, 0])
             ]
     return xint
+
+
+def print_update(text):
+    """
+    Updates the same line in the terminal as long as no new lines are printed inbetween.
+    Useful when creating progress bars.
+    """
+    sys.stdout.write('\r{}'.format(text))
+    sys.stdout.flush()

@@ -1,17 +1,15 @@
-import pandas as pd
-import numpy as np
-import math
+import sys
+import time
 
 
-####
-from coastlib.coreutils.adcp_tools import SentinelV as SlV
-adcproot = 'C:\\Users\GRBH.COWI.001\Desktop\desktop projects\Living breakwaters\ADCP data processing\Data'
-paths = [
-    adcproot + '\ADCP1\ADCP1 034 May.mat'
-]
-data = SlV(paths[0])
-data.waves_parse()
-data.convert('waves', 'Hs', 'HsSea', 'HsSwell', systems='m to ft')
-df = data.waves
-kwargs = {}
-####
+def print_update(text):
+    sys.stdout.write('\r{}'.format(text))
+    sys.stdout.flush()
+
+while True:
+    try:
+        for i in range(100):
+            print_update(i)
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        print('Don\'t even try this')
