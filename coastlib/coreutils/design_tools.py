@@ -265,7 +265,7 @@ def goda_2000(H13, T13, h, hc, **kwargs):
     angle : float (optional)
         Angle of wave attack (degrees, 0 - normal to structure)
     hb : float (optional)
-        Water depth at distance 5H13 seaard from the structure
+        Water depth at distance 5H13 seaward from the structure
     Hmax : float (optional)
         Design wave height = highest of the random breaking
         waves at a distance 5H13 seaward of the structure
@@ -307,12 +307,16 @@ def goda_2000(H13, T13, h, hc, **kwargs):
     P = 0.5 * (p1 + p3) * h_prime + 0.5 * (p1 + p4) * hc_star
     Mp = (1 / 6) * (2 * p1 + p3) * (h_prime ** 2) + 0.5 * (p1 + p4) * h_prime * hc_star +\
          (1 / 6) * (p1 + 2 * p4) * (hc_star ** 2)
-    P_dep = h_prime - (Mp / P)
+    P_centroid = (p4 * hc_star) * (hc_star / 2) + (p3 * h_prime) * ((-1) * h_prime / 2) +\
+                 (0.5 * (p1 - p4) * hc_star) * (hc_star / 3) + (0.5 * (p1 - p3) * h_prime) * ((-1) * h_prime / 3)
+    P_centroid /= P
     return {
         'Total wave load [N/m]': P,
         'Total wave load [lbf/ft]': P * 0.3048 / 4.4482216152605,
-        'Load centerline depth [m]': P_dep,
-        'Load centerline depth [ft]': P_dep / 0.3048,
+        'Load centroid [m]': P_centroid,
+        'Load centroid [ft]': P_centroid / 0.3048,
+        'p4 extent [m]': hc_star,
+        'p4 extent [ft]': hc_star / 0.3048,
         'p1, [Pa]': p1,
         'p2, [Pa]': p2,
         'p3, [Pa]': p3,
