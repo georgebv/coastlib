@@ -32,15 +32,15 @@ def intersection(z, tab):
     z : float
         Target value in the second column of the input array.
     tab : ndarray
-        Array with 'x' and 'z' values (column 1 - x, column 2 - z)
+        Numpy array with 'x' and 'z' values (column 0 - x, column 1 - z)
     Returns
     -------
     xint : list
         List of 'x' values corresponding to the 'z' value in the 'xztab' array.
     """
     xint = []
-    for row in range(0, len(tab[:, 1]) - 1):
-        if tab[row, 1] < z < tab[row + 1, 1]:
+    for row in range(0, len(tab[:, 0]) - 1):
+        if tab[row, 1] <= z <= tab[row + 1, 1] or tab[row, 1] >= z >= tab[row + 1, 1]:
             xint += [
                 ((z - tab[row, 1]) * (tab[row + 1, 0] - tab[row, 0]) /
                     (tab[row + 1, 1] - tab[row, 1]) + tab[row, 0])
