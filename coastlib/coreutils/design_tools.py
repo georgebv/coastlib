@@ -1,6 +1,7 @@
 from math import pi, tan, exp, cos, sinh, cosh
 from coastlib.models.linear_wave_theory import LinearWave as lw
 import scipy.constants
+import pandas as pd
 
 g = scipy.constants.g  # gravity constant (m/s^2) as defined by ISO 80000-3
 swd = 1025  # sea water density (kg/m^3)
@@ -273,8 +274,8 @@ def goda_2000(H13, T13, h, hc, **kwargs):
 
     Returns
     -------
-    A dictionary with: total wave load (N/m), wave load application depth (m),
-    three horizontal pressure components (Pa), vertical pressure component (Pa)
+    A pandas dataframe with pressures, total load, load centroid (above wall footing, i.e. depth d)
+    in both metric and customary units
     """
     d = kwargs.pop('d', h)
     Hmax = kwargs.pop('Hmax', None)
@@ -307,19 +308,36 @@ def goda_2000(H13, T13, h, hc, **kwargs):
     P = 0.5 * (p1 + p3) * h_prime + 0.5 * (p1 + p4) * hc_star
     Mp = (1 / 6) * (2 * p1 + p3) * (h_prime ** 2) + 0.5 * (p1 + p4) * h_prime * hc_star +\
          (1 / 6) * (p1 + 2 * p4) * (hc_star ** 2)
-    P_centroid = (p4 * hc_star) * (hc_star / 2) + (p3 * h_prime) * ((-1) * h_prime / 2) +\
-                 (0.5 * (p1 - p4) * hc_star) * (hc_star / 3) + (0.5 * (p1 - p3) * h_prime) * ((-1) * h_prime / 3)
-    P_centroid /= P
-    return {
-        'Total wave load [N/m]': P,
-        'Total wave load [lbf/ft]': P * 0.3048 / 4.4482216152605,
-        'Load centroid [m]': P_centroid,
-        'Load centroid [ft]': P_centroid / 0.3048,
-        'p4 extent [m]': hc_star,
-        'p4 extent [ft]': hc_star / 0.3048,
-        'p1, [Pa]': p1,
-        'p2, [Pa]': p2,
-        'p3, [Pa]': p3,
-        'p4, [Pa]': p4,
-        'pu, [Pa]': pu
-    }
+    P_centroid = Mp / P
+    output = pd.DataFrame(data=[
+        P,
+        P * 0.3048 / 4.4482216152605,
+        P_centroid,
+        P_centroid / 0.3048,
+        hc_star,
+        hc_star / 0.3048,
+        p1,
+        p2,
+        p3,
+        p4,
+        pu
+
+    ],
+        index=[
+            'Total wave load [N/m]',
+            'Total wave load [lbf/ft]',
+            'Load centroid [m]',
+            'Load centroid [ft]',
+            'p4 extent [m]',
+            'p4 extent [ft]',
+            'p1, [Pa]',
+            'p2, [Pa]',
+            'p3, [Pa]',
+            'p4, [Pa]',
+            'pu, [Pa]'
+            ],
+        columns=[
+            'Value'
+        ]
+    )
+    return output
