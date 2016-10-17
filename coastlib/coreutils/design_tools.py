@@ -2,6 +2,7 @@ from math import pi, tan, exp, cos, sinh, cosh
 from coastlib.models.linear_wave_theory import LinearWave as lw
 import scipy.constants
 import pandas as pd
+import warnings
 
 g = scipy.constants.g  # gravity constant (m/s^2) as defined by ISO 80000-3
 swd = 1025  # sea water density (kg/m^3)
@@ -48,7 +49,7 @@ def runup(Hm0, Tp, slp, **kwargs):
     rdb = kwargs.pop('rdb', 0)
     strtype = kwargs.pop('strtype', 'sap')
     dmethod = kwargs.pop('dmethod', 'det')
-    assert len(kwargs) == 0, "unrecognized arguments passed in: %s" % ", ".join(kwargs.keys())
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     Lm10 = g * (Tp ** 2) / (2 * pi)  # Deep water wave length
     Sm10 = Hm0 / Lm10  # Wave steepness
@@ -109,7 +110,7 @@ def overtopping(Hm0, Rc, **kwargs):
     Yf = kwargs.pop('Yf', 1)
     strtype = kwargs.pop('strtype', 'sap')
     dmethod = kwargs.pop('dmethod', 'det')
-    assert len(kwargs) == 0, "unrecognized arguments passed in: %s" % ", ".join(kwargs.keys())
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     if B < 80:
         YB = 1 - 0.0033 * B
@@ -157,10 +158,14 @@ def hudson(Hs, alfa, rock_density, **kwargs):
     def cot(x):
         return 1 / tan(x)
 
-    Dn50 = (Hs * 1.27) / (((kd * cot(alfa * pi / 180)) ** (1 / 3)) * delta)
+    def rad(x):
+        return x * pi / 180
+
+    Dn50 = (Hs * 1.27) / (((kd * cot(rad(alfa))) ** (1 / 3)) * delta)
     Ns = Hs / (delta * Dn50)
     if Ns > 2:
-        print('Armour is not stable with the stability number Ns={0}'.format(round(Ns, 2)))
+        warnings.warn('Armour is not stable with the stability number Ns={0}, Dn50={1} [m]'.
+                      format(round(Ns, 2), round(Dn50, 2)))
     return Dn50
 
 

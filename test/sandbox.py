@@ -9,6 +9,7 @@ def print_update(text):
     sys.stdout.flush()
 
 while True:
+    break
     try:
         for i in range(100):
             print_update(i)
@@ -21,23 +22,19 @@ while True:
             print('you asked for it')
 
 while True:
-    break
     try:
         symbols = input('Give me 4 symbols: ')
         timestep = float(input('Give me a timestep: '))
         while True:
-            try:
-                for sm in symbols:
-                    print_update(sm)
-                    time.sleep(timestep)
-            except KeyboardInterrupt:
-                a = input('\nWant to input new items? [y/n] ')
-                if a == 'y':
-                    break
+            for sm in symbols:
+                print_update(sm)
+                time.sleep(timestep)
     except KeyboardInterrupt:
-        b = input('\nWant to quit? [y/n] ')
+        b = input('\nWant to quit? [y/n]')
         if b == 'y':
             break
+        else:
+            continue
 sys.exit()
 
 

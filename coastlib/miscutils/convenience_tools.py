@@ -16,7 +16,7 @@ def splice(df_list, sort=True):
 
 def ensure_dir(f):
     """
-    Checks the exisstance of path *f* and if it doesn't exist - creates it.
+    Checks the existance of path *f* and if it doesn't exist - creates it.
     """
     d = os.path.dirname(f)
     if not os.path.exists(d):

@@ -33,7 +33,7 @@ def solve_dispersion_relation(t, h):
         omega = 2 * pi / t
         return omega ** 2 - g * k * tanh(k * h)
 
-    return newton(disprel, 1)
+    return newton(disprel, g * (t ** 2) / (2 * pi))
 
 
 class LinearWave:
@@ -152,8 +152,8 @@ class LinearWave:
             self.va = -(self.w ** 2) * self.a * exp(self.k * z) * sin(self.w * t - self.k * x)
             self.v = self.w * self.a * exp(self.k * z) * cos(self.w * t - self.k * x)
         else:
-            self.pd = sea_water_density * g * self.a * cosh(self.k * (z + self.depth)) * sin(self.w * t - self.k * x) / cosh(
-                self.k * self.depth)
+            self.pd = sea_water_density * g * self.a * cosh(self.k * (z + self.depth)) * sin(self.w * t - self.k * x) /\
+                      cosh(self.k * self.depth)
             self.ua = (self.w ** 2) * self.a * cosh(self.k * (z + self.depth)) * cos(self.w * t - self.k * x) / sinh(
                 self.k * self.depth)
             self.u = self.w * self.a * cosh(self.k * (z + self.depth)) * sin(self.w * t - self.k * x) / sinh(
