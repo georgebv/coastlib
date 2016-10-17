@@ -9,7 +9,6 @@ def print_update(text):
     sys.stdout.flush()
 
 while True:
-    break
     try:
         for i in range(100):
             print_update(i)
@@ -22,6 +21,7 @@ while True:
             print('you asked for it')
 
 while True:
+    break
     try:
         symbols = input('Give me 4 symbols: ')
         timestep = float(input('Give me a timestep: '))

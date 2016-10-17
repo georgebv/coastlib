@@ -25,15 +25,14 @@ class SentinelV:
         # Generate data array
         data = {}
         for key in dstructured:
-            data[key] = [0] * len(dstructured['time'])
-            for j in range(len(data[key])):
-                data[key][j] = float(dstructured[key][j])
+            data[key] = []
+            for j in range(len(dstructured['time'])):
+                data[key] += [float(dstructured[key][j])]
         del data['time']
         # Convert time to datetime
-        time = [0] * len(dstructured['time'])
+        time = []
         for i in range(len(dstructured['time'])):
-            time[i] = dstructured['time'][i]
-            time[i] = datetime.datetime.fromtimestamp(time[i])
+            time += [datetime.datetime.fromtimestamp(dstructured['time'][i])]
         self.waves = pd.DataFrame(data, index=time)
 
     def currents_parse(self):
@@ -50,10 +49,9 @@ class SentinelV:
         dtype = self.mat['waves']
         dindex = dtype.dtype
         dstructured = {n: dtype[n][0, 0] for n in dindex.names}
-        time = [0] * len(dstructured['time'])
+        time = []
         for i in range(len(dstructured['time'])):
-            time[i] = dstructured['time'][i]
-            time[i] = datetime.datetime.fromtimestamp(time[i])
+            time += [datetime.datetime.fromtimestamp(dstructured['time'][i])]
         self.currents = pd.DataFrame(data, index=time)
 
     def export(self, par, save_format='xlsx', save_name='data frame', save_path=None):
@@ -114,4 +112,3 @@ class SentinelV:
             self.waves = df
         elif par == 'currents':
             self.currents = df
-

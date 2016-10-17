@@ -27,42 +27,46 @@ def joint_probability(df, **kwargs):
     savepath = kwargs.pop('savepath', None)
     savename = kwargs.pop('savename', 'Joint Probability')
     output_format = kwargs.pop('output_format', 'rel')
-    assert len(kwargs) == 0, "unrecognized arguments passed in: %s" % ", ".join(kwargs.keys())
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     a = df[pd.notnull(df[val1])]
     a = a[pd.notnull(a[val2])]
     bins1 = math.ceil(a[val1].max() / binsize1)
     bins2 = math.ceil(a[val2].max() / binsize2)
     columns = []
-    low = 0
+    rows = []
     for i in range(bins1):
+        low = i * binsize1
         up = low + binsize1
         columns += ['{0:.1f} - {1:.1f}'.format(low, up)]
-        low += binsize1
-    rows = []
-    low = 0
     for i in range(bins2):
+        low = i * binsize2
         up = low + binsize2
         rows += ['{0:.1f} - {1:.1f}'.format(low, up)]
-        low += binsize2
     if output_format == 'abs':
         jp_raw = pd.DataFrame(0, index=rows, columns=columns)
     else:
         jp_raw = pd.DataFrame(.0, index=rows, columns=columns)
+
+    tot = len(a)
     for i in range(bins2):
         bin2_low = i * binsize2
         bin2_up = bin2_low + binsize2
         for j in range(bins1):
             bin1_low = j * binsize1
             bin1_up = bin1_low + binsize1
-            b = a[(a[val1] < bin1_up) &
-                  (a[val1] > bin1_low) &
-                  (a[val2] < bin2_up) &
-                  (a[val2] > bin2_low)]
+            b = len(
+                a[
+                    (a[val1] < bin1_up) &
+                    (a[val1] >= bin1_low) &
+                    (a[val2] < bin2_up) &
+                    (a[val2] >= bin2_low)
+                ]
+            )
             if output_format == 'abs':
-                jp_raw[columns[j]][i] = len(b)
+                jp_raw[columns[j]][i] = b
             elif output_format == 'rel':
-                jp_raw[columns[j]][i] = len(b) / len(a)
+                jp_raw[columns[j]][i] = b / tot
             else:
                 raise ValueError('output format should be either *abs* or *rel*')
     if savepath is not None:

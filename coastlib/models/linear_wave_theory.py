@@ -211,7 +211,7 @@ class LinearWave:
                 self.va = None
                 self.pd = None
 
-    def wavebreak(self):
+    def wavebreak(self, precision=0.01):
         """
         Propagates the wave until it breaks (*depth* = 1.28*Hm0* breaking condition).
         Updates wave parameters at the moment of breaking.
@@ -221,13 +221,13 @@ class LinearWave:
         depth = self.depth
         while True:
             b = deepcopy(self)
-            depth -= 0.01
+            depth -= precision
             b.propagate(depth)
             kr = sqrt(cos(self.angle * pi / 180) / cos(b.angle * pi / 180))
             ks = sqrt(self.cg / b.cg)
             crt1 = b.depth - b.Hm0 * 1.28
             crt2 = kr / ks - b.Hm0 / self.Hm0
             if crt1 < 0 and crt2 < 0:
-                depth += 0.01
+                depth += precision
                 break
         self.propagate(depth)

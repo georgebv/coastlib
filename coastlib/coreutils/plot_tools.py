@@ -41,7 +41,7 @@ def pdf_plot(df, **kwargs):
     bins = kwargs.pop('bins', 50)
     plot_style = kwargs.pop('plot_style', 'bmh')
     figsize = kwargs.pop('figsize', (12, 8))
-    assert len(kwargs) == 0, "unrecognized arguments passed in: %s" % ", ".join(kwargs.keys())
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     with plt.style.context(plot_style):
         a = df[pd.notnull(df[val])][val].as_matrix()
@@ -98,7 +98,7 @@ def time_series_plot(df, **kwargs):
     ylabel = kwargs.pop('ylabel', 'Value')
     plot_style = kwargs.pop('plot_style', 'bmh')
     line_color = kwargs.pop('line_color', 'navy')
-    assert len(kwargs) == 0, "unrecognized arguments passed in: %s" % ", ".join(kwargs.keys())
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     with plt.style.context(plot_style):
         if showpeaks:
@@ -189,7 +189,7 @@ def rose_plot(df, **kwargs):
     valbinsize = kwargs.pop('valbinsize', None)
     valbin_max = kwargs.pop('valbin_max', None)
     colormap = kwargs.pop('colormap', cm.jet)
-    assert len(kwargs) == 0, "unrecognized arguments passed in: %s" % ", ".join(kwargs.keys())
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     plt.hist([0, 1])
     plt.close()
@@ -249,7 +249,7 @@ def joint_plot(df, **kwargs):
     savepath = kwargs.pop('savepath', None)
     savename = kwargs.pop('savename', 'Bivariate Distribution')
     figsize = kwargs.pop('figsize', 10)
-    assert len(kwargs) == 0, "unrecognized arguments passed in: %s" % ", ".join(kwargs.keys())
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     with plt.style.context('bmh'):
         g = (sns.JointGrid(x=val1, y=val2, data=df, size=figsize).set_axis_labels(xlabel, ylabel))
@@ -291,7 +291,7 @@ def heatmap(df, **kwargs):
     savename = kwargs.pop('savename', 'Heatmap')
     figsize = kwargs.pop('figsize', (1.5 * len(df.columns), 1.2 * len(df)))
     yaxflip = kwargs.pop('yaxflip', True)
-    assert len(kwargs) == 0, "unrecognized arguments passed in: %s" % ", ".join(kwargs.keys())
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     plt.figure(figsize=figsize)
     ax = sns.heatmap(df, annot=True, linewidths=.5, fmt='.2f', square=True)
