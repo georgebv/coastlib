@@ -12,7 +12,7 @@ def solve_dispersion_relation(t, h):
     """Solves dispersion relation for wavelength, given period and depth.
 
     Find wavelength by solving the dispersion relation given period 't' and depth 'h'.
-    Solves the dispersion relation using the secant method.
+    Solves the dispersion relation using the Newton-Raphson method.
 
     Parameters
     ----------
@@ -28,12 +28,16 @@ def solve_dispersion_relation(t, h):
         Estimated wavelength (m) for parameters entered.
     """
 
-    def disprel(var_l):
-        k = 2 * pi / var_l
-        omega = 2 * pi / t
-        return omega ** 2 - g * k * tanh(k * h)
+    def disprel(k_temp, t_temp=t):
+        omega = 2 * pi / t_temp
+        return omega ** 2 - g * k_temp * tanh(k_temp * h)
 
-    return newton(disprel, g * (t ** 2) / (2 * pi))
+    def disprel_prime1(k_temp):
+        return (-g) * (tanh(k_temp * h) + k_temp * h * (1 - tanh(k_temp * h) ** 2))
+
+    l0 = (g*(t**2)/(2*pi))
+    k = newton(disprel, l0/2, fprime=disprel_prime1)
+    return (2 * pi) / k
 
 
 class LinearWave:

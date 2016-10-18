@@ -1,5 +1,14 @@
 import coastlib.coreutils.design_tools as dt
+import sys
 
+
+def atend():
+    b = input('Try a new case? [y/n]\n')
+    if b == 'n':
+        sys.exit()
+    elif b != 'y':
+        print('Invalid input, please try again\n')
+        atend()
 
 while True:
     Hs = float(input('Input wave height [ft]: '))
@@ -20,11 +29,9 @@ while True:
     freeboard = shed_roof_elevation - water_elevation
     wall_height = shed_roof_elevation - deck_elevation
 
-    load_A_Hs = dt.goda_2000(H13=Hs, T13=Tp, h=toe_depth, hc=freeboard, d=wall_depth)
+    load = dt.goda_2000(H13=Hs, T13=Tp, h=toe_depth, hc=freeboard, d=wall_depth)
     print()
     print('\nOutput:\n')
-    for key in sorted(load_A_Hs.items(), key=lambda x:x[0]):
-        print(str(key[0])+' = '+str(key[1]))
-    b = input('\nTry a new case? [y/n]')
-    if b != 'y':
-        break
+    print(load)
+    print('\nLoad centroid is given relative to the wall footing\n')
+    atend()
