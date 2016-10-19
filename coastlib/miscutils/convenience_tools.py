@@ -55,3 +55,14 @@ def print_update(text):
     """
     sys.stdout.write('\r{}'.format(text))
     sys.stdout.flush()
+
+
+def proper_input(text, var_type=float):
+    out = None
+    while out is None:
+        input_value = input(text)
+        try:
+            out = var_type(input_value)
+        except ValueError:
+            print('\nPlease provide a valid input\n')
+    return out
