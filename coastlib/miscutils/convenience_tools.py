@@ -59,11 +59,14 @@ def print_update(text):
 
 
 def proper_input(text, var_type=float):
+    """
+    This function only accepts input of the specified type *var_type*.
+    """
     out = None
     while out is None:
         input_value = input(text)
         try:
             out = var_type(input_value)
         except ValueError:
-            print('\nPlease provide a valid input\n')
+            print('\nPlease provide a value of the type {0}\n'.format(var_type))
     return out
