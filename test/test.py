@@ -8,7 +8,7 @@ class ProgressBar(threading.Thread):
     def __init__(self, mutex, text):
         self.text = text
         self.mutex = mutex
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, daemon=True)
 
     def run(self):
         global progress1
@@ -35,10 +35,12 @@ class MainThread(threading.Thread):
         # This is the dummy work block
         global progress1
         for i in range(0, 100):
+            # some work which corresponds to 1% of total work
             progress1 += 1
             time.sleep(0.1)
             if progress1 == 50:
-                print('\n\nSome extra work can be executed here! (btw its 50%!)\n')
+                with stdoutmutex:
+                    print('\n\nSome useful runtime info can be given here! (Yay, its 50%!)\n')
 
 
 stdoutmutex = threading.Lock()
