@@ -2,7 +2,6 @@ import os
 import sys
 import functools
 import pandas as pd
-import threading
 
 
 def splice(df_list, sort=True):
