@@ -1,45 +1,46 @@
-import sys
-import time
-import pandas as pd
-import coastlib.miscutils.convenience_tools as cnt
+raw_tex = '''\documentclass[12pt, letterpaper]{{article}}\n
+\\author{{Georgii Bocharov}}
+\date{{\\today}}
+\\title{{Wave Load Calculation}}\n
+\\usepackage[utf8]{{inputenc}}
+\\usepackage[english]{{babel}}
+\\usepackage{{graphicx}}
+\\usepackage{{transparent}}
+\\usepackage{{microtype}}
+\\usepackage[dvipsnames]{{xcolor}}
+\\usepackage[left=1in, right=1in, top=1.5in, bottom=1in, headsep=1in]{{geometry}}
+\\usepackage[none]{{hyphenat}}
+\setlength{{\parindent}}{{0pt}}
+\\usepackage{{fancyhdr}}
+\\usepackage{{mathtools}}\n
+\pagestyle{{fancy}}
+\\usepackage{{lastpage}}
+\\usepackage{{titlesec}}
+\\renewcommand{{\\baselinestretch}}{{1.5}}
+\\renewcommand{{\headrulewidth}}{{0pt}}
+\\renewcommand{{\\footrulewidth}}{{0pt}}
+\\fancyheadoffset{{0.65in}}\n
+\makeatletter
+% we use \prefix@<level> only if it is defined
+\\renewcommand{{\@seccntformat}}[1]{{%
+  \ifcsname prefix@#1\endcsname
+    \csname prefix@#1\endcsname
+  \else
+    \csname the#1\endcsname\quad
+  \\fi}}
+% define \prefix@section
+\\newcommand\prefix@section{{Calculation case \\thesection: }}
+\makeatother\n
+\\begin{{document}}
+\\rhead{{
+\includegraphics[width=2in]{{COWI_logo.png}}\\\[0.2in]
+{{
+{{\sffamily\\normalsize\color{{RedOrange}}\\textbf{{PAGE}}}} \\thepage/\pageref{{LastPage}}}}
+}}
+\cfoot{{}}
+SAMPLE TEXT
+\end{{document}}'''
+page = raw_tex.format()
 
-
-def print_update(text):
-    sys.stdout.write('\r{}'.format(text))
-    sys.stdout.flush()
-
-while True:
-    break
-    try:
-        for i in range(100):
-            print_update(i)
-            time.sleep(0.5)
-    except KeyboardInterrupt:
-        a = input('r u sure? [y/n]')
-        if a == 'y':
-            break
-        else:
-            print('you asked for it')
-
-while True:
-    try:
-        symbols = input('Give me 4 symbols: ')
-        timestep = float(input('Give me a timestep: '))
-        while True:
-            for sm in symbols:
-                print_update(sm)
-                time.sleep(timestep)
-    except KeyboardInterrupt:
-        b = input('\nWant to quit? [y/n]')
-        if b == 'y':
-            break
-        else:
-            continue
-sys.exit()
-
-
-data = pd.read_csv('C:\\Users\GRBH.COWI.001\Desktop\GitHub repositories\coastlib\\test\Drawing1.csv')
-a = data.values
-inter = cnt.intersection(5, a)
-for i in range(len(inter)):
-    print('Intersection ' + str(i+1) + ': x = ' + str(round(inter[i], 2)))
+with open('cover.tex', 'w') as f:
+    f.write(page)
