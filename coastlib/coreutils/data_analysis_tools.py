@@ -1,6 +1,97 @@
 import math
 import pandas as pd
 import statsmodels.api as sm
+import numpy as np
+import datetime
+
+
+class DelSepData:
+    """
+    A Delimeter Sepatared Data (general case of CSV-type files) class.
+    Creates a Pandas DataFrame for the extracted data.
+    """
+    def __init__(self, path, delimeter=',', void_rows=1, date_type='yyyymmdd_hhmm', sort=True, **kwargs):
+        """
+        :param path: str
+            Path to data file.
+        :param delimeter: str
+        :param void_rows: int
+            Number of first consecutive rows (followed by a row with column labels)
+            containing irrelevant data.
+        :param date_type: str
+            Datetime type for indexing purposed. See .gen_index() method.
+            Set to None to skip this step. Default = yyyymmdd_hhmm.
+        :param sort: bool
+            Sorts by index if True.
+        """
+        with open(path, 'r') as file:
+            data = [line.split(delimeter) for line in file]
+        if void_rows > 0:
+            data = data[void_rows:]
+        labels = [var for var in data[0][0].split(' ') if len(var) > 0][0:-1]
+        del data[0]
+        for i in range(len(data)):
+            data[i] = data[i][0:-1]
+            for j in range(len(data[i])):
+                data[i][j] = data[i][j].replace(' ', '')
+                try:
+                    data[i][j] = float(data[i][j])
+                    if data[i][j] % 1 == 0:
+                        data[i][j] = int(data[i][j])
+                except ValueError:
+                    pass
+                if data[i][j] == '':
+                    data[i][j] = np.nan
+        self.data = pd.DataFrame(data=data, columns=labels)
+        if date_type == 'yyyymmdd_hhmm':
+            self.gen_index(
+                date_type=date_type,
+                yyyymmdd=kwargs.pop('yyyymmdd', 'Date'),
+                hhmm=kwargs.pop('hhmm', 'HrMn')
+            )
+        elif date_type is None:
+            pass
+        else:
+            raise ValueError('Unrecognized date type.')
+        if sort:
+            self.data.sort_index(inplace=True)
+
+    def gen_index(self, date_type='yyyymmdd_hhmm', **kwargs):
+        """
+        Generates datetime indexes and applies them to DataFrame.
+
+        :param date_type: str
+        :param kwargs:
+            yyyymmdd: str
+                Column name. Default = Date.
+            hhmm: str
+                Column name. Default = HrMn.
+        """
+        if date_type == 'yyyymmdd_hhmm':
+            yyyymmdd = kwargs.pop('yyyymmdd', 'Date')
+            hhmm = kwargs.pop('hhmm', 'HrMn')
+            dates = [str(int(i)) for i in self.data[yyyymmdd].values]
+            times = [str(int(i)) for i in self.data[hhmm].values]
+            years = [int(i[0:4]) for i in dates]
+            months = [int(i[4:6]) for i in dates]
+            days = [int(i[6:8]) for i in dates]
+            minutes = [int(i) % 100 for i in times]
+            hours = [int(int(i) / 100) for i in times]
+            del self.data[yyyymmdd]
+            del self.data[hhmm]
+        else:
+            raise ValueError('Unrecognized date type.')
+        time = []
+        for i in range(len(self.data)):
+            time += [
+                datetime.datetime(year=years[i],
+                                  month=months[i],
+                                  day=days[i],
+                                  hour=hours[i],
+                                  minute=minutes[i]
+                                  )
+            ]
+        self.data.set_index([time], inplace=True)
 
 
 def joint_probability(df, **kwargs):
@@ -90,3 +181,5 @@ def associated_value(df, val, par, value, search_range=0.1):
     dens = sm.nonparametric.KDEUnivariate(par_array)
     dens.fit()
     return dens.support[dens.density.argmax()]
+
+"""EVA CLASS"""
