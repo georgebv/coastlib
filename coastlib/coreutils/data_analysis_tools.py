@@ -10,7 +10,8 @@ class DelSepData:
     A Delimeter Sepatared Data (general case of CSV-type files) class.
     Creates a Pandas DataFrame for the extracted data.
     """
-    def __init__(self, path, delimeter=',', void_rows=1, date_type='yyyymmdd_hhmm', sort=True, **kwargs):
+    def __init__(self, path, delimeter=',', label_delimeter=' ',
+                 void_rows=1, date_type='yyyymmdd_hhmm', sort=True, **kwargs):
         """
         :param path: str
             Path to data file.
@@ -28,7 +29,10 @@ class DelSepData:
             data = [line.split(delimeter) for line in file]
         if void_rows > 0:
             data = data[void_rows:]
-        labels = [var for var in data[0][0].split(' ') if len(var) > 0][0:-1]
+        if label_delimeter == ' ':
+            labels = [var for var in data[0][0].split(' ') if len(var) > 0][0:-1]
+        elif label_delimeter == ',':
+            labels = [var for var in data[0]][:-1]
         del data[0]
         for i in range(len(data)):
             data[i] = data[i][0:-1]
