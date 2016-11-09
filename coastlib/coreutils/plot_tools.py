@@ -55,7 +55,7 @@ def pdf_plot(df, **kwargs):
         plt.title(title)
         plt.legend()
         if savepath is not None:
-            plt.savefig(savepath + '\\' + savename + '.png')
+            plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight')
             plt.close()
 
 
@@ -113,7 +113,7 @@ def time_series_plot(df, **kwargs):
                 plt.ylabel(ylabel)
                 plt.title(title)
                 plt.legend()
-                plt.savefig(savepath + '\\' + savename + '.png')
+                plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight')
                 plt.close()
                 writer = pd.ExcelWriter(savepath + '\\' + peaks_outname + '.xlsx')
                 df[val][indexes].to_frame().to_excel(writer, sheet_name=val + ' peaks')
@@ -133,7 +133,7 @@ def time_series_plot(df, **kwargs):
             plt.ylabel(ylabel)
             plt.title(title)
             plt.legend()
-            plt.savefig(savepath + '\\' + savename + '.png')
+            plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight')
             plt.close()
         else:
             fig, ax = plt.subplots(figsize=figsize)
@@ -219,7 +219,7 @@ def rose_plot(df, **kwargs):
     ax.grid('on', linestyle=':')
     plt.title(title, y=1.08, fontsize=16)
     if savepath is not None:
-        plt.savefig(savepath + '\\' + savename + '.png')
+        plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight')
         plt.close()
 
 
@@ -264,7 +264,7 @@ def joint_plot(df, **kwargs):
             loc='upper right'
         )
     if savepath is not None:
-        plt.savefig(savepath + '\\' + savename + '.png')
+        plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight')
         plt.close()
 
 
@@ -304,5 +304,5 @@ def heatmap(df, **kwargs):
     if yaxflip:
         ax.invert_yaxis()
     if savepath is not None:
-        plt.savefig(savepath + '\\' + savename + '.png')
+        plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight')
         plt.close()
