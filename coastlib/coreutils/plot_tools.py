@@ -48,14 +48,14 @@ def pdf_plot(df, **kwargs):
         dens = sm.nonparametric.KDEUnivariate(a)
         dens.fit()
         fig, ax = plt.subplots(figsize=figsize)
-        ax.hist(a, bins=bins, normed=True, color='lightskyblue', rwidth=0.9, label='Histogram')
-        ax.plot(dens.support, dens.density, lw=2, color='navy', label='Kernel PDF')
+        ax.hist(a, bins=bins, normed=True, color='royalblue', alpha=0.6, rwidth=0.95, label='Histogram')
+        ax.plot(dens.support, dens.density, lw=2, color='orangered', label='Kernel PDF')
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.title(title)
         plt.legend()
         if savepath is not None:
-            plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight')
+            plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight', dpi=600)
             plt.close()
 
 
@@ -113,7 +113,7 @@ def time_series_plot(df, **kwargs):
                 plt.ylabel(ylabel)
                 plt.title(title)
                 plt.legend()
-                plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight')
+                plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight', dpi=600)
                 plt.close()
                 writer = pd.ExcelWriter(savepath + '\\' + peaks_outname + '.xlsx')
                 df[val][indexes].to_frame().to_excel(writer, sheet_name=val + ' peaks')
@@ -133,7 +133,7 @@ def time_series_plot(df, **kwargs):
             plt.ylabel(ylabel)
             plt.title(title)
             plt.legend()
-            plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight')
+            plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight', dpi=600)
             plt.close()
         else:
             fig, ax = plt.subplots(figsize=figsize)
@@ -176,6 +176,8 @@ def rose_plot(df, **kwargs):
         Plot title
     colormap : module link
         Matplotlib colormap (cm.colormap, i.e. cm.viridis)
+    legend : str
+        Legend title.
     """
     direction = kwargs.pop('direction', 'Dp')
     val = kwargs.pop('val', 'Hs')
@@ -219,7 +221,7 @@ def rose_plot(df, **kwargs):
     ax.grid('on', linestyle=':')
     plt.title(title, y=1.08, fontsize=16)
     if savepath is not None:
-        plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight')
+        plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight', dpi=600)
         plt.close()
 
 
@@ -264,13 +266,15 @@ def joint_plot(df, **kwargs):
             loc='upper right'
         )
     if savepath is not None:
-        plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight')
+        plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight', dpi=600)
         plt.close()
 
 
 def heatmap(df, **kwargs):
     """
     Plots heatmap with cell values displayed.
+
+    df : dataframe
 
     figsize : tuple
         Figure size (optional)
@@ -304,5 +308,5 @@ def heatmap(df, **kwargs):
     if yaxflip:
         ax.invert_yaxis()
     if savepath is not None:
-        plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight')
+        plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight', dpi=600)
         plt.close()
