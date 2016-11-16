@@ -3,6 +3,9 @@ import pandas as pd
 import statsmodels.api as sm
 import numpy as np
 import datetime
+import scipy.stats as sps
+import matplotlib.pyplot as plt
+import warnings
 
 
 class DelSepData:
@@ -186,4 +189,325 @@ def associated_value(df, val, par, value, search_range=0.1):
     dens.fit()
     return dens.support[dens.density.argmax()]
 
-"""EVA CLASS"""
+
+class EVA:
+    """
+    Extreme Value Analysis class. Takes a Pandas DataFrame with values. Extracts extreme values.
+    Assists with threshold value selection. Fits data to distributions (GEV or GPD).
+    Returns extreme values' return periods. Generates data plots.
+    """
+    def __init__(self, df, col=None, handle_nans=False):
+        """
+        :param df: DataFrame
+            Pandas DataFrame with column 'col' containing values and indexes as datetime.
+            !CAUTION! Doesn't work with Pandas Series objects (use .to_frame() method on Series).
+        :param col: str
+            Column name for the variable of interest (i.e. 'Spd').
+            Default = None (takes first column as variables).
+        """
+        self.data = df
+        if col is not None:
+            self.col = col
+        else:
+            self.col = df.columns[0]
+        self.extremes = 'NO VALUE! Run the .get_extremes method first.'
+        self.method = 'NO VALUE! Run the .get_extremes method first.'
+        self.threshold = 'NO VALUE! Run the .get_extremes method first.'
+        self.distribution = 'NO VALUE! Run the .fit method first.'
+        self.retvalsum = 'Run the .ret_val_plot method first.'
+        # Calculate number of years in data
+        self.N = len(np.unique(self.data.index.year))
+        if handle_nans:
+            # Handles 999.9
+            self.data = self.data[self.data[self.col] != 999.9]
+            # Handles empty cells
+            self.data = self.data.replace('', 12345.54321)
+            self.data = self.data[self.data[self.col] != 12345.54321]
+            # Handles NaN(np.nan)
+            self.data = self.data[pd.notnull(self.data[self.col])]
+
+    def get_extremes(self, method='POT', **kwargs):
+        """
+        Extracts extreme values.
+
+        :param method: str
+            Extraction method. POT for Peaks Over Threshold, BM for Block Maxima.
+        :param kwargs:
+            u : float
+                Threshold value (POT method only). Default = 90 percentile.
+            r : float
+                Minimum independent event distance (hours) (POT method only). Default = 24 hours.
+            decluster : bool
+                Specify if extreme values are declustered (POT method only). Default = True.
+            block : timedelta
+                Block size (years) (BM method only). Default = 1 year.
+        :return:
+            self.extremes : DataFrame
+                A DataFrame with extracted extreme values.
+        """
+        if method == 'POT':
+            self.method = 'POT'
+            u = kwargs.pop('u', np.percentile(self.data[self.col], 90))
+            r = kwargs.pop('r', 24)
+            decluster = kwargs.pop('decluster', True)
+            assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+            self.extremes = self.data[self.data[self.col] >= u]
+            if decluster:
+                r = datetime.timedelta(hours=r)
+                distances = [self.extremes[self.col].index[i + 1] - self.extremes[self.col].index[i]
+                             for i in range(len(self.extremes) - 1)]
+                cluster_ends = [i for i in range(len(distances)) if distances[i] > r]
+                if len(self.extremes) - 1 not in cluster_ends:
+                    cluster_ends.append(len(self.extremes) - 1)
+                if cluster_ends[0] == 0:
+                    clusters = [self.extremes[self.extremes.index == self.extremes.index[cluster_ends[0]]]]
+                else:
+                    clusters = [self.extremes[self.extremes.index <= self.extremes.index[cluster_ends[0]]]]
+                for i in range(len(cluster_ends) - 1):
+                    clusters += [self.extremes[(self.extremes.index > self.extremes.index[cluster_ends[i]])
+                                               & (self.extremes.index <= self.extremes.index[cluster_ends[i + 1]])]]
+                new_values = []
+                new_indexes = []
+                for i in range(len(clusters)):
+                    value = clusters[i].values[0]
+                    index = clusters[i].index[0]
+                    for j in range(len(clusters[i])):
+                        if clusters[i].values[j][0] > value[0]:
+                            value = clusters[i].values[j]
+                            index = clusters[i].index[j]
+                    new_values += [value]
+                    new_indexes += [index]
+                self.extremes = pd.DataFrame(data=new_values, index=new_indexes, columns=self.data.columns)
+            self.extremes.sort_values(by=self.col, inplace=True)
+            cdf = np.arange(len(self.extremes)) / len(self.extremes)
+            return_periods = self.N / (len(self.extremes) * (1 - cdf))
+            self.extremes['T'] = pd.DataFrame(index=self.extremes.index, data=return_periods)
+            self.extremes.sort_index(inplace=True)
+            self.threshold = u
+        elif method == 'BM':
+            self.method = 'BM'
+            block = kwargs.pop('block', 'year')
+            assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+            if block == 'year':
+                years = np.unique(self.data.index.year)
+                print('Block Maxima method not yet implemented')
+        else:
+            raise ValueError('Unrecognized extremes parsing method. Use POT or BM methods.')
+
+    def pot_residuals(self, u, decluster=True, r=24, save_path=None, name='_DATA_SOURCE_'):
+        """
+        Calculates mean residual life values for different threshold values.
+
+        :param u: list
+            List of threshold to be tested
+        :param plot: bool
+            Plot residuals against threshold values. Default = False
+        :param save_path: str
+            Path to folder. Default = None.
+        :param name: str
+            Plot name.
+        :param decluster: bool
+            Decluster data using the run method.
+        :param r: float
+            Decluster run length (Default = 24 hours).
+        :return:
+        """
+        if decluster:
+            nu = []
+            res_ex_sum = []
+            for i in range(len(u)):
+                self.get_extremes(method='POT', u=u[i], r=r, decluster=True)
+                nu += [len(self.extremes[self.col].values)]
+                res_ex_sum += [self.extremes[self.col].values - u[i]]
+        else:
+            nu = [len(self.data[self.data[self.col] >= i]) for i in u]
+            res_ex_sum = [(self.data[self.data[self.col] >= u[i]][self.col] - u[i]).values for i in range(len(u))]
+        residuals = [(sum(res_ex_sum[i]) / nu[i]) for i in range(len(u))]
+        intervals = [sps.norm.interval(0.95, loc=res_ex_sum[i].mean(), scale=res_ex_sum[i].std() / len(res_ex_sum[i]))
+                     for i in range(len(u))]
+        intervals_u = [intervals[i][0] for i in range(len(intervals))]
+        intervals_l = [intervals[i][1] for i in range(len(intervals))]
+        with plt.style.context('bmh'):
+            plt.figure(figsize=(16, 8))
+            plt.subplot(1, 1, 1)
+            plt.plot(u, residuals, lw=2, color='orangered', label=r'$\textbf{Mean Residual Life}$')
+            plt.fill_between(u, intervals_u, intervals_l, alpha=0.3, color='royalblue',
+                             label=r'$\textbf{95\% confidence interval}$')
+            plt.xlabel(r'$\textbf{Threshold Value}$')
+            plt.ylabel(r'$\textbf{Mean residual Life}$')
+            plt.title(r'$\textbf{{{} Mean Residual Life Plot}}$'.format(name))
+            plt.legend()
+        if save_path is not None:
+            plt.savefig(save_path + '\{} Mean Residual Life.png'.format(name), bbox_inches='tight', dpi=600)
+            plt.close()
+        else:
+            plt.show()
+
+    def empirical_threshold(self, decluster=False, r=24, u_step=0.1, u_start=0):
+        """
+        Get exmpirical threshold extimates for 3 methods: 90% percentile value,
+        square root method, log-method.
+
+        :param decluster:
+            Determine if declustering is used for estimating thresholds.
+            Very computationally intensive.
+        :param r:
+            Declustering run length parameter.
+        :param u_step:
+            Threshold precision.
+        :param u_start:
+            Starting threshold for search (should be below the lowest expected value).
+        :return:
+            DataFrame with threshold summary.
+        """
+        tres = [np.percentile(self.data[self.col].values, 90)]
+        k = int(np.sqrt(len(self.data)))
+        u = u_start
+        if decluster:
+            self.get_extremes(method='POT', u=u, r=r, decluster=True)
+            while len(self.extremes) > k:
+                u += u_start
+                self.get_extremes(method='POT', u=u, r=r, decluster=True)
+        else:
+            self.get_extremes(method='POT', u=u, r=r, decluster=False)
+            while len(self.extremes) > k:
+                u += u_step
+                self.get_extremes(method='POT', u=u, r=r, decluster=False)
+        tres += [u]
+        k = int((len(self.data) ** (2 / 3)) / np.log(np.log(len(self.data))))
+        u = u_start
+        if decluster:
+            self.get_extremes(method='POT', u=u, r=r, decluster=True)
+            while len(self.extremes) > k:
+                u += u_step
+                self.get_extremes(method='POT', u=u, r=r, decluster=True)
+        else:
+            self.get_extremes(method='POT', u=u, r=r, decluster=False)
+            while len(self.extremes) > k:
+                u += u_step
+                self.get_extremes(method='POT', u=u, r=r, decluster=False)
+        tres += [u]
+        return pd.DataFrame(data=tres, index=['90% Quantile', 'Squre Root Rule', 'Logarithm Rule'],
+                            columns=['Threshold'])
+
+    def par_stab_plot(self, u, decluster=True, r=24, save_path=None, name='_DATA_SOURCE_'):
+        fits = []
+        if decluster:
+            for tres in u:
+                self.get_extremes(method='POT', u=tres, r=r, decluster=True)
+                extremes_local = self.extremes[self.col].values - tres
+                fit = sps.genpareto.fit(extremes_local)
+                fits += [fit]
+        else:
+            for tres in u:
+                self.get_extremes(method='POT', u=tres, r=r, decluster=False)
+                extremes_local = self.extremes[self.col].values - tres
+                fit = sps.genpareto.fit(extremes_local)
+                fits += [fit]
+        shapes = [x[0] for x in fits]
+        scales = [x[2] for x in fits]
+        scales_mod = [scales[i] - shapes[i] * u[i] for i in range(len(u))]
+        with plt.style.context('bmh'):
+            plt.figure(figsize=(16, 8))
+            plt.subplot(1, 2, 1)
+            plt.plot(u, shapes, lw=2, color='orangered', label=r'$\textbf{Shape Parameter}$')
+            plt.xlabel(r'$\textbf{Threshold Value}$')
+            plt.ylabel(r'$\textbf{Shape Parameter}$')
+            plt.subplot(1, 2, 2)
+            plt.plot(u, scales_mod, lw=2, color='orangered', label=r'$\textbf{Modified Scale Parameter}$')
+            plt.xlabel(r'$\textbf{Threshold Value}$')
+            plt.ylabel(r'$\textbf{Modified Scale Parameter}$')
+            plt.suptitle(r'$\textbf{{{} Parameter Stability Plot}}$'.format(name))
+        if save_path is not None:
+            plt.savefig(save_path + '\{} Parameter Stability Plot.png'.format(name), bbox_inches='tight', dpi=600)
+            plt.close()
+        else:
+            plt.show()
+
+    def fit(self, distribution='GPD', confidence=True, k=10**4, **kwargs):
+        """
+
+        :param distribution:
+        :param confidence: bool
+            Expected wait time 20 minutes.
+        :param k:
+        :return:
+        """
+        t = kwargs.pop('t', self.N)
+        def ret_val(t, param, rate, u):
+            shape = param[0]
+            loc = param[1]
+            scale = param[2]
+            prob = 1 - 1 / (rate * t)
+            return u + sps.genpareto.ppf(prob, c=shape, loc=loc, scale=scale)
+        self.distribution = distribution
+        if self.distribution == 'GPD':
+            if self.method != 'POT':
+                warnings.warn('Generalized pareto distribution is valid'
+                              ' only for the peaks over threshold extreme value extraction method.')
+            parameters = sps.genpareto.fit(self.extremes[self.col].values - self.threshold)
+            rp = np.logspace(0, 3, num=100)
+            rp = np.append(rp, [2, 5, 10, 25, 50, 100, 200, 500])
+            rate = len(self.extremes) / self.N
+            rv = np.array([ret_val(t, param=parameters, rate=rate, u=self.threshold) for t in rp])
+            self.retvalsum = pd.DataFrame(data=rv, index=rp, columns=['Return Value'])
+            self.retvalsum.index.name = 'Return Period'
+            if confidence:
+                ms = sps.poisson.rvs(int(rate * t), size=k)
+                samples = [sps.genpareto.rvs(parameters[0], loc=parameters[1], scale=parameters[2], size=n)
+                           for n in ms]
+                ms_rate = ms / t
+                fits = [sps.genpareto.fit(x) for x in samples]
+                ms_retvals = [np.array([ret_val(per, param=fits[i], rate=ms_rate[i], u=self.threshold) for per in rp])
+                              for i in range(k)]
+                # Discard elements (magic starts here)
+                uplim = ret_val(10 ** 4 * rp.max(), param=parameters, rate=rate, u=self.threshold)
+                lowlim = 2 * rv.max() - uplim
+                for i in range(k):
+                    x = ms_retvals[i]
+                    if len(x[x > uplim]) > 0 or len(x[x < lowlim]) > 0:
+                        ms_retvals[i] = 'None'
+                ms_retvals_f = []
+                for i in range(k):
+                    if type(ms_retvals[i]).__module__ == np.__name__:
+                        ms_retvals_f += [ms_retvals[i]]
+                # End of magic
+                ms_retvals_pivot = [np.array([ms_retvals_f[i][j] for i in range(len(ms_retvals_f))])
+                                    for j in range(len(rp))]
+                means = [x.mean() for x in ms_retvals_pivot]
+                stds = [x.std() for x in ms_retvals_pivot]
+                # Change rv[i] to means[i] below for large sets
+                intervals = [sps.norm.interval(alpha=0.95, loc=rv[i], scale=stds[i] / np.sqrt(k))
+                             for i in range(len(rp))]
+                upper = [x[1] for x in intervals]
+                lower = [x[0] for x in intervals]
+                self.retvalsum['Upper'] = pd.Series(data=upper, index=rp)
+                self.retvalsum['Lower'] = pd.Series(data=lower, index=rp)
+            self.retvalsum.sort_index(inplace=True)
+
+    def ret_val_plot(self, confidence=False, save_path=None, name='_DATA_SOURCE_'):
+        with plt.style.context('bmh'):
+            plt.figure(figsize=(16, 8))
+            plt.subplot(1, 1, 1)
+            plt.scatter(self.extremes['T'].values, self.extremes[self.col].values, s=20, linewidths=1,
+                        marker='o', facecolor='None', edgecolors='royalblue', label=r'$\textbf{Extreme Values}$')
+            plt.plot(self.retvalsum.index.values, self.retvalsum['Return Value'].values,
+                     lw=2, color='orangered', label=r'$\textbf{GPD Fit}$')
+            if confidence:
+                plt.fill_between(self.retvalsum.index.values, self.retvalsum['Upper'].values,
+                                 self.retvalsum['Lower'].values, alpha=0.3, color='royalblue',
+                                 label=r'$\textbf{95\% confidence interval}$')
+            plt.xscale('log')
+            plt.xlabel(r'$\textbf{Return Period}\, [\textit{years}]$')
+            plt.ylabel(r'$\textbf{Return Value}\, [\textit{m/s}]$')
+            plt.title(r'$\textbf{{{0} {1} Return Values Plot}}$'.format(name, self.distribution))
+            plt.legend()
+            if save_path is not None:
+                plt.savefig(save_path + '\{0} {1} Return Values Plot.png'.format(name, self.distribution),
+                            bbox_inches='tight', dpi=600)
+                plt.close()
+            else:
+                plt.show()
+
+    def dens_fit_plot(self, distribution='GPD'):
+        'Fit the density plot'
