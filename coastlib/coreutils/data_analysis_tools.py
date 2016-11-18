@@ -193,7 +193,7 @@ def associated_value(df, val, par, value, search_range=0.1):
 class EVA:
     """
     Extreme Value Analysis class. Takes a Pandas DataFrame with values. Extracts extreme values.
-    Assists with threshold value selection. Fits data to distributions (GEV or GPD).
+    Assists with threshold value selection. Fits data to distributions (GPD).
     Returns extreme values' return periods. Generates data plots.
     """
     def __init__(self, df, col=None, handle_nans=False):
@@ -391,6 +391,19 @@ class EVA:
                             columns=['Threshold'])
 
     def par_stab_plot(self, u, decluster=True, r=24, save_path=None, name='_DATA_SOURCE_'):
+        """
+        Generates a parameter stability plot for the a range of thresholds u.
+        :param u: list or array
+            List of threshold values.
+        :param decluster: bool
+            Use run method to decluster data 9default = True)
+        :param r: float
+            Run lengths (hours), specify if decluster=True.
+        :param save_path: str
+            Path to save folder.
+        :param name: str
+            File save name.
+        """
         fits = []
         if decluster:
             for tres in u:
@@ -424,14 +437,18 @@ class EVA:
         else:
             plt.show()
 
-    def fit(self, distribution='GPD', confidence=True, k=10**4, **kwargs):
+    def fit(self, distribution='GPD', confidence=False, k=10**4, **kwargs):
         """
-
+        Fits distribution to data and generates a summary dataframe (required for plots).
         :param distribution:
+            Distribution name (default 'GPD')
         :param confidence: bool
-            Expected wait time 20 minutes.
+            Calculate 95% confidence limits using the Monte Carlo simulation (WARNING! VERY RESOURCE HUNGRY!).
+            Be cautious with interpreting the 95% confidence limits.
         :param k:
-        :return:
+            Number of Monte Carlo simulations (default k=10^4, try 10^2 before commiting for 10^4).
+        :return: DataFrame
+            self.retvalsum summary dataframe with fitted distribution and 95% confidence limits.
         """
         t = kwargs.pop('t', self.N)
         def ret_val(t, param, rate, u):
@@ -487,6 +504,20 @@ class EVA:
             self.retvalsum.sort_index(inplace=True)
 
     def ret_val_plot(self, confidence=False, save_path=None, name='_DATA_SOURCE_', **kwargs):
+        """
+        Creates return value plot (return periods vs return values)
+
+        :param confidence: bool
+            True if confidence limits were calculated in the .fit() method.
+        :param save_path: str
+        :param name: str
+        :param kwargs:
+            unit: str
+                Return value unit (i.e. m/s) default = unit
+            ylim: tuple
+                Y axis limits (to avoid showing entire confidence limit range). Default=(0, ReturnValues.max()).
+        :return:
+        """
         unit = kwargs.pop('unit', 'unit')
         ylim = kwargs.pop('ylim', (0, int(self.retvalsum['Return Value'].values.max())))
         with plt.style.context('bmh'):
@@ -514,4 +545,10 @@ class EVA:
                 plt.show()
 
     def dens_fit_plot(self, distribution='GPD'):
-        'Fit the density plot'
+        """
+        Probability density plot. Histogram of extremes with fit overlay.
+
+        :param distribution:
+        :return:
+        """
+        warnings.warn('Not yet implemented')
