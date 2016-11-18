@@ -461,12 +461,13 @@ class EVA:
                 ms_retvals = [np.array([ret_val(per, param=fits[i], rate=ms_rate[i], u=self.threshold) for per in rp])
                               for i in range(k)]
                 # Discard elements (magic starts here)
-                uplim = ret_val(10 ** 4 * rp.max(), param=parameters, rate=rate, u=self.threshold)
-                lowlim = 2 * rv.max() - uplim
+                uplims = [ret_val(10 ** 4 * x, param=parameters, rate=rate, u=self.threshold) for x in rp]
                 for i in range(k):
                     x = ms_retvals[i]
-                    if len(x[x > uplim]) > 0 or len(x[x < lowlim]) > 0:
-                        ms_retvals[i] = 'None'
+                    for j in range(len(x)):
+                        if x[j] >= uplims[j]:
+                            ms_retvals[i] = 'None'
+                            break
                 ms_retvals_f = []
                 for i in range(k):
                     if type(ms_retvals[i]).__module__ == np.__name__:
@@ -485,7 +486,9 @@ class EVA:
                 self.retvalsum['Lower'] = pd.Series(data=lower, index=rp)
             self.retvalsum.sort_index(inplace=True)
 
-    def ret_val_plot(self, confidence=False, save_path=None, name='_DATA_SOURCE_'):
+    def ret_val_plot(self, confidence=False, save_path=None, name='_DATA_SOURCE_', **kwargs):
+        unit = kwargs.pop('unit', 'unit')
+        ylim = kwargs.pop('ylim', (0, int(self.retvalsum['Return Value'].values.max())))
         with plt.style.context('bmh'):
             plt.figure(figsize=(16, 8))
             plt.subplot(1, 1, 1)
@@ -499,8 +502,9 @@ class EVA:
                                  label=r'$\textbf{95\% confidence interval}$')
             plt.xscale('log')
             plt.xlabel(r'$\textbf{Return Period}\, [\textit{years}]$')
-            plt.ylabel(r'$\textbf{Return Value}\, [\textit{m/s}]$')
+            plt.ylabel(r'$\textbf{{Return Value}}\, [\textit{{{0}}}]$'.format(unit))
             plt.title(r'$\textbf{{{0} {1} Return Values Plot}}$'.format(name, self.distribution))
+            plt.ylim(ylim)
             plt.legend()
             if save_path is not None:
                 plt.savefig(save_path + '\{0} {1} Return Values Plot.png'.format(name, self.distribution),
