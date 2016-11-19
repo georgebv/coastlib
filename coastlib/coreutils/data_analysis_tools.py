@@ -214,7 +214,7 @@ class EVA:
         self.method = 'NO VALUE! Run the .get_extremes method first.'
         self.threshold = 'NO VALUE! Run the .get_extremes method first.'
         self.distribution = 'NO VALUE! Run the .fit method first.'
-        self.retvalsum = 'Run the .ret_val_plot method first.'
+        self.retvalsum = 'Run the .fit method first.'
         # Calculate number of years in data
         self.N = len(np.unique(self.data.index.year))
         if handle_nans:
@@ -437,71 +437,64 @@ class EVA:
         else:
             plt.show()
 
-    def fit(self, distribution='GPD', confidence=False, k=10**4, **kwargs):
+    def fit(self, distribution='GPD', confidence=False, k=10**4, trunc=True):
         """
         Fits distribution to data and generates a summary dataframe (required for plots).
         :param distribution:
             Distribution name (default 'GPD')
         :param confidence: bool
-            Calculate 95% confidence limits using the Monte Carlo simulation (WARNING! VERY RESOURCE HUNGRY!).
+            Calculate 95% confidence limits using Monte Carlo simulation
+            !!!!    (WARNING! Might be time consuming for large k)    !!!!
             Be cautious with interpreting the 95% confidence limits.
-        :param k:
-            Number of Monte Carlo simulations (default k=10^4, try 10^2 before commiting for 10^4).
+        :param k: int
+            Number of Monte Carlo simulations (default k=10^4, try 10^2 before committing to 10^4).
+        :param trunc: bool
+            Truncate Monte Carlo generated fits by discarding fits with return values larger
+            than the values for "true" fit for return periods multiplied by *k* (i.e. discards "bad" fits)
         :return: DataFrame
             self.retvalsum summary dataframe with fitted distribution and 95% confidence limits.
         """
-        t = kwargs.pop('t', self.N)
-        def ret_val(t, param, rate, u):
-            shape = param[0]
-            loc = param[1]
-            scale = param[2]
-            prob = 1 - 1 / (rate * t)
-            return u + sps.genpareto.ppf(prob, c=shape, loc=loc, scale=scale)
         self.distribution = distribution
+        def ret_val(t, param, rate, u):
+            return u + sps.genpareto.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
         if self.distribution == 'GPD':
             if self.method != 'POT':
                 warnings.warn('Generalized pareto distribution is valid'
                               ' only for the peaks over threshold extreme value extraction method.')
             parameters = sps.genpareto.fit(self.extremes[self.col].values - self.threshold)
-            rp = np.logspace(0, 3, num=100)
-            rp = np.append(rp, [2, 5, 10, 25, 50, 100, 200, 500])
+            rp = np.unique(np.append(np.logspace(-1, 3, num=30), [2, 5, 10, 25, 50, 100, 200, 500]))
             rate = len(self.extremes) / self.N
-            rv = np.array([ret_val(t, param=parameters, rate=rate, u=self.threshold) for t in rp])
+            rv = ret_val(rp, param=parameters, rate=rate, u=self.threshold)
             self.retvalsum = pd.DataFrame(data=rv, index=rp, columns=['Return Value'])
             self.retvalsum.index.name = 'Return Period'
             if confidence:
-                ms = sps.poisson.rvs(int(rate * t), size=k)
-                samples = [sps.genpareto.rvs(parameters[0], loc=parameters[1], scale=parameters[2], size=n)
-                           for n in ms]
-                ms_rate = ms / t
-                fits = [sps.genpareto.fit(x) for x in samples]
-                ms_retvals = [np.array([ret_val(per, param=fits[i], rate=ms_rate[i], u=self.threshold) for per in rp])
-                              for i in range(k)]
-                # Discard elements (magic starts here)
-                uplims = [ret_val(10 ** 4 * x, param=parameters, rate=rate, u=self.threshold) for x in rp]
-                for i in range(k):
-                    x = ms_retvals[i]
-                    for j in range(len(x)):
-                        if x[j] >= uplims[j]:
-                            ms_retvals[i] = 'None'
-                            break
-                ms_retvals_f = []
-                for i in range(k):
-                    if type(ms_retvals[i]).__module__ == np.__name__:
-                        ms_retvals_f += [ms_retvals[i]]
-                # End of magic
-                ms_retvals_pivot = [np.array([ms_retvals_f[i][j] for i in range(len(ms_retvals_f))])
-                                    for j in range(len(rp))]
-                means = [x.mean() for x in ms_retvals_pivot]
-                stds = [x.std() for x in ms_retvals_pivot]
-                # Change rv[i] to means[i] below for large sets
-                intervals = [sps.norm.interval(alpha=0.95, loc=rv[i], scale=stds[i] / np.sqrt(k))
-                             for i in range(len(rp))]
-                upper = [x[1] for x in intervals]
-                lower = [x[0] for x in intervals]
-                self.retvalsum['Upper'] = pd.Series(data=upper, index=rp)
-                self.retvalsum['Lower'] = pd.Series(data=lower, index=rp)
-            self.retvalsum.sort_index(inplace=True)
+                lex = len(self.extremes)
+                # Monte Carlo return values generator
+                def montefit():
+                    loc_lex = sps.poisson.rvs(lex)
+                    sample = sps.genpareto.rvs(parameters[0], loc=parameters[1], scale=parameters[2], size=loc_lex)
+                    loc_rate = loc_lex / self.N
+                    loc_param = sps.genpareto.fit(sample, floc=parameters[1])
+                    return ret_val(rp, param=loc_param, rate=loc_rate, u=self.threshold)
+                sims = 0
+                mrv = []
+                if trunc:
+                    uplims = ret_val(k * rp, param=parameters, rate=rate, u=self.threshold)
+                    while sims < k:
+                        x = montefit()
+                        if (x > uplims).sum() == 0:
+                            mrv += [x]
+                        sims += 1
+                else:
+                    while sims < k:
+                        mrv += [montefit()]
+                        sims += 1
+                mrv_pivot = [[mrv[i][j] for i in range(len(mrv))] for j in range(len(rp))]
+                moments = [sps.norm.fit(x) for x in mrv_pivot]
+                intervals = [sps.norm.interval(alpha=0.95, loc=x[0], scale=x[1]) for x in moments]
+                self.retvalsum['Lower'] = pd.Series(data=[x[0] for x in intervals], index=rp)
+                self.retvalsum['Upper'] = pd.Series(data=[x[1] for x in intervals], index=rp)
+            self.retvalsum.dropna(inplace=True)
 
     def ret_val_plot(self, confidence=False, save_path=None, name='_DATA_SOURCE_', **kwargs):
         """
@@ -535,6 +528,7 @@ class EVA:
             plt.xlabel(r'$\textbf{Return Period}\, [\textit{years}]$')
             plt.ylabel(r'$\textbf{{Return Value}}\, [\textit{{{0}}}]$'.format(unit))
             plt.title(r'$\textbf{{{0} {1} Return Values Plot}}$'.format(name, self.distribution))
+            plt.xlim((0, self.retvalsum.index.values.max()))
             plt.ylim(ylim)
             plt.legend()
             if save_path is not None:
