@@ -243,7 +243,7 @@ class EVA:
                 Block size (years) (BM method only). Default = 1 year.
         :return:
             self.extremes : DataFrame
-                A DataFrame with extracted extreme values.
+                A DataFrame with extracted extreme values and Weibull return periods.
         """
         if method == 'POT':
             self.method = 'POT'
@@ -280,7 +280,7 @@ class EVA:
                 self.extremes = pd.DataFrame(data=new_values, index=new_indexes, columns=self.data.columns)
             self.extremes.sort_values(by=self.col, inplace=True)
             cdf = np.arange(len(self.extremes)) / len(self.extremes)
-            return_periods = self.N / (len(self.extremes) * (1 - cdf))
+            return_periods = (self.N + 1) / (len(self.extremes) * (1 - cdf))
             self.extremes['T'] = pd.DataFrame(index=self.extremes.index, data=return_periods)
             self.extremes.sort_index(inplace=True)
             self.threshold = u
@@ -437,7 +437,7 @@ class EVA:
         else:
             plt.show()
 
-    def fit(self, distribution='GPD', confidence=False, k=10**4, trunc=True):
+    def fit(self, distribution='GPD', confidence=False, k=10**2, trunc=True):
         """
         Fits distribution to data and generates a summary dataframe (required for plots).
         :param distribution:
