@@ -196,7 +196,7 @@ class EVA:
     Assists with threshold value selection. Fits data to distributions (GPD).
     Returns extreme values' return periods. Generates data plots.
     """
-    def __init__(self, df, col=None, handle_nans=False):
+    def __init__(self, df, col=None, handle_nans=False, usetex=False):
         """
         :param df: DataFrame
             Pandas DataFrame with column 'col' containing values and indexes as datetime.
@@ -215,6 +215,7 @@ class EVA:
         self.threshold = 'NO VALUE! Run the .get_extremes method first.'
         self.distribution = 'NO VALUE! Run the .fit method first.'
         self.retvalsum = 'Run the .fit method first.'
+        self.usetex = usetex
         # Calculate number of years in data
         self.N = len(np.unique(self.data.index.year))
         if handle_nans:
@@ -330,12 +331,20 @@ class EVA:
         with plt.style.context('bmh'):
             plt.figure(figsize=(16, 8))
             plt.subplot(1, 1, 1)
-            plt.plot(u, residuals, lw=2, color='orangered', label=r'$\textbf{Mean Residual Life}$')
-            plt.fill_between(u, intervals_u, intervals_l, alpha=0.3, color='royalblue',
-                             label=r'$\textbf{95\% confidence interval}$')
-            plt.xlabel(r'$\textbf{Threshold Value}$')
-            plt.ylabel(r'$\textbf{Mean residual Life}$')
-            plt.title(r'$\textbf{{{} Mean Residual Life Plot}}$'.format(name))
+            if self.usetex:
+                plt.plot(u, residuals, lw=2, color='orangered', label=r'$\textbf{Mean Residual Life}$')
+                plt.fill_between(u, intervals_u, intervals_l, alpha=0.3, color='royalblue',
+                                 label=r'$\textbf{95\% confidence interval}$')
+                plt.xlabel(r'$\textbf{Threshold Value}$')
+                plt.ylabel(r'$\textbf{Mean residual Life}$')
+                plt.title(r'$\textbf{{{} Mean Residual Life Plot}}$'.format(name))
+            else:
+                plt.plot(u, residuals, lw=2, color='orangered', label=r'Mean Residual Life')
+                plt.fill_between(u, intervals_u, intervals_l, alpha=0.3, color='royalblue',
+                                 label=r'95% confidence interval')
+                plt.xlabel(r'Threshold Value$')
+                plt.ylabel(r'Mean residual Life')
+                plt.title(r'{} Mean Residual Life Plot'.format(name))
             plt.legend()
         if save_path is not None:
             plt.savefig(save_path + '\{} Mean Residual Life.png'.format(name), bbox_inches='tight', dpi=600)
@@ -423,14 +432,24 @@ class EVA:
         with plt.style.context('bmh'):
             plt.figure(figsize=(16, 8))
             plt.subplot(1, 2, 1)
-            plt.plot(u, shapes, lw=2, color='orangered', label=r'$\textbf{Shape Parameter}$')
-            plt.xlabel(r'$\textbf{Threshold Value}$')
-            plt.ylabel(r'$\textbf{Shape Parameter}$')
-            plt.subplot(1, 2, 2)
-            plt.plot(u, scales_mod, lw=2, color='orangered', label=r'$\textbf{Modified Scale Parameter}$')
-            plt.xlabel(r'$\textbf{Threshold Value}$')
-            plt.ylabel(r'$\textbf{Modified Scale Parameter}$')
-            plt.suptitle(r'$\textbf{{{} Parameter Stability Plot}}$'.format(name))
+            if self.usetex:
+                plt.plot(u, shapes, lw=2, color='orangered', label=r'$\textbf{Shape Parameter}$')
+                plt.xlabel(r'$\textbf{Threshold Value}$')
+                plt.ylabel(r'$\textbf{Shape Parameter}$')
+                plt.subplot(1, 2, 2)
+                plt.plot(u, scales_mod, lw=2, color='orangered', label=r'$\textbf{Modified Scale Parameter}$')
+                plt.xlabel(r'$\textbf{Threshold Value}$')
+                plt.ylabel(r'$\textbf{Modified Scale Parameter}$')
+                plt.suptitle(r'$\textbf{{{} Parameter Stability Plot}}$'.format(name))
+            else:
+                plt.plot(u, shapes, lw=2, color='orangered', label=r'Shape Parameter')
+                plt.xlabel(r'Threshold Value')
+                plt.ylabel(r'Shape Parameter')
+                plt.subplot(1, 2, 2)
+                plt.plot(u, scales_mod, lw=2, color='orangered', label=r'Modified Scale Parameter')
+                plt.xlabel(r'Threshold Value')
+                plt.ylabel(r'Modified Scale Parameter')
+                plt.suptitle(r'{} Parameter Stability Plot'.format(name))
         if save_path is not None:
             plt.savefig(save_path + '\{} Parameter Stability Plot.png'.format(name), bbox_inches='tight', dpi=600)
             plt.close()
@@ -484,7 +503,7 @@ class EVA:
                         x = montefit()
                         if (x > uplims).sum() == 0:
                             mrv += [x]
-                        sims += 1
+                            sims += 1
                 else:
                     while sims < k:
                         mrv += [montefit()]
@@ -516,18 +535,32 @@ class EVA:
         with plt.style.context('bmh'):
             plt.figure(figsize=(16, 8))
             plt.subplot(1, 1, 1)
-            plt.scatter(self.extremes['T'].values, self.extremes[self.col].values, s=20, linewidths=1,
-                        marker='o', facecolor='None', edgecolors='royalblue', label=r'$\textbf{Extreme Values}$')
-            plt.plot(self.retvalsum.index.values, self.retvalsum['Return Value'].values,
-                     lw=2, color='orangered', label=r'$\textbf{GPD Fit}$')
-            if confidence:
-                plt.fill_between(self.retvalsum.index.values, self.retvalsum['Upper'].values,
-                                 self.retvalsum['Lower'].values, alpha=0.3, color='royalblue',
-                                 label=r'$\textbf{95\% confidence interval}$')
-            plt.xscale('log')
-            plt.xlabel(r'$\textbf{Return Period}\, [\textit{years}]$')
-            plt.ylabel(r'$\textbf{{Return Value}}\, [\textit{{{0}}}]$'.format(unit))
-            plt.title(r'$\textbf{{{0} {1} Return Values Plot}}$'.format(name, self.distribution))
+            if self.usetex:
+                plt.scatter(self.extremes['T'].values, self.extremes[self.col].values, s=20, linewidths=1,
+                            marker='o', facecolor='None', edgecolors='royalblue', label=r'$\textbf{Extreme Values}$')
+                plt.plot(self.retvalsum.index.values, self.retvalsum['Return Value'].values,
+                         lw=2, color='orangered', label=r'$\textbf{GPD Fit}$')
+                if confidence:
+                    plt.fill_between(self.retvalsum.index.values, self.retvalsum['Upper'].values,
+                                     self.retvalsum['Lower'].values, alpha=0.3, color='royalblue',
+                                     label=r'$\textbf{95\% confidence interval}$')
+                plt.xscale('log')
+                plt.xlabel(r'$\textbf{Return Period}\, [\textit{years}]$')
+                plt.ylabel(r'$\textbf{{Return Value}}\, [\textit{{{0}}}]$'.format(unit))
+                plt.title(r'$\textbf{{{0} {1} Return Values Plot}}$'.format(name, self.distribution))
+            else:
+                plt.scatter(self.extremes['T'].values, self.extremes[self.col].values, s=20, linewidths=1,
+                            marker='o', facecolor='None', edgecolors='royalblue', label=r'Extreme Values')
+                plt.plot(self.retvalsum.index.values, self.retvalsum['Return Value'].values,
+                         lw=2, color='orangered', label=r'GPD Fit')
+                if confidence:
+                    plt.fill_between(self.retvalsum.index.values, self.retvalsum['Upper'].values,
+                                     self.retvalsum['Lower'].values, alpha=0.3, color='royalblue',
+                                     label=r'95% confidence interval')
+                plt.xscale('log')
+                plt.xlabel(r'Return Period [years]')
+                plt.ylabel(r'Return Value [{0}]'.format(unit))
+                plt.title(r'{0} {1} Return Values Plot'.format(name, self.distribution))
             plt.xlim((0, self.retvalsum.index.values.max()))
             plt.ylim(ylim)
             plt.legend()
