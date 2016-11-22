@@ -460,11 +460,12 @@ class EVA:
         """
         Fits distribution to data and generates a summary dataframe (required for plots).
         :param distribution:
-            Distribution name (default 'GPD')
+            Distribution name (default 'GPD'). Available: GPD, GEV, Gumbel, Wibull, log-normal, Pearson 3
         :param confidence: bool
             Calculate 95% confidence limits using Monte Carlo simulation
             !!!!    (WARNING! Might be time consuming for large k)    !!!!
             Be cautious with interpreting the 95% confidence limits.
+            Implemented for GPD, GEV
         :param k: int
             Number of Monte Carlo simulations (default k=10^4, try 10^2 before committing to 10^4).
         :param trunc: bool
@@ -477,29 +478,53 @@ class EVA:
         if self.distribution == 'GPD':
             def ret_val(t, param, rate, u):
                 return u + sps.genpareto.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
-            if self.method != 'POT':
-                warnings.warn('Generalized pareto distribution is valid'
-                              ' only for the peaks over threshold extreme value extraction method.')
             parameters = sps.genpareto.fit(self.extremes[self.col].values - self.threshold)
-            rp = np.unique(np.append(np.logspace(-1, 3, num=30), [2, 5, 10, 25, 50, 100, 200, 500]))
-            rate = len(self.extremes) / self.N
-            rv = ret_val(rp, param=parameters, rate=rate, u=self.threshold)
-            self.retvalsum = pd.DataFrame(data=rv, index=rp, columns=['Return Value'])
-            self.retvalsum.index.name = 'Return Period'
         elif self.distribution == 'GEV':
-            print('Not yet')
+            def ret_val(t, param, rate, u):
+                return u + sps.genextreme.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
+            parameters = sps.genextreme.fit(self.extremes[self.col].values - self.threshold)
+        elif self.distribution == 'Gumbel':
+            def ret_val(t, param, rate, u):
+                return u + sps.gumbel_r.ppf(1 - 1 / (rate * t), loc=param[0], scale=param[1])
+            parameters = sps.gumbel_r.fit(self.extremes[self.col].values - self.threshold)
+        elif self.distribution == 'Weibull':
+            def ret_val(t, param, rate, u):
+                return u + sps.weibull_min.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
+            parameters = sps.weibull_min.fit(self.extremes[self.col].values - self.threshold)
+        elif self.distribution == 'log-normal':
+            def ret_val(t, param, rate, u):
+                return u + sps.lognorm.ppf(1 - 1 / (rate * t), s=param[0], loc=param[1], scale=param[2])
+            parameters = sps.lognorm.fit(self.extremes[self.col].values - self.threshold)
+        elif self.distribution == 'Pearson 3':
+            def ret_val(t, param, rate, u):
+                return u + sps.pearson3.ppf(1 - 1 / (rate * t), skew=param[0], loc=param[1], scale=param[2])
+            parameters = sps.pearson3.fit(self.extremes[self.col].values - self.threshold)
+        else:
+            raise ValueError('Distribution type not recognized.')
+        rp = np.unique(np.append(np.logspace(-1, 3, num=30), [2, 5, 10, 25, 50, 100, 200, 500]))
+        rate = len(self.extremes) / self.N
+        rv = ret_val(rp, param=parameters, rate=rate, u=self.threshold)
+        self.retvalsum = pd.DataFrame(data=rv, index=rp, columns=['Return Value'])
+        self.retvalsum.index.name = 'Return Period'
         if confidence:
             lex = len(self.extremes)
             # Monte Carlo return values generator
             if self.distribution == 'GPD':
                 def montefit():
                     loc_lex = sps.poisson.rvs(lex)
-                    sample = sps.genpareto.rvs(parameters[0], loc=parameters[1], scale=parameters[2], size=loc_lex)
+                    sample = sps.genpareto.rvs(c=parameters[0], loc=parameters[1], scale=parameters[2], size=loc_lex)
                     loc_rate = loc_lex / self.N
                     loc_param = sps.genpareto.fit(sample, floc=parameters[1])
                     return ret_val(rp, param=loc_param, rate=loc_rate, u=self.threshold)
             elif self.distribution == 'GEV':
-                print('Not yet')
+                def montefit():
+                    loc_lex = sps.poisson.rvs(lex)
+                    sample = sps.genextreme.rvs(c=parameters[0], loc=parameters[1], scale=parameters[2], size=loc_lex)
+                    loc_rate = loc_lex / self.N
+                    loc_param = sps.genextreme.fit(sample, floc=parameters[1])
+                    return ret_val(rp, param=loc_param, rate=loc_rate, u=self.threshold)
+            else:
+                raise ValueError('Distribution type not recognized.')
             sims = 0
             mrv = []
             if trunc:
