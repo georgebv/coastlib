@@ -190,6 +190,7 @@ def associated_value(df, val, par, value, search_range=0.1):
     return dens.support[dens.density.argmax()]
 
 
+# noinspection PyTypeChecker,PyUnresolvedReferences
 class EVA:
     """
     Extreme Value Analysis class. Takes a Pandas DataFrame with values. Extracts extreme values.
@@ -198,23 +199,28 @@ class EVA:
     """
     def __init__(self, df, col=None, handle_nans=False, usetex=False):
         """
-        :param df: DataFrame
-            Pandas DataFrame with column 'col' containing values and indexes as datetime.
-            !CAUTION! Doesn't work with Pandas Series objects (use .to_frame() method on Series).
+        :param df: DataFrame or Series
+            Pandas DataFrame or Series object with column 'col' containing values and indexes as datetime.
         :param col: str
             Column name for the variable of interest (i.e. 'Spd').
-            Default = None (takes first column as variables).
+            Default = None (takes first column as variables = df.columns[0]).
         """
-        self.data = df
+        if type(df) != type(pd.DataFrame()):
+            try:
+                self.data = df.to_frame()
+            except:
+                raise ValueError('Invalid data type in <df>. This class takes only Pandas DataFrame or Series objects.')
+        else:
+            self.data = df
         if col is not None:
             self.col = col
         else:
             self.col = df.columns[0]
-        self.extremes = 'NO VALUE! Run the .get_extremes method first.'
-        self.method = 'NO VALUE! Run the .get_extremes method first.'
-        self.threshold = 'NO VALUE! Run the .get_extremes method first.'
-        self.distribution = 'NO VALUE! Run the .fit method first.'
-        self.retvalsum = 'Run the .fit method first.'
+        self.extremes = 'NO VALUE! Run the .get_extremes() method first.'
+        self.method = 'NO VALUE! Run the .get_extremes() method first.'
+        self.threshold = 'NO VALUE! Run the .get_extremes() method first.'
+        self.distribution = 'NO VALUE! Run the .fit() method first.'
+        self.retvalsum = 'Run the .fit() method first.'
         self.usetex = usetex
         # Calculate number of years in data
         self.N = len(np.unique(self.data.index.year))
@@ -279,21 +285,30 @@ class EVA:
                     new_values += [value]
                     new_indexes += [index]
                 self.extremes = pd.DataFrame(data=new_values, index=new_indexes, columns=self.data.columns)
-            self.extremes.sort_values(by=self.col, inplace=True)
-            cdf = np.arange(len(self.extremes)) / len(self.extremes)
-            return_periods = (self.N + 1) / (len(self.extremes) * (1 - cdf))
-            self.extremes['T'] = pd.DataFrame(index=self.extremes.index, data=return_periods)
-            self.extremes.sort_index(inplace=True)
             self.threshold = u
         elif method == 'BM':
             self.method = 'BM'
-            block = kwargs.pop('block', 'year')
+            block = kwargs.pop('block', 'Y')
             assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
-            if block == 'year':
-                years = np.unique(self.data.index.year)
-                print('Block Maxima method not yet implemented')
+            years = np.unique(self.data.index.year)
+            # months = np.array([np.unique(self.data[self.data.index.year == year].index.month) for year in years])
+            if block == 'Y':
+                bmextremes = [self.data[self.data.index.year == year] for year in years]
+                bmextremes = [x[x[self.col] == x[self.col].max()] for x in bmextremes]
+                self.extremes = pd.concat(bmextremes)
+            elif block == 'M':
+                raise NotImplementedError('Not yet implemented')
+            elif block == 'W':
+                raise NotImplementedError('Not yet implemented')
+            else:
+                raise ValueError('Unrecognized block size')
         else:
             raise ValueError('Unrecognized extremes parsing method. Use POT or BM methods.')
+        self.extremes.sort_values(by=self.col, inplace=True)
+        cdf = np.arange(len(self.extremes)) / len(self.extremes)
+        return_periods = (self.N + 1) / (len(self.extremes) * (1 - cdf))
+        self.extremes['T'] = pd.DataFrame(index=self.extremes.index, data=return_periods)
+        self.extremes.sort_index(inplace=True)
 
     def pot_residuals(self, u, decluster=True, r=24, save_path=None, name='_DATA_SOURCE_'):
         """
@@ -458,6 +473,8 @@ class EVA:
 
     def fit(self, distribution='GPD', confidence=False, k=10**2, trunc=True):
         """
+        Implemented: GEV, GPD
+
         Fits distribution to data and generates a summary dataframe (required for plots).
         :param distribution:
             Distribution name (default 'GPD'). Available: GPD, GEV, Gumbel, Wibull, log-normal, Pearson 3
@@ -476,14 +493,25 @@ class EVA:
         """
         self.distribution = distribution
         if self.distribution == 'GPD':
-            def ret_val(t, param, rate, u):
-                return u + sps.genpareto.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
-            parameters = sps.genpareto.fit(self.extremes[self.col].values - self.threshold)
+            if self.method == 'POT':
+                def ret_val(t, param, rate, u):
+                    return u + sps.genpareto.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
+                parameters = sps.genpareto.fit(self.extremes[self.col].values - self.threshold)
+            else:
+                def ret_val(t, param, rate, u):
+                    return sps.genpareto.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
+                parameters = sps.genpareto.fit(self.extremes[self.col].values)
         elif self.distribution == 'GEV':
+            if self.method != 'BM':
+                raise ValueError('GEV distribution is applicable only with the BM method')
             def ret_val(t, param, rate, u):
-                return u + sps.genextreme.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
-            parameters = sps.genextreme.fit(self.extremes[self.col].values - self.threshold)
+                return sps.genextreme.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
+            parameters = sps.genextreme.fit(self.extremes[self.col].values)
+
+        # NOT IMPLEMENTED
         elif self.distribution == 'Gumbel':
+            if self.method != 'BM':
+                raise ValueError('Gumbel distribution is applicable only with the BM method')
             def ret_val(t, param, rate, u):
                 return u + sps.gumbel_r.ppf(1 - 1 / (rate * t), loc=param[0], scale=param[1])
             parameters = sps.gumbel_r.fit(self.extremes[self.col].values - self.threshold)
@@ -491,7 +519,7 @@ class EVA:
             def ret_val(t, param, rate, u):
                 return u + sps.weibull_min.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
             parameters = sps.weibull_min.fit(self.extremes[self.col].values - self.threshold)
-        elif self.distribution == 'log-normal':
+        elif self.distribution == 'Log-normal':
             def ret_val(t, param, rate, u):
                 return u + sps.lognorm.ppf(1 - 1 / (rate * t), s=param[0], loc=param[1], scale=param[2])
             parameters = sps.lognorm.fit(self.extremes[self.col].values - self.threshold)
@@ -501,11 +529,14 @@ class EVA:
             parameters = sps.pearson3.fit(self.extremes[self.col].values - self.threshold)
         else:
             raise ValueError('Distribution type not recognized.')
+        # NOT IMPLEMENTED
+
         rp = np.unique(np.append(np.logspace(-1, 3, num=30), [2, 5, 10, 25, 50, 100, 200, 500]))
         rate = len(self.extremes) / self.N
         rv = ret_val(rp, param=parameters, rate=rate, u=self.threshold)
         self.retvalsum = pd.DataFrame(data=rv, index=rp, columns=['Return Value'])
         self.retvalsum.index.name = 'Return Period'
+
         if confidence:
             lex = len(self.extremes)
             # Monte Carlo return values generator
@@ -518,9 +549,8 @@ class EVA:
                     return ret_val(rp, param=loc_param, rate=loc_rate, u=self.threshold)
             elif self.distribution == 'GEV':
                 def montefit():
-                    loc_lex = sps.poisson.rvs(lex)
-                    sample = sps.genextreme.rvs(c=parameters[0], loc=parameters[1], scale=parameters[2], size=loc_lex)
-                    loc_rate = loc_lex / self.N
+                    sample = sps.genextreme.rvs(c=parameters[0], loc=parameters[1], scale=parameters[2], size=ex)
+                    loc_rate = lex / self.N
                     loc_param = sps.genextreme.fit(sample, floc=parameters[1])
                     return ret_val(rp, param=loc_param, rate=loc_rate, u=self.threshold)
             else:
@@ -562,6 +592,7 @@ class EVA:
         """
         unit = kwargs.pop('unit', 'unit')
         ylim = kwargs.pop('ylim', (0, int(self.retvalsum['Return Value'].values.max())))
+        assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
         with plt.style.context('bmh'):
             plt.figure(figsize=(16, 8))
             plt.subplot(1, 1, 1)
@@ -569,7 +600,7 @@ class EVA:
                 plt.scatter(self.extremes['T'].values, self.extremes[self.col].values, s=20, linewidths=1,
                             marker='o', facecolor='None', edgecolors='royalblue', label=r'$\textbf{Extreme Values}$')
                 plt.plot(self.retvalsum.index.values, self.retvalsum['Return Value'].values,
-                         lw=2, color='orangered', label=r'$\textbf{GPD Fit}$')
+                         lw=2, color='orangered', label=r'$\textbf{{{} Fit}}$'.format(self.distribution))
                 if confidence:
                     plt.fill_between(self.retvalsum.index.values, self.retvalsum['Upper'].values,
                                      self.retvalsum['Lower'].values, alpha=0.3, color='royalblue',
@@ -582,7 +613,7 @@ class EVA:
                 plt.scatter(self.extremes['T'].values, self.extremes[self.col].values, s=20, linewidths=1,
                             marker='o', facecolor='None', edgecolors='royalblue', label=r'Extreme Values')
                 plt.plot(self.retvalsum.index.values, self.retvalsum['Return Value'].values,
-                         lw=2, color='orangered', label=r'GPD Fit')
+                         lw=2, color='orangered', label=r'{} Fit'.format(self.distribution))
                 if confidence:
                     plt.fill_between(self.retvalsum.index.values, self.retvalsum['Upper'].values,
                                      self.retvalsum['Lower'].values, alpha=0.3, color='royalblue',
@@ -593,7 +624,7 @@ class EVA:
                 plt.title(r'{0} {1} Return Values Plot'.format(name, self.distribution))
             plt.xlim((0, self.retvalsum.index.values.max()))
             plt.ylim(ylim)
-            plt.legend()
+            plt.legend(loc=2)
             if save_path is not None:
                 plt.savefig(save_path + '\{0} {1} Return Values Plot.png'.format(name, self.distribution),
                             bbox_inches='tight', dpi=600)
@@ -608,4 +639,4 @@ class EVA:
         :param distribution:
         :return:
         """
-        warnings.warn('Not yet implemented')
+        print('Not yet implemented')
