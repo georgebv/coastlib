@@ -190,7 +190,6 @@ def associated_value(df, val, par, value, search_range=0.1):
     return dens.support[dens.density.argmax()]
 
 
-# noinspection PyTypeChecker,PyUnresolvedReferences
 class EVA:
     """
     Extreme Value Analysis class. Takes a Pandas DataFrame with values. Extracts extreme values.
