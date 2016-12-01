@@ -224,11 +224,16 @@ class EVA:
         # Calculate number of years in data
         self.N = len(np.unique(self.data.index.year))
         if handle_nans:
+            # Handles strings
+            self.data[self.col] = self.data[self.col].replace(r'[a-zA-Z _&$#@?]+', '999.9', regex=True)
+            self.data[self.col] = pd.to_numeric(self.data[self.col])
+            # Handles np.nan
+            self.data[self.col] = self.data[self.col].replace(np.nan, 999.9)
             # Handles 999.9
             self.data = self.data[self.data[self.col] != 999.9]
             # Handles empty cells
-            self.data = self.data.replace('', 12345.54321)
-            self.data = self.data[self.data[self.col] != 12345.54321]
+            self.data = self.data.replace('', 999.9)
+            self.data = self.data[self.data[self.col] != 999.9]
             # Handles NaN(np.nan)
             self.data = self.data[pd.notnull(self.data[self.col])]
 
