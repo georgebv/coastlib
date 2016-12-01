@@ -229,8 +229,6 @@ class EVA:
             self.data[self.col] = pd.to_numeric(self.data[self.col])
             # Handles np.nan
             self.data[self.col] = self.data[self.col].replace(np.nan, 999.9)
-            # Handles 999.9
-            self.data = self.data[self.data[self.col] != 999.9]
             # Handles empty cells
             self.data = self.data.replace('', 999.9)
             self.data = self.data[self.data[self.col] != 999.9]

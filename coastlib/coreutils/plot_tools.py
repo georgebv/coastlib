@@ -97,7 +97,7 @@ def time_series_plot(df, **kwargs):
     xlabel = kwargs.pop('xlabel', 'Time')
     ylabel = kwargs.pop('ylabel', 'Value')
     plot_style = kwargs.pop('plot_style', 'bmh')
-    line_color = kwargs.pop('line_color', 'navy')
+    line_color = kwargs.pop('line_color', 'orangered')
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     with plt.style.context(plot_style):
@@ -108,7 +108,7 @@ def time_series_plot(df, **kwargs):
             if savepath is not None:
                 fig, ax = plt.subplots(figsize=figsize)
                 ax.plot(df[val], '-', color=line_color, linewidth=linewidth)
-                ax.scatter(x, y, s=20, label='Peaks', facecolors='none', edgecolors='r')
+                ax.scatter(x, y, s=20, label='Peaks', facecolors='none', edgecolors='royalblue')
                 plt.xlabel(xlabel)
                 plt.ylabel(ylabel)
                 plt.title(title)
@@ -121,11 +121,12 @@ def time_series_plot(df, **kwargs):
             else:
                 fig, ax = plt.subplots(figsize=figsize)
                 ax.plot(df[val], '-', color=line_color, linewidth=linewidth)
-                ax.scatter(x, y, s=20, label='Peaks', facecolors='none', edgecolors='r')
+                ax.scatter(x, y, s=20, label='Peaks', facecolors='none', edgecolors='royalblue')
                 plt.xlabel(xlabel)
                 plt.ylabel(ylabel)
                 plt.title(title)
                 plt.legend()
+                plt.show()
         elif savepath is not None:
             fig, ax = plt.subplots(figsize=figsize)
             ax.plot(df[val], '-', color=line_color, linewidth=linewidth)
@@ -142,6 +143,7 @@ def time_series_plot(df, **kwargs):
             plt.ylabel(ylabel)
             plt.title(title)
             plt.legend()
+            plt.show()
 
 
 def rose_plot(df, **kwargs):
