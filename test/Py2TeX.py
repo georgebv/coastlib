@@ -127,11 +127,11 @@ We can also have figures automatically generated!
 ############################
 
 path = r'C:\Users\GRBH.COWI.001\Desktop\GitHub repositories\coastlib\test\TeX'
-workfolder = os.chdir(path)
 
 T = 10 # T, sec
 h = 5 # depth, m
 
+workfolder = os.chdir(path)
 omega = 2 * math.pi / T
 L = solve_dispersion_relation(T, h)
 k = 2 * math.pi / L
