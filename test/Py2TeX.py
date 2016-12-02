@@ -2,6 +2,8 @@ from coastlib.models.linear_wave_theory import solve_dispersion_relation
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+import subprocess
+import os
 
 
 ######################
@@ -124,7 +126,8 @@ We can also have figures automatically generated!
 # Perform calulations here #
 ############################
 
-Images = r'.\TeX\Images'
+path = r'C:\Users\GRBH.COWI.001\Desktop\GitHub repositories\coastlib\test\TeX'
+workfolder = os.chdir(path)
 
 T = 10 # T, sec
 h = 5 # depth, m
@@ -134,8 +137,9 @@ L = solve_dispersion_relation(T, h)
 k = 2 * math.pi / L
 with plt.style.context('bmh'):
     plt.figure(figsize=(18, 12))
-    plt.plot(np.arange(1, 11, 1), np.sqrt(np.arange(1, 11, 1)))
-    plt.savefig(Images + r'\image.png', dpi=300)
+    plt.plot(np.arange(1, 110, 1), np.sqrt(np.arange(1, 110, 1)))
+    plt.savefig(path + r'\Images\image.png', dpi=300)
+    plt.close()
 
 ########################
 # Compile the TeX file #
@@ -165,5 +169,10 @@ TeX = ''.join(
     ]
 )
 
-with open(r'.\TeX\test.tex', 'w') as f:
+with open(path + r'\test.tex', 'w') as f:
     f.write(TeX)
+
+cmd = ['pdflatex', '-interaction', 'nonstopmode', r'test.tex']
+for i in range(2):
+    proc = subprocess.Popen(cmd)
+    proc.communicate()
