@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import subprocess
 import os
+import scipy.stats as sps
 
 
 ######################
@@ -106,19 +107,25 @@ where,
 $$\omega = \frac{{2\pi}}{{T}} = \frac{{2\cdot 3.14}}{{{VALUE_T}}} = {VALUE_omega}$$
 $$k = \frac{{2\pi}}{{L}}$$
 
-Now lets solve it for wave number $k$ with $g=9.81m/s^2$ and $h={VALUE_h}m$:
+Now lets solve it for wave number $k$ with $g=9.81\, m/s^2$ and $h={VALUE_h}\, m$:
 $${VALUE_omega}^2=9.81\cdot k\cdot tanh(k\cdot {VALUE_h})$$
 Python finds the solution with the iterative Newton-Rhapson method, which gives us:
 $$k = {VALUE_k}$$
 which, in turn, gives us wave length:
-$$L = \frac{{2\pi}}{{k}} = \frac{{2\cdot 3.14}}{{{VALUE_k}}} = {VALUE_L}m$$
+$$L = \frac{{2\pi}}{{k}} = \frac{{2\cdot 3.14}}{{{VALUE_k}}} = {VALUE_L}\, m$$
 
 \pagebreak
 We can also have figures automatically generated!
 \begin{{figure}}[h]
 	\centering
-	\includegraphics[width=\textwidth]{{./Images/{VALUE_path}}}
-	\caption{{Squre root plot}}
+	\includegraphics[height=0.3\textheight]{{./Images/{VALUE_path1}}}
+	\caption{{Square root plot}}
+\end{{figure}}
+
+\begin{{figure}}[h]
+	\centering
+	\includegraphics[height=0.3\textheight]{{./Images/{VALUE_path2}}}
+	\caption{{{VALUE_rvals} normally distributed random values histogram plot}}
 \end{{figure}}
 """
 
@@ -127,18 +134,29 @@ We can also have figures automatically generated!
 ############################
 
 path = r'C:\Users\GRBH.COWI.001\Desktop\GitHub repositories\coastlib\test\TeX'
+document_name = '\PyTeX.tex'
 
+# Disperion relation
 T = 10 # T, sec
 h = 5 # depth, m
-
-workfolder = os.chdir(path)
 omega = 2 * math.pi / T
 L = solve_dispersion_relation(T, h)
 k = 2 * math.pi / L
+
+# Square root plot
 with plt.style.context('bmh'):
     plt.figure(figsize=(18, 12))
     plt.plot(np.arange(1, 110, 1), np.sqrt(np.arange(1, 110, 1)))
-    plt.savefig(path + r'\Images\image.png', dpi=300)
+    plt.savefig(path + r'\Images\sqrt.png', dpi=300)
+    plt.close()
+
+# Histogram plot
+size = 10 ** 4
+random_values = sps.norm.rvs(0, size=size)
+with plt.style.context('bmh'):
+    plt.figure(figsize=(15, 10))
+    plt.hist(random_values, bins=50, rwidth=0.95)
+    plt.savefig(path + r'\Images\hist.png', dpi=300)
     plt.close()
 
 ########################
@@ -163,16 +181,19 @@ TeX = ''.join(
             VALUE_T=round(T, 2),
             VALUE_h=round(h, 2),
             VALUE_L=round(L, 2),
-            VALUE_path=r'image.png'
+            VALUE_path1='sqrt.png',
+            VALUE_path2='hist.png',
+            VALUE_rvals=size
         ),
         r"""\end{document}"""
     ]
 )
 
-with open(path + r'\test.tex', 'w') as f:
+with open(path + document_name, 'w') as f:
     f.write(TeX)
 
-cmd = ['pdflatex', '-interaction', 'nonstopmode', r'test.tex']
+cmd = ['pdflatex', '-interaction', 'nonstopmode', path + document_name]
+os.chdir(path)
 for i in range(2):
     proc = subprocess.Popen(cmd)
     proc.communicate()
