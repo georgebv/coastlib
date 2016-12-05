@@ -275,6 +275,7 @@ class EVA:
                 for i in range(len(cluster_ends) - 1):
                     clusters += [self.extremes[(self.extremes.index > self.extremes.index[cluster_ends[i]])
                                                & (self.extremes.index <= self.extremes.index[cluster_ends[i + 1]])]]
+                clusters = [x for x in clusters if len(x) > 0]
                 new_values = []
                 new_indexes = []
                 for i in range(len(clusters)):
@@ -295,7 +296,7 @@ class EVA:
             years = np.unique(self.data.index.year)
             # months = np.array([np.unique(self.data[self.data.index.year == year].index.month) for year in years])
             if block == 'Y':
-                bmextremes = [self.data[self.data.index.year == year] for year in years]
+                bmextremes = [self.data[self.data.index.year == year].drop_duplicates(self.col) for year in years]
                 bmextremes = [x[x[self.col] == x[self.col].max()] for x in bmextremes]
                 self.extremes = pd.concat(bmextremes)
             elif block == 'M':
@@ -359,7 +360,7 @@ class EVA:
                 plt.plot(u, residuals, lw=2, color='orangered', label=r'Mean Residual Life')
                 plt.fill_between(u, intervals_u, intervals_l, alpha=0.3, color='royalblue',
                                  label=r'95% confidence interval')
-                plt.xlabel(r'Threshold Value$')
+                plt.xlabel(r'Threshold Value')
                 plt.ylabel(r'Mean residual Life')
                 plt.title(r'{} Mean Residual Life Plot'.format(name))
             plt.legend()
