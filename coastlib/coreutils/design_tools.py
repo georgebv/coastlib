@@ -1,11 +1,11 @@
-from math import pi, tan, exp, cos, sinh, cosh
+import math
 from coastlib.models.linear_wave_theory import LinearWave as lw
 import scipy.constants
 import pandas as pd
 import warnings
 
 g = scipy.constants.g  # gravity constant (m/s^2) as defined by ISO 80000-3
-swd = 1025  # sea water density (kg/m^3)
+sea_water_density = 1025  # sea water density (kg/m^3)
 
 
 def runup(Hm0, Tp, slp, **kwargs):
@@ -51,9 +51,9 @@ def runup(Hm0, Tp, slp, **kwargs):
     dmethod = kwargs.pop('dmethod', 'det')
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-    Lm10 = g * (Tp ** 2) / (2 * pi)  # Deep water wave length
+    Lm10 = g * (Tp ** 2) / (2 * math.pi)  # Deep water wave length
     Sm10 = Hm0 / Lm10  # Wave steepness
-    Em10 = tan(slp) / Sm10 ** 0.5  # Breaker type
+    Em10 = math.tan(slp) / Sm10 ** 0.5  # Breaker type
     rB /= Lb
     Yb = 1 - rB * (1 - rdb)  # Berm factor (1 for no berm)
 
@@ -119,10 +119,10 @@ def overtopping(Hm0, Rc, **kwargs):
 
     if strtype is 'sap':
         if dmethod is 'det':
-            q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * exp(-2.3 * Rc / (Hm0 * Yf * YB))
+            q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * math.exp(-2.3 * Rc / (Hm0 * Yf * YB))
             return q
         elif dmethod is 'prob':
-            q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * exp(-2.6 * Rc / (Hm0 * Yf * YB))
+            q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * math.exp(-2.6 * Rc / (Hm0 * Yf * YB))
             return q
         else:
             raise ValueError('ERROR: Design method not recognized')
@@ -153,13 +153,13 @@ def hudson(Hs, alfa, rock_density, **kwargs):
     kd = kwargs.pop('kd', 3)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-    delta = rock_density / swd - 1
+    delta = rock_density / sea_water_density - 1
 
     def cot(x):
-        return 1 / tan(x)
+        return 1 / math.tan(x)
 
     def rad(x):
-        return x * pi / 180
+        return x * math.pi / 180
 
     Dn50 = (Hs * 1.27) / (((kd * cot(rad(alfa))) ** (1 / 3)) * delta)
     Ns = Hs / (delta * Dn50)
@@ -213,26 +213,27 @@ def goda_1974(Hs, hs, T, d, hc, hw, **kwargs):
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     def deg2rad(x):
-        return x * pi / 180
+        return x * math.pi / 180
 
     if h_design is None:
         h_design = 1.8 * Hs
     wave = lw(T, Hs, depth=hs)
-    a_1 = 0.6 + 0.5 * (((4 * pi * hs / wave.L) / (sinh(4 * pi * hs / wave.L))) ** 2)
+    a_1 = 0.6 + 0.5 * (((4 * math.pi * hs / wave.L) / (math.sinh(4 * math.pi * hs / wave.L))) ** 2)
     a_2 = min(
         (((hb - d) / (3 * hb)) * ((h_design / d) ** 2)),
         ((2 * d) / h_design)
     )
-    a_3 = 1 - ((hw - hc) / hs) * (1 - 1 / cosh(2 * pi * hs / wave.L))
+    a_3 = 1 - ((hw - hc) / hs) * (1 - 1 / math.cosh(2 * math.pi * hs / wave.L))
     a_star = a_2
-    s = 0.75 * (1 + cos(deg2rad(angle))) * l_1 * h_design
-    p1 = 0.5 * (1 + cos(deg2rad(angle))) * (l_1 * a_1 + l_2 * a_star * (cos(deg2rad(angle)) ** 2)) * swd * g * h_design
+    s = 0.75 * (1 + math.cos(deg2rad(angle))) * l_1 * h_design
+    p1 = 0.5 * (1 + math.cos(deg2rad(angle))) * (l_1 * a_1 + l_2 * a_star *
+                                                 (math.cos(deg2rad(angle)) ** 2)) * sea_water_density * g * h_design
     if s > hc:
         p2 = (1 - hc / s) * p1
     else:
         p2 = 0
     p3 = a_3 * p1
-    pu = 0.5 * (1 + cos(deg2rad(angle))) * l_3 * a_1 * a_3 * swd * g * h_design
+    pu = 0.5 * (1 + math.cos(deg2rad(angle))) * l_3 * a_1 * a_3 * sea_water_density * g * h_design
     if s > hc:
         load_aw = hc * p2 + hc * (p1 - p2) * 0.5
     else:
@@ -289,27 +290,27 @@ def goda_2000(H13, T13, h, hc, **kwargs):
     h_prime = kwargs.pop('h_prime', d)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-    B = angle * pi / 180
+    B = angle * math.pi / 180
     if Hmax is None:
         Hmax = 1.8 * H13
     wave = lw(T13, H13, depth=h)
     L = wave.L
-    s = 0.75 * (1 + cos(B)) * Hmax
-    a_1 = 0.6 + 0.5 * (((4 * pi * h / L) / (sinh(4 * pi * h / L))) ** 2)
+    s = 0.75 * (1 + math.cos(B)) * Hmax
+    a_1 = 0.6 + 0.5 * (((4 * math.pi * h / L) / (math.sinh(4 * math.pi * h / L))) ** 2)
     a_2 = min(
         (((hb - d) / (3 * hb)) * ((Hmax / d) ** 2)),
         ((2 * d) / Hmax)
     )
-    a_3 = 1 - (h_prime / h) * (1 - (1 / cosh(2 * pi * h / L)))
-    p1 = 0.5 * (1 + cos(B)) * (a_1 + a_2 * (cos(B) ** 2)) * swd * g * Hmax
-    p2 = p1 / cosh(2 * pi * h / L)
+    a_3 = 1 - (h_prime / h) * (1 - (1 / math.cosh(2 * math.pi * h / L)))
+    p1 = 0.5 * (1 + math.cos(B)) * (a_1 + a_2 * (math.cos(B) ** 2)) * sea_water_density * g * Hmax
+    p2 = p1 / math.cosh(2 * math.pi * h / L)
     p3 = a_3 * p1
     if s > hc:
         p4 = p1 * (1 - hc / s)
     else:
         p4 = 0
     hc_star = min(s, hc)
-    pu = 0.5 * (1 + cos(B)) * a_1 * a_3 * swd * g * Hmax
+    pu = 0.5 * (1 + math.cos(B)) * a_1 * a_3 * sea_water_density * g * Hmax
     P = 0.5 * (p1 + p3) * h_prime + 0.5 * (p1 + p4) * hc_star
     Mp = (1 / 6) * (2 * p1 + p3) * (h_prime ** 2) + 0.5 * (p1 + p4) * h_prime * hc_star +\
          (1 / 6) * (p1 + 2 * p4) * (hc_star ** 2)
@@ -365,3 +366,57 @@ def goda_2000(H13, T13, h, hc, **kwargs):
         ]
     )
     return output
+
+
+def dAngremond(Rc, Hm0, B, Tp, tana):
+    """
+    Calculates wave transmission coefficient for emerged breakwaters
+    using the dAngremond (1996) (EurOtop 2016) formula
+
+    :param Rc: freeboard [m]
+    :param Hm0: incident significant wave height [m]
+    :param B: crest width [m]
+    :param Tp: wave period [sec]
+    :param tana: seaward breakwater slope
+    :return: wave transmission coefficient
+    """
+    Sop = 2 * math.pi * Hm0 / (scipy.constants.g * Tp ** 2)
+    Eop = tana / Sop ** 0.5
+    Kt_small = -0.4 * Rc / Hm0 + 0.64 * (B / Hm0) ** (-0.31) * (1 - math.exp(-0.5 * Eop))
+    Kt_large = -0.35 * Rc / Hm0 + 0.51 * (B / Hm0) ** (-0.65) * (1 - math.exp(-0.41 * Eop))
+    scale = B / Hm0
+
+    if scale < 8:
+        Kt = Kt_small
+    elif scale > 12:
+        Kt = Kt_large
+    else:
+        Kt = (Kt_large - Kt_small) * (scale - 8) / (12 - 8) + Kt_small # linear interpolation
+
+    if Kt >= 0.8:
+        return 1
+    elif Kt <= 0.075:
+        return 0.075
+    else:
+        return Kt
+
+
+def Seabrook(Hm0, ds, B, L, D50):
+    """
+    Calculates wave transmission coefficient for submerged breakwaters
+    using the Seabrook & Hall (1998) formula
+
+    :param Hm0: incident significant wave height [m]
+    :param ds: depth of submergence (positive value of the negative freeboard) [m]
+    :param B: crest width [m]
+    :param L: wave length [m]
+    :param D50: rock armor median rock size [m]
+    :return: wave transmission coefficient
+    """
+    Kt = 1 - (math.exp(-0.65 * ds / Hm0 - 1.09 * Hm0 / B) + 0.047 * B * ds / (L * D50) - 0.067 * ds * Hm0 / (B * D50))
+    condition_1 = B * ds / (L * D50)
+    condition_2 = ds * Hm0 / (B * D50)
+    if 0 <= condition_1 <= 7.08 and 0 <= condition_2 <= 2.14:
+        return Kt
+    else:
+        return 1
