@@ -419,4 +419,4 @@ def Seabrook(Hm0, ds, B, L, D50):
     if 0 <= condition_1 <= 7.08 and 0 <= condition_2 <= 2.14:
         return Kt
     else:
-        return 1
+        raise ValueError('Getting negative parameters. Check input value signs.')
