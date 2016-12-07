@@ -137,8 +137,8 @@ path = r'C:\Users\GRBH.COWI.001\Desktop\GitHub repositories\coastlib\test\TeX'
 document_name = '\PyTeX.tex'
 
 # Disperion relation
-T = 10 # T, sec
-h = 5 # depth, m
+T = 15 # T, sec
+h = 20 # depth, m
 omega = 2 * math.pi / T
 L = solve_dispersion_relation(T, h)
 k = 2 * math.pi / L
@@ -168,9 +168,9 @@ TeX = ''.join(
         preamble,
         title.format(
             TITLE='Python / TeX Introduction',
-            TO='John Doe',
-            COPY='Jane Doe',
-            FROM='Me',
+            TO='Todd Manson',
+            COPY='Rebeca Gomez',
+            FROM='Georgii Bocharov',
             PROJECT='A123456'
         ),
         fheader,
