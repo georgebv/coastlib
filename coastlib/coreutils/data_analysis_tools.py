@@ -265,7 +265,7 @@ class EVA:
             self.extremes = self.data[self.data[self.col] >= u]
             if decluster:
                 r = datetime.timedelta(hours=r)
-                indexes = self.extremes.index
+                indexes = self.extremes.index.to_pydatetime()
                 values = self.extremes[self.col].values
                 new_indexes = [indexes[0]]
                 new_values = [values[0]]
@@ -410,7 +410,7 @@ class EVA:
         return pd.DataFrame(data=tres, index=['90% Quantile', 'Squre Root Rule', 'Logarithm Rule'],
                             columns=['Threshold'])
 
-    def par_stab_plot(self, u, decluster=True, r=24, save_path=None, name='_DATA_SOURCE_'):
+    def par_stab_plot(self, u, distribution='GPD', decluster=True, r=24, save_path=None, name='_DATA_SOURCE_'):
         """
         Generates a parameter stability plot for the a range of thresholds u.
         :param u: list or array
@@ -428,47 +428,51 @@ class EVA:
         if u.max() > self.data[self.col].max():
             u = u[u <= self.data[self.col].max()]
         fits = []
-        if decluster:
-            for tres in u:
-                self.get_extremes(method='POT', u=tres, r=r, decluster=True)
-                extremes_local = self.extremes[self.col].values - tres
-                fit = sps.genpareto.fit(extremes_local, loc=tres)
-                fits += [fit]
-        else:
-            for tres in u:
-                self.get_extremes(method='POT', u=tres, r=r, decluster=False)
-                extremes_local = self.extremes[self.col].values - tres
-                fit = sps.genpareto.fit(extremes_local, loc=tres)
-                fits += [fit]
-        shapes = [x[0] for x in fits]
-        scales = [x[2] for x in fits]
-        scales_mod = [scales[i] - shapes[i] * u[i] for i in range(len(u))]
-        with plt.style.context('bmh'):
-            plt.figure(figsize=(16, 8))
-            plt.subplot(1, 2, 1)
-            if self.usetex:
-                plt.plot(u, shapes, lw=2, color='orangered', label=r'$\textbf{Shape Parameter}$')
-                plt.xlabel(r'$\textbf{Threshold Value}$')
-                plt.ylabel(r'$\textbf{Shape Parameter}$')
-                plt.subplot(1, 2, 2)
-                plt.plot(u, scales_mod, lw=2, color='orangered', label=r'$\textbf{Modified Scale Parameter}$')
-                plt.xlabel(r'$\textbf{Threshold Value}$')
-                plt.ylabel(r'$\textbf{Modified Scale Parameter}$')
-                plt.suptitle(r'$\textbf{{{} Parameter Stability Plot}}$'.format(name))
+        if distribution == 'GPD':
+            if decluster:
+                for tres in u:
+                    self.get_extremes(method='POT', u=tres, r=r, decluster=True)
+                    extremes_local = self.extremes[self.col].values - tres
+                    fit = sps.genpareto.fit(extremes_local, loc=tres)
+                    fits += [fit]
             else:
-                plt.plot(u, shapes, lw=2, color='orangered', label=r'Shape Parameter')
-                plt.xlabel(r'Threshold Value')
-                plt.ylabel(r'Shape Parameter')
-                plt.subplot(1, 2, 2)
-                plt.plot(u, scales_mod, lw=2, color='orangered', label=r'Modified Scale Parameter')
-                plt.xlabel(r'Threshold Value')
-                plt.ylabel(r'Modified Scale Parameter')
-                plt.suptitle(r'{} Parameter Stability Plot'.format(name))
-        if save_path is not None:
-            plt.savefig(save_path + '\{} Parameter Stability Plot.png'.format(name), bbox_inches='tight', dpi=600)
-            plt.close()
+                for tres in u:
+                    self.get_extremes(method='POT', u=tres, r=r, decluster=False)
+                    extremes_local = self.extremes[self.col].values - tres
+                    fit = sps.genpareto.fit(extremes_local, loc=tres)
+                    fits += [fit]
+            shapes = [x[0] for x in fits]
+            scales = [x[2] for x in fits]
+            # scales_mod = [scales[i] - shapes[i] * u[i] for i in range(len(u))]
+            scales_mod = scales
+            with plt.style.context('bmh'):
+                plt.figure(figsize=(16, 8))
+                plt.subplot(1, 2, 1)
+                if self.usetex:
+                    plt.plot(u, shapes, lw=2, color='orangered', label=r'$\textbf{Shape Parameter}$')
+                    plt.xlabel(r'$\textbf{Threshold Value}$')
+                    plt.ylabel(r'$\textbf{Shape Parameter}$')
+                    plt.subplot(1, 2, 2)
+                    plt.plot(u, scales_mod, lw=2, color='orangered', label=r'$\textbf{Scale Parameter}$')
+                    plt.xlabel(r'$\textbf{Threshold Value}$')
+                    plt.ylabel(r'$\textbf{Scale Parameter}$')
+                    plt.suptitle(r'$\textbf{{{} Parameter Stability Plot}}$'.format(name))
+                else:
+                    plt.plot(u, shapes, lw=2, color='orangered', label=r'Shape Parameter')
+                    plt.xlabel(r'Threshold Value')
+                    plt.ylabel(r'Shape Parameter')
+                    plt.subplot(1, 2, 2)
+                    plt.plot(u, scales_mod, lw=2, color='orangered', label=r'Scale Parameter')
+                    plt.xlabel(r'Threshold Value')
+                    plt.ylabel(r'Scale Parameter')
+                    plt.suptitle(r'{} Parameter Stability Plot'.format(name))
+            if save_path is not None:
+                plt.savefig(save_path + '\{} Parameter Stability Plot.png'.format(name), bbox_inches='tight', dpi=600)
+                plt.close()
+            else:
+                plt.show()
         else:
-            plt.show()
+            print('The {} distribution is not yet implemented for this method'.format(distribution))
 
     def fit(self, distribution='GPD', confidence=False, k=10**2, trunc=True):
         """
