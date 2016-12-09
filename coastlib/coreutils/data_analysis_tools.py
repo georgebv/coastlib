@@ -245,7 +245,7 @@ class EVA:
             Extraction method. POT for Peaks Over Threshold, BM for Block Maxima.
         :param kwargs:
             u : float
-                Threshold value (POT method only). Default = 90 percentile.
+                Threshold value (POT method only)
             r : float
                 Minimum independent event distance (hours) (POT method only). Default = 24 hours.
             decluster : bool
@@ -258,7 +258,7 @@ class EVA:
         """
         if method == 'POT':
             self.method = 'POT'
-            u = kwargs.pop('u', np.percentile(self.data[self.col], 90))
+            u = kwargs.pop('u', 10)
             r = kwargs.pop('r', 24)
             decluster = kwargs.pop('decluster', True)
             assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
@@ -266,15 +266,18 @@ class EVA:
             if decluster:
                 r = datetime.timedelta(hours=r)
                 indexes = self.extremes.index
-                new_extremes = self.extremes.loc[indexes[0]:indexes[0]]
-                for date in indexes:
-                    if date - new_extremes.index[-1] >= r:
-                        new_extremes = pd.concat([new_extremes, self.extremes.loc[date:date]])
+                values = self.extremes[self.col].values
+                new_indexes = [indexes[0]]
+                new_values = [values[0]]
+                for i in range(1, len(indexes)):
+                    if indexes[i] - new_indexes[-1] >= r:
+                        new_indexes += [indexes[i]]
+                        new_values += [values[i]]
                     else:
-                        if self.extremes.loc[date:date][self.col].values[0] > new_extremes[self.col].values[-1]:
-                            new_extremes = new_extremes.drop(new_extremes.index[len(new_extremes) - 1])
-                            new_extremes = pd.concat([new_extremes, self.extremes.loc[date:date]])
-                self.extremes = new_extremes
+                        if values[i] > new_values[-1]:
+                            new_indexes[-1] = indexes[i]
+                            new_values[-1] = values[i]
+                self.extremes = pd.DataFrame(data=new_values, index=new_indexes, columns=[self.col])
             self.threshold = u
         elif method == 'BM':
             self.method = 'BM'
