@@ -196,7 +196,7 @@ class EVA:
     Assists with threshold value selection. Fits data to distributions (GPD).
     Returns extreme values' return periods. Generates data plots.
     """
-    def __init__(self, df, col=None, handle_nans=False, usetex=False):
+    def __init__(self, df, col=None, handle_nans=True, usetex=False):
         """
         :param df: DataFrame or Series
             Pandas DataFrame or Series object with column 'col' containing values and indexes as datetime.
@@ -224,15 +224,17 @@ class EVA:
         # Calculate number of years in data
         self.N = len(np.unique(self.data.index.year))
         if handle_nans:
-            # Handles strings
-            self.data[self.col] = self.data[self.col].replace(r'[a-zA-Z _&$#@?]+', '999.9', regex=True)
-            self.data[self.col] = pd.to_numeric(self.data[self.col])
-            # Handles np.nan
-            self.data[self.col] = self.data[self.col].replace(np.nan, 999.9)
-            # Handles empty cells
-            self.data = self.data.replace('', 999.9)
+
+            def numbify(x):
+                try:
+                    return float(x)
+                except:
+                    return 999
+
+            self.data[self.col] = self.data[self.col].apply(numbify)
+            self.data = self.data[self.data[self.col] != 999.999]
             self.data = self.data[self.data[self.col] != 999.9]
-            # Handles NaN(np.nan)
+            self.data = self.data[self.data[self.col] != 999]
             self.data = self.data[pd.notnull(self.data[self.col])]
 
     def get_extremes(self, method='POT', **kwargs):
@@ -263,31 +265,16 @@ class EVA:
             self.extremes = self.data[self.data[self.col] >= u]
             if decluster:
                 r = datetime.timedelta(hours=r)
-                distances = [self.extremes[self.col].index[i + 1] - self.extremes[self.col].index[i]
-                             for i in range(len(self.extremes) - 1)]
-                cluster_ends = [i for i in range(len(distances)) if distances[i] > r]
-                if len(self.extremes) - 1 not in cluster_ends:
-                    cluster_ends.append(len(self.extremes) - 1)
-                if cluster_ends[0] == 0:
-                    clusters = [self.extremes[self.extremes.index == self.extremes.index[cluster_ends[0]]]]
-                else:
-                    clusters = [self.extremes[self.extremes.index <= self.extremes.index[cluster_ends[0]]]]
-                for i in range(len(cluster_ends) - 1):
-                    clusters += [self.extremes[(self.extremes.index > self.extremes.index[cluster_ends[i]])
-                                               & (self.extremes.index <= self.extremes.index[cluster_ends[i + 1]])]]
-                clusters = [x for x in clusters if len(x) > 0]
-                new_values = []
-                new_indexes = []
-                for i in range(len(clusters)):
-                    value = clusters[i].values[0]
-                    index = clusters[i].index[0]
-                    for j in range(len(clusters[i])):
-                        if clusters[i].values[j][0] > value[0]:
-                            value = clusters[i].values[j]
-                            index = clusters[i].index[j]
-                    new_values += [value]
-                    new_indexes += [index]
-                self.extremes = pd.DataFrame(data=new_values, index=new_indexes, columns=self.data.columns)
+                indexes = self.extremes.index
+                new_extremes = self.extremes.loc[indexes[0]:indexes[0]]
+                for date in indexes:
+                    if date - new_extremes.index[-1] >= r:
+                        new_extremes = pd.concat([new_extremes, self.extremes.loc[date:date]])
+                    else:
+                        if self.extremes.loc[date:date][self.col].values[0] > new_extremes[self.col].values[-1]:
+                            new_extremes = new_extremes.drop(new_extremes.index[len(new_extremes) - 1])
+                            new_extremes = pd.concat([new_extremes, self.extremes.loc[date:date]])
+                self.extremes = new_extremes
             self.threshold = u
         elif method == 'BM':
             self.method = 'BM'
@@ -331,6 +318,9 @@ class EVA:
             Decluster run length (Default = 24 hours).
         :return:
         """
+        u = np.array(u)
+        if u.max() > self.data[self.col].max():
+            u = u[u <= self.data[self.col].max()]
         if decluster:
             nu = []
             res_ex_sum = []
@@ -431,18 +421,21 @@ class EVA:
         :param name: str
             File save name.
         """
+        u = np.array(u)
+        if u.max() > self.data[self.col].max():
+            u = u[u <= self.data[self.col].max()]
         fits = []
         if decluster:
             for tres in u:
                 self.get_extremes(method='POT', u=tres, r=r, decluster=True)
                 extremes_local = self.extremes[self.col].values - tres
-                fit = sps.genpareto.fit(extremes_local)
+                fit = sps.genpareto.fit(extremes_local, loc=tres)
                 fits += [fit]
         else:
             for tres in u:
                 self.get_extremes(method='POT', u=tres, r=r, decluster=False)
                 extremes_local = self.extremes[self.col].values - tres
-                fit = sps.genpareto.fit(extremes_local)
+                fit = sps.genpareto.fit(extremes_local, loc=tres)
                 fits += [fit]
         shapes = [x[0] for x in fits]
         scales = [x[2] for x in fits]
