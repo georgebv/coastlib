@@ -3,6 +3,8 @@ from coastlib.models.linear_wave_theory import LinearWave as lw
 import scipy.constants
 import pandas as pd
 import warnings
+import numpy as np
+
 
 g = scipy.constants.g  # gravity constant (m/s^2) as defined by ISO 80000-3
 sea_water_density = 1025  # sea water density (kg/m^3)
@@ -419,4 +421,5 @@ def Seabrook(Hm0, ds, B, L, D50):
     if 0 <= condition_1 <= 7.08 and 0 <= condition_2 <= 2.14:
         return Kt
     else:
-        raise ValueError('Getting negative parameters. Check input value signs.')
+        warnings.warn('Breakwater parameters beyond the validity levels')
+        return np.nan
