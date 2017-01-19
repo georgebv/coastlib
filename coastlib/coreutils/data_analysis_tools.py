@@ -222,15 +222,15 @@ class EVA:
         self.retvalsum = 'Run the .fit() method first.'
         self.usetex = usetex
         # Calculate number of years in data
-        self.N = len(np.unique(self.data.index.year))
+        self.N = np.unique(self.data.index.year).max() - np.unique(self.data.index.year).min() + 1
+        if self.N > len(np.unique(self.data.index.year)):
+            warnings.warn('Some years are missing data. Review time series.')
         if handle_nans:
-
             def numbify(x):
                 try:
                     return float(x)
                 except:
                     return 999
-
             self.data[self.col] = self.data[self.col].apply(numbify)
             self.data = self.data[self.data[self.col] != 999.999]
             self.data = self.data[self.data[self.col] != 999.9]
