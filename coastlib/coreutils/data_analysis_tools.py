@@ -103,7 +103,7 @@ class DelSepData:
 
 def joint_probability(df, **kwargs):
     """
-    Generates a joint probability table of 2 variables.
+    Generates a joint probability table of 2 variables. (Works only for positive values!)
 
     Parameters
     ----------
@@ -136,21 +136,23 @@ def joint_probability(df, **kwargs):
     for i in range(bins1):
         low = i * binsize1
         up = low + binsize1
-        columns += ['{0:.1f} - {1:.1f}'.format(low, up)]
+        columns += ['[{0:.1f} - {1:.1f})'.format(low, up)]
+    columns += ['[{0:.1f} - inf)'.format(bins1 * binsize1, bins1 * binsize1 + binsize1)]
     for i in range(bins2):
         low = i * binsize2
         up = low + binsize2
-        rows += ['{0:.1f} - {1:.1f}'.format(low, up)]
+        rows += ['[{0:.1f} - {1:.1f})'.format(low, up)]
+    rows += ['[{0:.1f} - inf)'.format(bins2 * binsize2, bins2 * binsize2 + binsize2)]
     if output_format == 'abs':
         jp_raw = pd.DataFrame(0, index=rows, columns=columns)
     else:
         jp_raw = pd.DataFrame(.0, index=rows, columns=columns)
 
     tot = len(a)
-    for i in range(bins2):
+    for i in range(bins2 + 1):
         bin2_low = i * binsize2
         bin2_up = bin2_low + binsize2
-        for j in range(bins1):
+        for j in range(bins1 + 1):
             bin1_low = j * binsize1
             bin1_up = bin1_low + binsize1
             b = len(
