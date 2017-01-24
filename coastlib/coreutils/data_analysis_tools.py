@@ -264,7 +264,7 @@ class EVA:
             r = kwargs.pop('r', 24)
             decluster = kwargs.pop('decluster', True)
             assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
-            self.extremes = self.data[self.data[self.col] >= u]
+            self.extremes = self.data[self.data[self.col] > u]
             if decluster:
                 r = datetime.timedelta(hours=r)
                 indexes = self.extremes.index.to_pydatetime()
@@ -435,13 +435,13 @@ class EVA:
                 for tres in u:
                     self.get_extremes(method='POT', u=tres, r=r, decluster=True)
                     extremes_local = self.extremes[self.col].values - tres
-                    fit = sps.genpareto.fit(extremes_local, loc=tres)
+                    fit = sps.genpareto.fit(extremes_local)
                     fits += [fit]
             else:
                 for tres in u:
                     self.get_extremes(method='POT', u=tres, r=r, decluster=False)
                     extremes_local = self.extremes[self.col].values - tres
-                    fit = sps.genpareto.fit(extremes_local, loc=tres)
+                    fit = sps.genpareto.fit(extremes_local)
                     fits += [fit]
             shapes = [x[0] for x in fits]
             scales = [x[2] for x in fits]
@@ -559,7 +559,7 @@ class EVA:
                     loc_param = sps.genextreme.fit(sample, floc=parameters[1])
                     return ret_val(rp, param=loc_param, rate=loc_rate, u=self.threshold)
             else:
-                raise ValueError('Distribution type not recognized.')
+                raise ValueError('Monte Carlo method not defined for this distribution yet.')
             sims = 0
             mrv = []
             if trunc:
