@@ -630,6 +630,8 @@ class EVA:
             plt.xlim((0, self.retvalsum.index.values.max()))
             plt.ylim(ylim)
             plt.legend(loc=2)
+            plt.grid(linestyle='--', which='minor')
+            plt.grid(linestyle='-', which='major')
             if save_path is not None:
                 plt.savefig(save_path + '\{0} {1} Return Values Plot.png'.format(name, self.distribution),
                             bbox_inches='tight', dpi=600)
