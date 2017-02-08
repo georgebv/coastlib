@@ -1,13 +1,14 @@
 import math
 from coastlib.models.linear_wave_theory import LinearWave as lw
 import scipy.constants
+import scipy.optimize
 import pandas as pd
 import warnings
 import numpy as np
 
 
 g = scipy.constants.g  # gravity constant (m/s^2) as defined by ISO 80000-3
-sea_water_density = 1025  # sea water density (kg/m^3)
+sea_water_density = 1030  # sea water density (kg/m^3)
 
 
 def runup(Hm0, Tp, slp, **kwargs):
@@ -132,7 +133,7 @@ def overtopping(Hm0, Rc, **kwargs):
         raise ValueError('ERROR: Structure type not recognized')
 
 
-def hudson(Hs, alfa, rock_density, **kwargs):
+def hudson(Hs, alpha, rock_density, **kwargs):
     """
     Solves Hudson equation for median rock diameter. Checks stability (Ns < 2)
 
@@ -140,35 +141,144 @@ def hudson(Hs, alfa, rock_density, **kwargs):
     ---------
     Hs : float
         Significant wave height at structure's toe (m)
-    alfa : float
+    alpha : float
         Structure angle (degrees to horizontal)
     rock_density : float
         Rock density (kg/m^3)
     Kd : float
-        Dimensionless stability coefficient (3 for quarry rock (default), 10 for concrete blocks)
+        Dimensionless stability coefficient (4 for pemeable core (default), 1 for impermeable core)
+    sd : float
+        Damage level (2 for 0-5% damage level)
 
     Returns
     -------
     Dn50 : float
         Nominal median diameter of armour blocks (m)
     """
-    kd = kwargs.pop('kd', 3)
+    kd = kwargs.pop('kd', 4)
+    sd = kwargs.pop('sd', 2)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     delta = rock_density / sea_water_density - 1
-
-    def cot(x):
-        return 1 / math.tan(x)
-
-    def rad(x):
-        return x * math.pi / 180
-
-    Dn50 = (Hs * 1.27) / (((kd * cot(rad(alfa))) ** (1 / 3)) * delta)
+    Dn50 = Hs / (0.7 * (kd / np.tan(np.deg2rad(alpha))) ** (1 / 3) * sd ** 0.15)
     Ns = Hs / (delta * Dn50)
     if Ns > 2:
         warnings.warn('Armour is not stable with the stability number Ns={0}, Dn50={1} [m]'.
                       format(round(Ns, 2), round(Dn50, 2)))
     return Dn50
+
+
+def vanDerMeer(Hs, h, Tp, alpha, rock_density, **kwargs):
+    """
+    Finds median rock diameter Dn50 using Van der Meer formula (The Rock Manual 2007)
+
+    :param Hs: float
+        Significant wave height at structure toe [m]
+    :param h: float
+        Water depth at structure toe [m]
+    :param Tp: float
+        Peak wave period [s]
+    :param alpha: float
+        Structure seaward side slope [degrees]
+    :param rock_density: float
+        Armor rock density [kg/m^3]
+    :param kwargs:
+        Tm : float
+            Mean wave period. By default calculated using JONSWAP spectra with gamma=3.3
+        P : float
+            Notional premeability of the structure. 0.1 <= P <= 0.6
+        Sd : int
+            Damage level parameter (default 2 for 0-5% damage as originally per Hudson)
+        N : int
+            Number of waves in a storm (N <= 7500 - default values)
+    :return:
+        Dn50 : float
+            Nominal median diameter of armour blocks (m)
+    """
+    Tm = kwargs.pop('Tm', 0.8 * Tp)
+    P = kwargs.pop('P', 0.1)
+    Sd = kwargs.pop('Sd', 2)
+    N = kwargs.pop('N', 7500)
+    assert isinstance(N, int), 'Number of waves should be a natural number'
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+    alpha = np.deg2rad(alpha)
+    delta = rock_density / sea_water_density - 1
+    H_2p = 1.4 * Hs
+    if h < 3 * Hs:
+        print('Shallow water')
+        c_pl = 8.4
+        c_s = 1.3
+        xi_cr = ((c_pl / c_s) * (P ** 0.31) * np.sqrt(np.tan(alpha))) ** (1 / (P + 0.5))
+        xi_s10 = np.tan(alpha) / np.sqrt(2 * np.pi * Hs / (scipy.constants.g * Tm ** 2))
+        if xi_s10 < xi_cr:
+            print('Plunging conditions')
+            right = c_pl * (P ** 0.18) * ((Sd / np.sqrt(N)) ** 0.2) * (Hs / H_2p) * (xi_s10 ** (-0.5))
+            return Hs / (delta * right)
+        else:
+            print('Surging conditions')
+            right = c_s * (P ** (-0.13)) * ((Sd / np.sqrt(N)) ** 0.2) * (Hs / H_2p) * np.sqrt(1 / np.tan(alpha)) \
+                    * (xi_s10 ** (-0.5))
+            return Hs / (delta * right)
+    else:
+        print('Deep water')
+        c_pl = 6.2
+        c_s = 1.0
+        xi_cr = ((c_pl / c_s) * (P ** 0.31) * np.sqrt(np.tan(alpha))) ** (1 / (P + 0.5))
+        xi_m = np.tan(alpha) / np.sqrt(2 * np.pi * Hs / (scipy.constants.g * Tm ** 2))
+        if xi_m < xi_cr:
+            print('Plunging conditions')
+            right = c_pl * (P ** 0.18) * ((Sd / np.sqrt(N)) ** 0.2) * (xi_m ** (-0.5))
+            return Hs / (delta * right)
+        else:
+            print('Surging conditions')
+            right = c_s * (P ** (-0.13)) * ((Sd / np.sqrt(N)) ** 0.2) * np.sqrt(1 / np.tan(alpha)) * (xi_m ** P)
+            return Hs / (delta * right)
+
+
+def vanGent(Hs, rock_density, alpha, Dn50_core, **kwargs):
+    """
+    Finds median rock diameter Dn50 using Van Gent formula (The Rock Manual 2007)
+
+    Parameters
+    ----------
+    Hs : float
+        Significant wave height (average of 1/3 highest waves, NOT SPECTRAL)
+    rock_density : float
+        Armor unit density [kg/m^3]
+    alpha : float
+        Seaward side slope [degrees]
+    Dn50_core : float
+        Core stone density [kg/m^3]
+    kwargs : varies
+        Sd : int
+            Damage level parameter (default 2 for 0-5% damage as originally per Hudson)
+        N : int
+            Number of waves in a storm (N <= 7500 - default values)
+
+    Returns
+    -------
+    Dn50 : float
+        Nominal median diameter of armour blocks (m)
+    """
+    Sd = kwargs.pop('Sd', 2)
+    N = kwargs.pop('N', 7500)
+    assert isinstance(N, int), 'Number of waves should be a natural number'
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+    alpha = np.deg2rad(alpha)
+    delta = rock_density / sea_water_density - 1
+
+    def VGf(Dn50):
+        right = 1.75 * np.sqrt(1 / np.tan(alpha)) * ((1 + Dn50_core / Dn50) ** (2 / 3)) * ((Sd / np.sqrt(N)) ** 0.2)
+        return Hs / (delta * Dn50) - right
+
+    def VGf_prime(Dn50):
+        right = 1.75 * np.sqrt(1 / np.tan(alpha)) * (2 / 3) \
+                * ((1 + Dn50_core / Dn50) ** (- 1 / 3)) * ((Sd / np.sqrt(N)) ** 0.2) * ((-1) * Dn50_core / Dn50 ** 2)
+        return (-1) * Hs / (delta * Dn50 ** 2) - right
+
+    return scipy.optimize.newton(VGf, 1, fprime=VGf_prime)
 
 
 def goda_1974(Hs, hs, T, d, hc, hw, **kwargs):
