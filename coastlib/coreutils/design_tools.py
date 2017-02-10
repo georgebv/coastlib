@@ -140,7 +140,7 @@ def hudson(Hs, alpha, rock_density, **kwargs):
     Paramters
     ---------
     Hs : float
-        Significant wave height at structure's toe (m)
+        Significant wave height at structure's toe (m) (CEM formulation suggests using a 1.27 factor for Hs)
     alpha : float
         Structure angle (degrees to horizontal)
     rock_density : float
@@ -149,6 +149,9 @@ def hudson(Hs, alpha, rock_density, **kwargs):
         Dimensionless stability coefficient (4 for pemeable core (default), 1 for impermeable core)
     sd : float
         Damage level (2 for 0-5% damage level)
+    formulation : str
+        CEM - Coastal Engineering Manual VI-5-73 (Hudson 1974)
+        CIRIA (default) - The Rock Manual (p.565, eq.5.135) - the more in-depth formulation by Van der Meer
 
     Returns
     -------
@@ -157,11 +160,20 @@ def hudson(Hs, alpha, rock_density, **kwargs):
     """
     kd = kwargs.pop('kd', 4)
     sd = kwargs.pop('sd', 2)
+    formulation = kwargs.pop('formulation', 'CIRIA')
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     delta = rock_density / sea_water_density - 1
-    Dn50 = Hs / (0.7 * (kd / np.tan(np.deg2rad(alpha))) ** (1 / 3) * sd ** 0.15)
-    Ns = Hs / (delta * Dn50)
+    alpha = np.deg2rad(alpha)
+    if formulation == 'CIRIA':
+        Dn50 = Hs / (delta * 0.7 * (kd / np.tan(alpha)) ** (1 / 3) * sd ** 0.15)
+        Ns = Hs / (delta * Dn50)
+    elif formulation == 'CEM':
+        Dn50 = Hs / (delta * (kd / np.tan(alpha)) ** (1 / 3))
+        Ns = Hs / (delta * Dn50)
+    else:
+        raise ValueError('Formulation {0} not recognized. Use CIRIA or CEM.'.format(formulation))
+
     if Ns > 2:
         warnings.warn('Armour is not stable with the stability number Ns={0}, Dn50={1} [m]'.
                       format(round(Ns, 2), round(Dn50, 2)))
