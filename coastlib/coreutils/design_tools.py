@@ -282,15 +282,33 @@ def vanGent(Hs, rock_density, alpha, Dn50_core, **kwargs):
     delta = rock_density / sea_water_density - 1
 
     def VGf(Dn50):
-        right = 1.75 * np.sqrt(1 / np.tan(alpha)) * ((1 + Dn50_core / Dn50) ** (2 / 3)) * ((Sd / np.sqrt(N)) ** 0.2)
-        return Hs / (delta * Dn50) - right
+        left = Hs / (delta * 1.75 * np.sqrt(1 / np.tan(alpha)) * (Sd / np.sqrt(N)) ** 0.2)
+        right = (Dn50 ** 3 + 2 * Dn50_core * Dn50 ** 2 + Dn50 * Dn50_core ** 2) ** (1 / 3)
+        return left - right
 
     def VGf_prime(Dn50):
-        right = 1.75 * np.sqrt(1 / np.tan(alpha)) * (2 / 3) \
-                * ((1 + Dn50_core / Dn50) ** (- 1 / 3)) * ((Sd / np.sqrt(N)) ** 0.2) * ((-1) * Dn50_core / Dn50 ** 2)
-        return (-1) * Hs / (delta * Dn50 ** 2) - right
+        left = 0
+        numerator = (1 / 3) * (3 * Dn50 ** 2 + 4 * Dn50_core * Dn50 + Dn50_core ** 2)
+        denominator = (Dn50 ** 3 + 2 * Dn50_core * Dn50 ** 2 + Dn50 * Dn50_core ** 2) ** (2 / 3)
+        right = numerator / denominator
+        return right - left
 
-    return scipy.optimize.newton(VGf, 1, fprime=VGf_prime)
+    try:
+        return scipy.optimize.newton(VGf, 0.5, fprime=VGf_prime, maxiter=50)
+    except:
+        warnings.warn('Failed to converge through Newton-Rhapson method')
+        try:
+            return scipy.optimize.newton(VGf, 0.5, maxiter=50)
+        except:
+            warnings.warn('Failed to converge through Secant method.\n'
+                          'A brute force method was used.')
+            Dn50 = np.arange(0.05, 20, 0.002)
+            def abs_Gent(Dn50):
+                left = Hs / (delta * 1.75 * np.sqrt(1 / np.tan(alpha)) * (Sd / np.sqrt(N)) ** 0.2)
+                right = (Dn50 ** 3 + 2 * Dn50_core * Dn50 ** 2 + Dn50 * Dn50_core ** 2) ** (1 / 3)
+                return np.abs(left - right)
+            return Dn50[abs_Gent(Dn50).argmin()]
+
 
 
 def goda_1974(Hs, hs, T, d, hc, hw, **kwargs):
