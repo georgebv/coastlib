@@ -294,14 +294,16 @@ def vanGent(Hs, rock_density, alpha, Dn50_core, **kwargs):
         return right - left
 
     try:
-        return scipy.optimize.newton(VGf, 0.5, fprime=VGf_prime, maxiter=50)
+        Dn50_res = scipy.optimize.newton(VGf, 0.5, fprime=VGf_prime, maxiter=50)
+        print('Solved using Newton-Rhapson method')
+        return Dn50_res
     except:
-        warnings.warn('Failed to converge through Newton-Rhapson method')
         try:
-            return scipy.optimize.newton(VGf, 0.5, maxiter=50)
+            Dn50_res = scipy.optimize.newton(VGf, 0.5, maxiter=50)
+            print('Solved using Secant method')
+            return Dn50_res
         except:
-            warnings.warn('Failed to converge through Secant method.\n'
-                          'A brute force method was used.')
+            print('Solved using "Brute Force" method')
             Dn50 = np.arange(0.05, 20, 0.002)
             def abs_Gent(Dn50):
                 left = Hs / (delta * 1.75 * np.sqrt(1 / np.tan(alpha)) * (Sd / np.sqrt(N)) ** 0.2)
@@ -309,6 +311,40 @@ def vanGent(Hs, rock_density, alpha, Dn50_core, **kwargs):
                 return np.abs(left - right)
             return Dn50[abs_Gent(Dn50).argmin()]
 
+
+def Vidal(Hs, rock_density, Rc):
+    coefficients = {
+        'front slope' : (1.831, -0.2450, 0.0119),
+        'crest' : (1.652, 0.0182, 0.1590),
+        'back slope' : (2.575, -0.5400, 0.1150),
+        'total section' : (1.544, -0.230, 0.053),
+        'kramer and burcharth' : (1.36, -0.23, 0.06)
+    }
+    # solutions = []
+    roots = []
+    delta = rock_density / sea_water_density - 1
+    for segment in coefficients.keys():
+        A, B, C = coefficients[segment]
+        a, b, c = A, B * Rc - Hs / delta, C * Rc ** 2
+        # def func(Dn50):
+        #     return a * Dn50 ** 2 + b * Dn50 + c
+        # def func_prime(Dn50):
+        #     return 2 * a * Dn50 + b
+        #
+        # solutions += [scipy.optimize.fsolve(func=func, x0=1, fprime=func_prime)]
+        roots += [max(
+            (-b + np.sqrt(b ** 2 - 4 * a * c)) / (2 * a),
+            (-b - np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
+        )]
+    roots = np.array(roots)[~np.isnan(np.array(roots))]
+    if len(roots) == 0:
+        warnings.warn('No solutions exist for input conditions')
+        return np.nan
+    else:
+        if Rc / max(roots) < -2.01 or Rc / max(roots) > 2.41\
+                or Hs / (delta * max(roots)) < 1.1 or Hs / (delta * max(roots)) > 3.7:
+            warnings.warn('Parameters beyond the range of validity!')
+        return max(roots)
 
 
 def goda_1974(Hs, hs, T, d, hc, hw, **kwargs):
