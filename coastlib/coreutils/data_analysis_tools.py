@@ -1,9 +1,12 @@
 import math
 import pandas as pd
 import statsmodels.api as sm
+import statsmodels.distributions.empirical_distribution
 import numpy as np
 import datetime
 import scipy.stats as sps
+import scipy.interpolate
+import scipy.optimize
 import matplotlib.pyplot as plt
 import warnings
 
@@ -193,21 +196,31 @@ def joint_probability(df, **kwargs):
         return jp_raw
 
 
-def associated_value(df, val, par, value, search_range=0.1):
+def associated_value(df, val1, val2, value, search_range, confidence=0.95, plot_cdf=False):
     """
-    For datframe df, value *val* (i.e. 'Hs') and parameter *par* (i.e. 'Tp')
-    returns parameter value statistically associated with *val* *value*
+    For datframe df, value *val1* (i.e. 'Hs') and parameter *val2* (i.e. 'Tp')
+    returns parameter value statistically associated with *val1* *value*
     """
-    df = df[pd.notnull(df[val])]
-    df = df[pd.notnull(df[par])]
-    val_range = df[val].max() - df[val].min()
-    a_low = value - search_range * val_range
-    a_up = value + search_range * val_range
-    a = df[(df[val] > a_low) & (df[val] < a_up)]
-    par_array = a[par].as_matrix()
-    dens = sm.nonparametric.KDEUnivariate(par_array)
-    dens.fit()
-    return dens.support[dens.density.argmax()]
+
+    df = df[pd.notnull(df[val1])]
+    df = df[pd.notnull(df[val2])]
+    target = df[(df[val1] >= value - search_range) & (df[val1] <= value + search_range)]
+    kde = sm.nonparametric.KDEUnivariate(target[val2].values)
+    kde.fit()
+    fit = scipy.interpolate.interp1d(kde.cdf, kde.support, kind='linear')
+    if plot_cdf == True:
+        with plt.style.context('bmh'):
+            plt.plot(kde.support, kde.cdf, lw=1, color='orangered')
+            plt.title('CDF of {0} for {1} in range [{low} - {top}]'.
+                      format(val2, val1, low=round(value - search_range, 2), top=round(value + search_range, 2)))
+            plt.ylabel('CDF')
+            plt.xlabel(val2)
+            plt.annotate(r'{perc}% Associated value {0}={1}'.format(val2, round(fit(confidence).tolist(), 2),
+                                                                   perc=confidence*100),
+                         xy=(fit(confidence).tolist(), confidence),
+                         xytext=(fit(0.5).tolist()+search_range, 0.5),
+                         arrowprops=dict(facecolor='k', shrink=0.01))
+    return fit(confidence).tolist()
 
 
 class EVA:
