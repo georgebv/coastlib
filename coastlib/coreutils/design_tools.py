@@ -313,12 +313,29 @@ def vanGent(Hs, rock_density, alpha, Dn50_core, **kwargs):
 
 
 def Vidal(Hs, rock_density, Rc):
+    """
+    Finds median rock diameter Dn50 using Vidal formula (The Rock Manual 2007, p.602, eq.5.167)
+
+    Parameters
+    ----------
+    Hs : float
+        Significant wave height (average of 1/3 highest waves, NOT SPECTRAL) [m]
+    rock_density : float
+        Armor unit density [kg/m^3]
+    Rc : float
+        Water freeboard (crest elevation - water elevation) [m]
+
+    Returns
+    -------
+    Dn50 : float
+        Nominal median diameter of armour blocks (m)
+    """
     coefficients = {
         'front slope' : (1.831, -0.2450, 0.0119),
         'crest' : (1.652, 0.0182, 0.1590),
         'back slope' : (2.575, -0.5400, 0.1150),
-        'total section' : (1.544, -0.230, 0.053),
-        'kramer and burcharth' : (1.36, -0.23, 0.06)
+        'total section' : (1.544, -0.230, 0.053)
+        # 'kramer and burcharth' : (1.36, -0.23, 0.06)
     }
     # solutions = []
     roots = []
@@ -344,7 +361,9 @@ def Vidal(Hs, rock_density, Rc):
         if Rc / max(roots) < -2.01 or Rc / max(roots) > 2.41\
                 or Hs / (delta * max(roots)) < 1.1 or Hs / (delta * max(roots)) > 3.7:
             warnings.warn('Parameters beyond the range of validity!')
-        return max(roots)
+            return np.nan
+        else:
+            return max(roots)
 
 
 def goda_1974(Hs, hs, T, d, hc, hw, **kwargs):
