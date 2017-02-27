@@ -487,7 +487,7 @@ def goda_2000(H13, T13, h, hc, **kwargs):
     h_prime = kwargs.pop('h_prime', d)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-    B = angle * math.pi / 180
+    B = np.deg2rad(angle)
     if Hmax is None:
         Hmax = 1.8 * H13
     wave = lw(T13, H13, depth=h)

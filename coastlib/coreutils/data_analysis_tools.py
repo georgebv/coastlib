@@ -104,7 +104,7 @@ class DelSepData:
         self.data.set_index([time], inplace=True)
 
 
-def joint_probability(df, **kwargs):
+def joint_probability(df, val1='Hs', val2='Tp', binsize1=0.3, binsize2=4, **kwargs):
     """
     Generates a joint probability table of 2 variables. (Works only for positive values!)
 
@@ -121,10 +121,6 @@ def joint_probability(df, **kwargs):
     output_format : str
         Joint table values (absolute 'abs' or relative / percent 'rel')
     """
-    val1 = kwargs.pop('val1', 'Hs')
-    val2 = kwargs.pop('val2', 'Tp')
-    binsize1 = kwargs.pop('binsize1', 0.3)
-    binsize2 = kwargs.pop('binsize2', 4)
     savepath = kwargs.pop('savepath', None)
     savename = kwargs.pop('savename', 'Joint Probability')
     output_format = kwargs.pop('output_format', 'rel')
@@ -196,10 +192,25 @@ def joint_probability(df, **kwargs):
         return jp_raw
 
 
-def associated_value(df, val1, val2, value, search_range, confidence=0.95, plot_cdf=False):
+def associated_value(df, value, search_range, val1='Hs', val2='Tp', confidence=0.5, plot_cdf=False):
     """
-    For datframe df, value *val1* (i.e. 'Hs') and parameter *val2* (i.e. 'Tp')
-    returns parameter value statistically associated with *val1* *value*
+    Calculates a statistically associated value for a series of 2 correllated values (joint probability)
+
+    Parameters
+    ----------
+    df : dataframe
+        Pandas dataframe
+    val1, val2 : str
+        Column names in dataframe df
+    value : float
+        Value of val1 for which an associated value val2 is found
+    search_range : float
+        Range of val1 within which values of val2 will be extraced for analysis (half bin size from
+        joint probability)
+    confidence : float
+        Confidence for associated value - shows probability of non-exceedance (default 0.5 - median value)
+    plot_cdf : bool
+        If True - display a CDF plot of val2 in range val1 ± search_range
     """
 
     df = df[pd.notnull(df[val1])]
