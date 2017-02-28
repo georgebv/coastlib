@@ -9,6 +9,7 @@ import numpy as np
 
 g = scipy.constants.g  # gravity constant (m/s^2) as defined by ISO 80000-3
 sea_water_density = 1030  # sea water density (kg/m^3)
+kinematic_viscocity = 1.5 * 10 ** (-6)  # m^2/s
 
 
 def runup(Hm0, Tp, slp, **kwargs):
@@ -563,6 +564,82 @@ def goda_2000(H13, T13, h, hc, **kwargs):
         ]
     )
     return output
+
+
+def Morison(Hs, Tp, D, depth, **kwargs):
+    """
+    Calculates wave loads on slender vertical piles as per CEM VI-5-281
+
+    Parameters
+    ----------
+    Hs : float
+        Significant wave height (m)
+    Tp : float
+        Peak wave period (s)
+    D : float
+        Pile diameter (m)
+    depth : float
+        Water depth (m)
+    rho : float
+        Water density (kg/m^3). Default = 1028
+    v : float
+        Kinematic water viscocity (m^2/s). Default = 1.5E-06
+    dz : float
+        Depth integration interval (m). Default = 0.01
+    phase : float
+        Phase of the wave (s). Default = Tp / 4
+
+    Returns
+    -------
+    Pandas dataframe with integrated wave load and application point.
+    """
+    rho = kwargs.pop('rho', 1028)
+    v = kwargs.pop('v', 1.5 * 10 ** (-6))
+    dz = kwargs.pop('dz', 0.01)
+    phase = kwargs.pop('phase', Tp / 4)
+
+    wave = lw(period=Tp, Hm0=Hs, angle=0, depth=depth)
+    L = wave.L
+    zs = np.arange(0, -depth, -dz)
+    u = []
+    ax = []
+    for z in zs:
+        wave.dynprop(z=z, t=phase, x=0)
+        u += [wave.u]
+        ax += [wave.ua]
+    u = np.array(u)
+    ax = np.array(ax)
+
+    Res = u * D / v
+    Cds = []
+    Cms = []
+    for Re in Res:
+        if Re < 10 ** 5:
+            Cds += [1.2]
+        elif Re > 10 ** 5 and Re < 4 * 10**5:
+            Cds += [1.2]
+        elif Re > 4 * 10 ** 5:
+            Cds += [0.7]
+
+        if Re < 2.5 * 10 ** 5:
+            Cms += [2]
+        elif Re > 2.5 * 10 ** 5 and Re < 5 * 10 ** 5:
+            Cms += [2.5 - Re / (5 * 10 ** 5)]
+        elif Re > 5 * 10 ** 5:
+            Cms += [1.5]
+    Cds = np.array(Cds)
+    Cms = np.array(Cms)
+
+    Fds = 0.5 * Cds * rho * D * u * np.abs(u)
+    Fis = rho * Cms * (np.pi * D ** 2 / 4) * ax
+    Fs = Fds + Fis
+    F = (Fs * dz).sum()
+    Moment = (Fs * dz * zs).sum()
+    F_z = Moment / F
+    return pd.DataFrame(data=[F, F_z, F / 4.44822, F_z / 0.3048],
+                        index=['Total Force (N)', 'Application (m, relative to water elevation)',
+                               'Total Force (lbf)', 'Application (ft, relative to water elevation)'],
+                        columns=['Values'])
 
 
 def dAngremond(Rc, Hm0, B, Tp, tana):
