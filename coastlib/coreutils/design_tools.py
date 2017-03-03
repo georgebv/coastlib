@@ -588,6 +588,10 @@ def Morison(Hs, Tp, D, depth, **kwargs):
         Depth integration interval (m). Default = 0.01
     phase : float
         Phase of the wave (s). Default = Tp / 4
+    interpolate : bool
+        Linearly interpolate drag coefficient (default = True)
+    report : bool
+        Describe flow condtion (drag or inertia dominated) (default = False)
 
     Returns
     -------
@@ -597,6 +601,9 @@ def Morison(Hs, Tp, D, depth, **kwargs):
     v = kwargs.pop('v', 1.5 * 10 ** (-6))
     dz = kwargs.pop('dz', 0.01)
     phase = kwargs.pop('phase', Tp / 4)
+    interpolate = kwargs.pop('interpolate', True)
+    report = kwargs.pop('report', False)
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     wave = lw(period=Tp, Hm0=Hs, angle=0, depth=depth)
     L = wave.L
@@ -614,24 +621,36 @@ def Morison(Hs, Tp, D, depth, **kwargs):
     Cds = []
     Cms = []
     for Re in Res:
-        if Re < 10 ** 5:
+        if Re <= 10 ** 5:
             Cds += [1.2]
         elif Re > 10 ** 5 and Re < 4 * 10**5:
-            Cds += [1.2]
-        elif Re > 4 * 10 ** 5:
-            Cds += [0.7]
-
-        if Re < 2.5 * 10 ** 5:
+            if interpolate:
+                Cds += [1.2 - (Re - 10 ** 5) * ((1.2 - 0.6) / (4 * 10 ** 5 - 10 ** 5))]
+            else:
+                Cds += [1.2]
+        elif Re >= 4 * 10 ** 5:
+            if interpolate:
+                Cds += [0.6]
+            else:
+                Cds += [0.7]
+        if Re <= 2.5 * 10 ** 5:
             Cms += [2]
         elif Re > 2.5 * 10 ** 5 and Re < 5 * 10 ** 5:
             Cms += [2.5 - Re / (5 * 10 ** 5)]
-        elif Re > 5 * 10 ** 5:
+        elif Re >= 5 * 10 ** 5:
             Cms += [1.5]
     Cds = np.array(Cds)
     Cms = np.array(Cms)
 
     Fds = 0.5 * Cds * rho * D * u * np.abs(u)
     Fis = rho * Cms * (np.pi * D ** 2 / 4) * ax
+    if report:
+        if (Fds * dz).sum() * 0.8 > (Fis * dz).sum():
+            print('Drag dominated force')
+        elif (Fds * dz).sum() < (Fis * dz).sum() * 0.8:
+            print('Inertia dominated force')
+        else:
+            print('Mixed condition')
     Fs = Fds + Fis
     F = (Fs * dz).sum()
     Moment = (Fs * dz * zs).sum()
