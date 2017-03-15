@@ -58,9 +58,10 @@ for thread in threads:
 print('\n\nAll work is done! Ready to close all threads!')
 
 
-a = '''{Kappa}
-              vs
-                {PogChamp}
-                          {{}}
-                              %
-                               $'''.format(Kappa='PogChamp', PogChamp='Kappa')
+a = '''
+{Kappa}
+       vs
+         {PogChamp}
+                   {{}}
+                       %
+                        $'''.format(Kappa='PogChamp', PogChamp='Kappa')

@@ -18,7 +18,7 @@ def ensure_dir(f):
     """
     Checks the existance of path *f* and if it doesn't exist - creates it.
     """
-    d = os.path.dirname(f)
+    d = os.path.dirname(f+r'\\')
     if not os.path.exists(d):
         os.makedirs(d)
 

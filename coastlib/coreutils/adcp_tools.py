@@ -2,6 +2,8 @@ import datetime
 import os
 import pandas as pd
 import scipy.io
+import numpy as np
+import warnings
 
 
 class SentinelV:
@@ -42,8 +44,65 @@ class SentinelV:
         dtype = self.mat['wt']
         dindex = dtype.dtype
         dstructured = {n: dtype[n][0, 0] for n in dindex.names}
+        velocity = dstructured['vel']
         # Generate data array
-        data = {}
+        east = np.array([[depth[0] for depth in time] for time in velocity])
+        north = np.array([[depth[1] for depth in time] for time in velocity])
+        horizontal = (east ** 2 + north ** 2) ** 0.5
+
+        up = np.array([[depth[2] for depth in time] for time in velocity])
+        total = (horizontal ** 2 + up ** 2) ** 0.5
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            east_depth_averaged = np.array([np.nanmean(x) for x in east])
+            north_depth_averaged = np.array([np.nanmean(x) for x in north])
+            horizontal_depth_averaged = np.array([np.nanmean(x) for x in horizontal])
+
+            east_depth_max = np.array([np.nanmax(x) for x in east])
+            north_depth_max = np.array([np.nanmax(x) for x in north])
+            horizontal_depth_max = np.array([np.nanmax(x) for x in horizontal])
+
+        def angle(vector):
+            if vector[0] > 0 and vector[1] > 0:
+                # Q-I
+                return np.rad2deg(np.arctan(np.abs(vector[0] / vector[1])))
+            elif vector[0] > 0 and vector[1] == 0:
+                return 90
+            elif vector[0] > 0 and vector[1] < 0:
+                # Q-II
+                return 90 + np.rad2deg(np.arctan(np.abs(vector[1] / vector[0])))
+            elif vector[0] == 0 and vector[1] < 0:
+                return 180
+            elif vector[0] < 0 and vector[1] < 0:
+                # Q-III
+                return 180 + np.rad2deg(np.arctan(np.abs(vector[0] / vector[1])))
+            elif vector[0] < 0 and vector[1] == 0:
+                return 270
+            elif vector[0] < 0 and vector[1] > 0:
+                return 270 + np.rad2deg(np.arctan(np.abs(vector[1] / vector[0])))
+            elif vector[0] ==0 and vector[1] > 0:
+                return 0
+            else:
+                return np.nan
+
+        direction_depth_averaged = [
+            angle((east_depth_averaged[i], north_depth_averaged[i])) for i in range(len(east_depth_averaged))
+            ]
+        direction_depth_max = [
+            angle((east_depth_max[i], north_depth_max[i])) for i in range(len(east_depth_max))
+            ]
+
+        self.currents = pd.DataFrame(horizontal_depth_averaged, columns=['Depth averaged current speed [m/s]'])
+        self.currents['Depth averaged current direction [deg N]'] = direction_depth_averaged
+        self.currents['Depth maximized current speed [m/s]'] = horizontal_depth_max
+        self.currents['Depth maximized current direction [deg N]'] = direction_depth_max
+        def nanargmax(x):
+            try:
+                return np.nanargmax(x)
+            except:
+                return np.nan
+        self.currents['Peak location [cell]'] = np.array([nanargmax(x) for x in horizontal])
 
         # Get time from the 'waves' structure
         dtype = self.mat['waves']
@@ -52,7 +111,7 @@ class SentinelV:
         time = []
         for i in range(len(dstructured['time'])):
             time += [datetime.datetime.fromtimestamp(dstructured['time'][i])]
-        self.currents = pd.DataFrame(data, index=time)
+        self.currents.index = time
 
     def export(self, par, save_format='xlsx', save_name='data frame', save_path=None):
 
