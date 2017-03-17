@@ -16,6 +16,15 @@ class SentinelV:
         self.waves = 'Execute the waves_parse method first'
         self.currents = 'Execute the currents_parse method first'
         self.model = 'Sentinel V Workhorse ADCP'
+        dtype = self.mat['info']
+        dindex = dtype.dtype
+        dstructured = {n: dtype[n][0, 0] for n in dindex.names}
+        data = {}
+        for key in dstructured:
+            data[key] = []
+            for j in range(len(dstructured[key])):
+                data[key] += [float(dstructured[key][j])]
+        self.info = pd.DataFrame(data)
 
     def waves_parse(self):
         """
@@ -97,12 +106,14 @@ class SentinelV:
         self.currents['Depth averaged current direction [deg N]'] = direction_depth_averaged
         self.currents['Depth maximized current speed [m/s]'] = horizontal_depth_max
         self.currents['Depth maximized current direction [deg N]'] = direction_depth_max
+
         def nanargmax(x):
             try:
                 return np.nanargmax(x)
             except:
                 return np.nan
-        self.currents['Peak location [cell]'] = np.array([nanargmax(x) for x in horizontal])
+        info = self.info.values
+        self.currents['Peak location [m from seabed]'] = np.array([nanargmax(x) for x in horizontal]) * info[0][2] + info[0][3]
 
         # Get time from the 'waves' structure
         dtype = self.mat['waves']
