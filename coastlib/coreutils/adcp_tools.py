@@ -124,6 +124,12 @@ class SentinelV:
             time += [datetime.datetime.fromtimestamp(dstructured['time'][i])]
         self.currents.index = time
 
+        dtype = self.mat['sens']
+        dindex = dtype.dtype
+        dstructured = {n: dtype[n][0, 0] for n in dindex.names}
+        self.currents['Pressure depths [m]'] = [x[0] for x in dstructured['pd']]
+
+
     def export(self, par, save_format='xlsx', save_name='data frame', save_path=None):
 
         if par == 'waves':
