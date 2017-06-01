@@ -2,11 +2,14 @@ import math
 from coastlib.models.linear_wave_theory import LinearWave as lw
 import scipy.constants
 import scipy.optimize
+import scipy.interpolate
 import pandas as pd
 import warnings
 import numpy as np
+import pint
 
 
+ureg = pint.UnitRegistry()
 g = scipy.constants.g  # gravity constant (m/s^2) as defined by ISO 80000-3
 sea_water_density = 1030  # sea water density (kg/m^3)
 kinematic_viscocity = 1.5 * 10 ** (-6)  # m^2/s
@@ -714,3 +717,38 @@ def Seabrook(Hm0, ds, B, L, D50):
     else:
         warnings.warn('Breakwater parameters beyond the validity levels')
         return np.nan
+
+
+def d50w50(unit, mode='d50 to w50'):
+    """
+    W50 to D50 and vise versa as per CEM p.VI-5-129 (Table VI-5-50)
+    
+    Parameters
+    ----------
+    unit : float
+        Unit to convert - either [ft] or [ton]
+    mode : str
+    Returns
+    -------
+
+    """
+    dimensions = np.concatenate((
+        np.array([4.3, 5.42, 6.21, 6.83, 7.36, 7.82, 8.23, 8.6, 8.95, 9.27, 9.57,
+                  9.85, 10.12, 10.37, 10.61, 10.84, 11.06, 11.28, 11.48]) / 12,
+        np.array([0.97, 1.23, 1.40, 1.54, 1.66, 1.77, 1.86, 1.95, 2.02, 2.10, 2.16,
+                  2.23,2.27, 2.35, 2.40, 2.45, 2.50, 2.55, 2.60]),
+        np.array([2.64, 3.33, 3.81, 4.19, 4.52, 4.80, 5.05, 5.28, 5.49, 5.69, 5.88,
+                  6.05, 6.21, 6.37, 6.51, 6.66, 6.79, 6.92, 7.05, 7.17])
+    ))# US_foot
+    weights = np.concatenate((
+        np.arange(5, 100, 5) / 2000,
+        np.arange(100, 2000, 100) / 2000,
+        np.arange(1, 21, 1)
+    )) # US_ton
+    if mode == 'd50 to w50':
+        fit = scipy.interpolate.interp1d(dimensions, weights, kind='cubic')
+    elif mode == 'w50 to d50':
+        fit = scipy.interpolate.interp1d(weights, dimensions, kind='cubic')
+    else:
+        raise ValueError('Mode not recognized. Use \'w50 to d50\' or \'d50 to w50\'')
+    return fit(unit)

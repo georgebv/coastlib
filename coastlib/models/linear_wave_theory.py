@@ -69,16 +69,16 @@ class LinearWave:
             angular frequency *w* (Hz),
             wave amplitude *a* (m).
         """
-        self.period = float(period)
+        self.period = period
         if depth == 'deep':
             self.depth = 'deep'
             self.L = g * (self.period ** 2) / (2 * pi)
         else:
-            self.depth = float(depth)
+            self.depth = depth
             self.L = solve_dispersion_relation(self.period, self.depth)
-        self.Hm0 = float(Hm0)
+        self.Hm0 = Hm0
         self.c = self.L / self.period
-        self.angle = float(angle)
+        self.angle = angle
         self.E = sea_water_density * g * (self.Hm0 ** 2) / 8
         self.k = 2 * pi / self.L
         if depth == 'deep':
