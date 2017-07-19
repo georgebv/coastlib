@@ -3,6 +3,7 @@ from coastlib.models.linear_wave_theory import LinearWave as lw
 import scipy.constants
 import scipy.optimize
 import scipy.interpolate
+import scipy.stats.distributions
 import pandas as pd
 import warnings
 import numpy as np
@@ -107,34 +108,57 @@ def overtopping(Hm0, Rc, **kwargs):
         Structure type: 'sap' for simple armored slope (default);
     dmethod : string (optional)
         Design method: 'det' for deterministic design (default), more conservative; 'prob' for probabilistic design.
+    manual : string (optional)
+        Manual to be used (2016 the default).
+    confidence : float (optional)
+        Confidence level for overtopping in the manual=2016 formulation.
 
     Returns
     -------
     q : float
-        Estimated mean overtopping discharge (m^2/s) for parameters entered.
+        Estimated mean overtopping discharge (m^3/s/m) for parameters entered.
     """
     B = kwargs.pop('B', 0)
     Yf = kwargs.pop('Yf', 1)
     strtype = kwargs.pop('strtype', 'sap')
     dmethod = kwargs.pop('dmethod', 'det')
+    manual = kwargs.pop('manual', 2016)
+    confidence = kwargs.pop('confidence', 0.95)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-    if B < 80:
-        YB = 1 - 0.0033 * B
-    else:
-        YB = 0.736
-
-    if strtype is 'sap':
-        if dmethod is 'det':
-            q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * math.exp(-2.3 * Rc / (Hm0 * Yf * YB))
-            return q
-        elif dmethod is 'prob':
-            q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * math.exp(-2.6 * Rc / (Hm0 * Yf * YB))
-            return q
+    if manual == 2007:
+        if B < 80:
+            YB = 1 - 0.0033 * B
         else:
-            raise ValueError('ERROR: Design method not recognized')
+            YB = 0.736
+
+        if strtype is 'sap':
+            if dmethod is 'det':
+                q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * math.exp(-2.3 * Rc / (Hm0 * Yf * YB))
+                return q
+            elif dmethod is 'prob':
+                q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * math.exp(-2.6 * Rc / (Hm0 * Yf * YB))
+                return q
+            else:
+                raise ValueError('ERROR: Design method not recognized')
+        else:
+            raise ValueError('ERROR: Structure type not recognized')
+    elif manual == 2016:
+
+        if np.abs(B) < 80:
+            YB = 1 - 0.0063 * np.abs(B)
+        else:
+            raise NotImplementedError('Oblique waves >80 degrees not implemented')
+
+        coeff_009 = scipy.stats.distributions.norm.interval(alpha=confidence, loc=0.09, scale=0.0135)[1]
+        coeff_15 = scipy.stats.distributions.norm.interval(alpha=confidence, loc=1.5, scale=0.15)[0]
+
+        if strtype is 'sap':
+            return ((g * (Hm0 ** 3)) ** 0.5) * coeff_009 * math.exp(-(coeff_15 * Rc / (Hm0 * Yf * YB)) ** (1.3))
+        else:
+            raise ValueError('ERROR: Structure type not recognized')
     else:
-        raise ValueError('ERROR: Structure type not recognized')
+        raise ValueError('ERROR: Manual not recognized')
 
 
 def hudson(Hs, alpha, rock_density, **kwargs):
@@ -149,7 +173,7 @@ def hudson(Hs, alpha, rock_density, **kwargs):
         Structure angle (degrees to horizontal)
     rock_density : float
         Rock density (kg/m^3)
-    Kd : float
+    kd : float
         Dimensionless stability coefficient (4 for pemeable core (default), 1 for impermeable core)
     sd : float
         Damage level (2 for 0-5% damage level)
@@ -186,7 +210,7 @@ def hudson(Hs, alpha, rock_density, **kwargs):
 
 def vanDerMeer(Hs, h, Tp, alpha, rock_density, **kwargs):
     """
-    Finds median rock diameter Dn50 using Van der Meer formula (The Rock Manual 2007)
+    Finds median rock diameter Dn50 using Van der Meer formula (The Rock Manual 2007, p.)
 
     :param Hs: float
         Significant wave height at structure toe [m]
@@ -212,7 +236,7 @@ def vanDerMeer(Hs, h, Tp, alpha, rock_density, **kwargs):
             Nominal median diameter of armour blocks (m)
     """
     Tm = kwargs.pop('Tm', 0.8 * Tp)
-    P = kwargs.pop('P', 0.1)
+    P = kwargs.pop('P', 0.4)
     Sd = kwargs.pop('Sd', 2)
     N = kwargs.pop('N', 7500)
     assert isinstance(N, int), 'Number of waves should be a natural number'
