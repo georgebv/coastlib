@@ -112,6 +112,8 @@ def overtopping(Hm0, Rc, **kwargs):
         Manual to be used (2016 the default).
     confidence : float (optional)
         Confidence level for overtopping in the manual=2016 formulation.
+    bound : str (optional)
+        For 2016 manual, set to either lower, median, or upper.
 
     Returns
     -------
@@ -123,7 +125,8 @@ def overtopping(Hm0, Rc, **kwargs):
     strtype = kwargs.pop('strtype', 'sap')
     dmethod = kwargs.pop('dmethod', 'det')
     manual = kwargs.pop('manual', 2016)
-    confidence = kwargs.pop('confidence', 0.95)
+    confidence = kwargs.pop('confidence', 0.90)
+    bound = kwargs.pop('bound', 'upper')
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     if manual == 2007:
@@ -150,8 +153,17 @@ def overtopping(Hm0, Rc, **kwargs):
         else:
             raise NotImplementedError('Oblique waves >80 degrees not implemented')
 
-        coeff_009 = scipy.stats.distributions.norm.interval(alpha=confidence, loc=0.09, scale=0.0135)[1]
-        coeff_15 = scipy.stats.distributions.norm.interval(alpha=confidence, loc=1.5, scale=0.15)[0]
+        if bound == 'lower':
+            coeff_009 = scipy.stats.distributions.norm.interval(alpha=confidence, loc=0.09, scale=0.0135)[0]
+            coeff_15 = scipy.stats.distributions.norm.interval(alpha=confidence, loc=1.5, scale=0.15)[1]
+        elif bound == 'upper':
+            coeff_009 = scipy.stats.distributions.norm.interval(alpha=confidence, loc=0.09, scale=0.0135)[1]
+            coeff_15 = scipy.stats.distributions.norm.interval(alpha=confidence, loc=1.5, scale=0.15)[0]
+        elif bound == 'median':
+            coeff_009 = 0.09
+            coeff_15 = 1.5
+        else:
+            raise ValueError('ERROR: Unrecognized bound value')
 
         if strtype is 'sap':
             return ((g * (Hm0 ** 3)) ** 0.5) * coeff_009 * math.exp(-(coeff_15 * Rc / (Hm0 * Yf * YB)) ** (1.3))

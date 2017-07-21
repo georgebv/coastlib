@@ -3,6 +3,8 @@ import scipy.constants
 from copy import deepcopy
 from math import sinh, pi, sqrt, sin, asin, cos, cosh, exp, tanh
 from scipy.optimize import newton
+import warnings
+
 
 g = scipy.constants.g  # gravity constant (m/s^2) as defined by ISO 80000-3
 sea_water_density = 1025  # sea water density (kg/m^3)
@@ -96,6 +98,14 @@ class LinearWave:
         self.pd = None
         self.x = None
         self.t = None
+        self.__test_wave__()
+
+    def __test_wave__(self):
+        if self.Hm0 / self.L > 1 / 7:
+            warnings.warn('WARNING: Critical steepness of 1/7 has been exceeded', UserWarning)
+        if self.depth != 'deep':
+            if self.depth / self.Hm0 <= 1.28:
+                warnings.warn('WARNING: Depth limited breaking is occurring', UserWarning)
 
     def as_dataframe(self):
         if self.depth is float:
@@ -190,6 +200,8 @@ class LinearWave:
         ac = (nL / self.L) * sin(self.angle * pi / 180)
         a = asin(ac) * (180 / pi)
         kr = sqrt(cos(self.angle * pi / 180) / cos(a * pi / 180))
+        if ndepth - self.Hm0 * (ks * kr) * 1.28 < 0:
+            warnings.warn('WARNING : The wave was propagated beyond breaking point', UserWarning)
         self.angle = a
         self.Hm0 *= (ks * kr)
         self.c = nc
@@ -213,6 +225,7 @@ class LinearWave:
                 self.ua = None
                 self.va = None
                 self.pd = None
+        self.__test_wave__()
 
     def wavebreak(self, precision=0.01):
         """
@@ -222,6 +235,7 @@ class LinearWave:
         if self.depth == 'deep':
             self.depth = 0.6 * self.L
         depth = self.depth
+        warnings.simplefilter('ignore', UserWarning)
         while True:
             b = deepcopy(self)
             depth -= precision
@@ -229,8 +243,10 @@ class LinearWave:
             kr = sqrt(cos(self.angle * pi / 180) / cos(b.angle * pi / 180))
             ks = sqrt(self.cg / b.cg)
             crt1 = b.depth - b.Hm0 * 1.28
-            crt2 = kr / ks - b.Hm0 / self.Hm0
+            crt2 = kr * ks - b.Hm0 / self.Hm0
             if crt1 < 0 and crt2 < 0:
                 depth += precision
                 break
         self.propagate(depth)
+        warnings.simplefilter('always')
+        self.__test_wave__()

@@ -6,7 +6,9 @@ import numpy as np
 import datetime
 import scipy.stats as sps
 import scipy.interpolate
+from scipy.optimize import curve_fit
 import scipy.optimize
+from scipy import stats
 import matplotlib.pyplot as plt
 import warnings
 
@@ -689,3 +691,64 @@ class EVA:
         :return:
         """
         print('Not yet implemented')
+
+
+def montefit(function, bounds, x, y, x_new, confidence=90, sims=1000, **kwargs):
+    '''
+    Fits function <function> to the <x,y> locus of points and evaluates the fit for a new set of values <x_new>.
+    Returns <lower ci, fit, upper ci> using <how> method for a confidence interval <confidence>.
+
+    Parameters
+    ----------
+    function
+    bounds
+    x
+    y
+    x_new
+    confidence
+    sims
+    sample
+
+    Returns
+    -------
+
+    '''
+    sample = kwargs.pop('sample', 0.4)
+    poisson = kwargs.pop('poisson', True)
+    how = kwargs.pop('how', 'kde')
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+    popt, pcov = curve_fit(function, x, y, bounds=bounds)
+    popt_s = []
+    if how == 'montecarlo':
+        for i in range(sims):
+            idx = np.random.choice(np.arange(len(x)), int(len(x) * sample), replace=False)
+            x_s, y_s = x[idx], y[idx]
+            popt_l, pcov_l = curve_fit(function, x_s, y_s, bounds=bounds)
+            popt_s += [popt_l]
+    elif how == 'kde':
+        values = np.vstack([x, y])
+        kernel = stats.gaussian_kde(values)
+        for i in range(sims):
+            if poisson:
+                # Generate a sample of a size <len_sample> from Poisson distibution and fit function to it
+                len_sample = sps.poisson.rvs(len(x))
+                sample = kernel.resample(len_sample)
+            else:
+                sample = kernel.resample(len(x))
+            x_s, y_s = sample[0], sample[1]
+            popt_l, pcov_l = curve_fit(function, x_s, y_s, bounds=bounds)
+            popt_s += [popt_l]
+    else:
+        raise ValueError(f'ERROR: Method {how} not recognized.')
+
+    y_new = function(x_new, *popt)
+    y_s = [function(x_new, *j) for j in popt_s]
+    y_s_pivot = np.array([[y_s[i][j] for i in range(len(y_s))] for j in range(len(x_new))])
+    moments = [sps.norm.fit(x) for x in y_s_pivot]
+    intervals = [sps.norm.interval(alpha=confidence/100, loc=x[0], scale=x[1]) for x in moments]
+    lower = [x[0] for x in intervals]
+    upper = [x[1] for x in intervals]
+    return lower, y_new, upper
+
+
