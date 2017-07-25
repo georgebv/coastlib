@@ -5,7 +5,8 @@ import shlex
 
 pc_name = os.environ['COMPUTERNAME'].lower()
 echo = False
-cPATH = r'C:\Users\GRBH\Desktop\GitHub Repositories\coastlib\coastapp'
+cPATH = os.path.dirname(os.path.abspath(__file__))
+costeira_bin = r'C:\Users\GRBH\Desktop\GitHub Repositories\Costeira\costeira\bin'
 
 
 def help():
@@ -18,13 +19,15 @@ def help():
    │command         action                                                     │
    ├───────────────────────────────────────────────────────────────────────────┤
    │                                                                           │
-   │help, -h        provides a list of available commands                      │
+   │help            provides a list of available commands                      │
    │                                                                           │
    │echo            Sets the echo variable on or off. If on, echoes debug info │
    │                                                                           │
    │cmd             sends everything after cmd to command line                 │
    │                                                                           │
    │cPATH           path to the coastapp root                                  │
+   │                                                                           │
+   │spm             launches the SPM program                                   │
    │                                                                           │
    │ls              list files in directory                                    │
    │                                                                           │
@@ -34,8 +37,6 @@ def help():
    │                                                                           │
    └───────────────────────────────────────────────────────────────────────────┘
     ''')
-
-
 
 
 def main(echo=echo, cPATH=cPATH):
@@ -74,28 +75,34 @@ def main(echo=echo, cPATH=cPATH):
             else:
                 print('Incorrect syntax. Use \'echo on\' or \'echo off\'')
 
-        elif coastapp_line[0] == 'help' or coastapp_line[0] == '-h':
+        elif coastapp_line[0] == 'help':
             help()
 
         elif coastapp_line[0] == 'cd':
             try:
                 os.chdir(coastapp_line[1])
             except FileNotFoundError:
-                print('Directory \'{dir}\' does not exist. Please enter a valid UNC path.'.format(dir=coastapp_line[1]))
+                print('Directory \'{dir}\' does not exist. '
+                      'Please enter a valid UNC path.'.format(dir=coastapp_line[1]))
             except IndexError:
                 print(os.getcwd())
             except OSError:
                 os.chdir(coastapp_line[1][1:-1])
 
         elif coastapp_line[0] == 'ls':
-            os.system('dir')
+            if os.name == 'nt':
+                os.system('dir')
+            else:
+                os.system('ls')
 
         elif coastapp_line[0] == 'cmd':
             os.system(' '.join(coastapp_line[1:]))
 
         elif coastapp_line[0] == 'cPATH':
             if len(coastapp_line) == 2:
-                cPATH = coastapp_line[1]
+                if input('You are about to change cPATH value to "{0}". '
+                         'Proceed? (y/n) '.format(coastapp_line[1])) in ['y', 'Y']:
+                    cPATH = coastapp_line[1]
             elif len(coastapp_line) == 1:
                 print('Coastapp PATH is "{0}"'.format(cPATH))
             else:

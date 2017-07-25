@@ -172,7 +172,7 @@ def run_spm(spm_path, inpath, outpath, echo, wait_time=1):
         os.makedirs(r'C:\SPMout')
     for file in os.listdir(inpath):
         command = '\"' + spm_path + '\" \"C:\SPMinp' + '\\' + file + '\" \"C:\SPMout' + '\\' + file[:-2] + 'out\"'
-        subprocess.call(command)
+        p = subprocess.call(command)
         if echo:
             print('Called in cmd - "{call}"'.format(call=command))
         time.sleep(wait_time)
