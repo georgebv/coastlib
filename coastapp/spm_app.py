@@ -107,7 +107,7 @@ def generate_input(xml_input, outpath, echo):
     WSs = convert('./Sinker/SubmergedWeight')  # submerged weight of sinker (lb)
 
     SBs = convert('./Hawser/ChockHeight')  # chock height above water line (ft)
-    ChartedDepth = convert('./Environment/ChartedDepth')[0]
+    ChartedDepth = convert('./Environment/ChartedDepth')
     WaterLevel = convert('./Environment/WaterLevel')
     WDs = ChartedDepth + WaterLevel  # water depth at anchor (ft)
     MBLs = convert('./Hawser/MBL')
