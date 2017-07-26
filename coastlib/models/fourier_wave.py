@@ -61,9 +61,9 @@ def fRun(path, cPATH):
                 print(line)
             if line.startswith('# Current'):
                 p.kill()
-                print('\nProcess killed (as intended). Check for completion above.')
         except:
             pass
+    print('\n=== Process killed (as intended). Check for completion above ===')
     os.chdir(curdir)
 
 

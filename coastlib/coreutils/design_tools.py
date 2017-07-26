@@ -1,5 +1,5 @@
 import math
-from coastlib.models.linear_wave_theory import LinearWave as lw
+from coastlib.models.linear_wave_theory import LinearWave
 import scipy.constants
 import scipy.optimize
 import scipy.interpolate
@@ -11,9 +11,6 @@ import pint
 
 
 ureg = pint.UnitRegistry()
-g = scipy.constants.g  # gravity constant (m/s^2) as defined by ISO 80000-3
-sea_water_density = 1030  # sea water density (kg/m^3)
-kinematic_viscocity = 1.5 * 10 ** (-6)  # m^2/s
 
 
 def runup(Hm0, Tp, slp, **kwargs):
@@ -57,6 +54,7 @@ def runup(Hm0, Tp, slp, **kwargs):
     rdb = kwargs.pop('rdb', 0)
     strtype = kwargs.pop('strtype', 'sap')
     dmethod = kwargs.pop('dmethod', 'det')
+    g = kwargs.pop('g', scipy.constants.g)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     Lm10 = g * (Tp ** 2) / (2 * math.pi)  # Deep water wave length
@@ -92,7 +90,7 @@ def runup(Hm0, Tp, slp, **kwargs):
 def overtopping(Hm0, Rc, **kwargs):
     """
     Calculates mean overtopping discharge.
-    Find mean overtopping discharge for <type> structure using the EurOtop (2007) manual methods.
+    Find mean overtopping discharge for <type> structure using the EurOtop (2007) and (2016) manual methods.
 
     Parameters
     ----------
@@ -201,6 +199,7 @@ def hudson(Hs, alpha, rock_density, **kwargs):
     kd = kwargs.pop('kd', 4)
     sd = kwargs.pop('sd', 2)
     formulation = kwargs.pop('formulation', 'CIRIA')
+    sea_water_density = kwargs.pop('sea_water_density', 1030)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     delta = rock_density / sea_water_density - 1
@@ -251,6 +250,7 @@ def vanDerMeer(Hs, h, Tp, alpha, rock_density, **kwargs):
     P = kwargs.pop('P', 0.4)
     Sd = kwargs.pop('Sd', 2)
     N = kwargs.pop('N', 7500)
+    sea_water_density = kwargs.pop('sea_water_density', 1030)
     assert isinstance(N, int), 'Number of waves should be a natural number'
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
@@ -315,6 +315,7 @@ def vanGent(Hs, rock_density, alpha, Dn50_core, **kwargs):
     """
     Sd = kwargs.pop('Sd', 2)
     N = kwargs.pop('N', 7500)
+    sea_water_density = kwargs.pop('sea_water_density', 1030)
     assert isinstance(N, int), 'Number of waves should be a natural number'
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
@@ -352,7 +353,7 @@ def vanGent(Hs, rock_density, alpha, Dn50_core, **kwargs):
             return Dn50[abs_Gent(Dn50).argmin()]
 
 
-def Vidal(Hs, rock_density, Rc):
+def Vidal(Hs, rock_density, Rc, **kwargs):
     """
     Finds median rock diameter Dn50 using Vidal formula (The Rock Manual 2007, p.602, eq.5.167)
 
@@ -370,6 +371,9 @@ def Vidal(Hs, rock_density, Rc):
     Dn50 : float
         Nominal median diameter of armour blocks (m)
     """
+    sea_water_density = kwargs.pop('sea_water_density', 1030)
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
     coefficients = {
         'front slope' : (1.831, -0.2450, 0.0119),
         'crest' : (1.652, 0.0182, 0.1590),
@@ -447,6 +451,8 @@ def goda_1974(Hs, hs, T, d, hc, hw, **kwargs):
     l_3 = kwargs.pop('l_3', 1)
     h_design = kwargs.pop('h_design', None)
     hb = kwargs.pop('hb', hs)
+    g = kwarg.pop('g', scipy.constants.g)
+    sea_water_density = kwargs.pop('sea_water_density', 1030)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     def deg2rad(x):
@@ -454,7 +460,7 @@ def goda_1974(Hs, hs, T, d, hc, hw, **kwargs):
 
     if h_design is None:
         h_design = 1.8 * Hs
-    wave = lw(T, Hs, depth=hs)
+    wave = LinearWave(T, Hs, depth=hs)
     a_1 = 0.6 + 0.5 * (((4 * math.pi * hs / wave.L) / (math.sinh(4 * math.pi * hs / wave.L))) ** 2)
     a_2 = min(
         (((hb - d) / (3 * hb)) * ((h_design / d) ** 2)),
@@ -525,12 +531,14 @@ def goda_2000(H13, T13, h, hc, **kwargs):
     angle = kwargs.pop('angle', 0)
     hb = kwargs.pop('hb', h)
     h_prime = kwargs.pop('h_prime', d)
+    g = kwargs.pop('g', scipy.constants.g)
+    sea_water_density = kwargs.pop('sea_water_density', 1030)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     B = np.deg2rad(angle)
     if Hmax is None:
         Hmax = 1.8 * H13
-    wave = lw(T13, H13, depth=h)
+    wave = LinearWave(T13, H13, depth=h)
     L = wave.L
     s = 0.75 * (1 + math.cos(B)) * Hmax
     a_1 = 0.6 + 0.5 * (((4 * math.pi * h / L) / (math.sinh(4 * math.pi * h / L))) ** 2)
@@ -605,99 +613,36 @@ def goda_2000(H13, T13, h, hc, **kwargs):
     return output
 
 
-def Morison(Hs, Tp, D, depth, **kwargs):
-    """
-    Calculates wave loads on slender vertical piles as per CEM VI-5-281
+def morrison(D, dz, u, du_dt, Cd=1.2, Cm=2, **kwargs):
+    '''
 
     Parameters
     ----------
-    Hs : float
-        Significant wave height (m)
-    Tp : float
-        Peak wave period (s)
     D : float
-        Pile diameter (m)
-    depth : float
-        Water depth (m)
-    rho : float
-        Water density (kg/m^3). Default = 1028
-    v : float
-        Kinematic water viscocity (m^2/s). Default = 1.5E-06
+        Cylinder diameter
+    u : float
+        Flow velocity amplitude
+    du_dt : float
+        Flow acceleration
     dz : float
-        Depth integration interval (m). Default = 0.01
-    phase : float
-        Phase of the wave (s). Default = Tp / 4
-    interpolate : bool
-        Linearly interpolate drag coefficient (default = True)
-    report : bool
-        Describe flow condtion (drag or inertia dominated) (default = False)
+        Cylinder height
+    Cd : float
+        Drag coefficient
+    Cm : float
+        Added mass coefficient (Cm=1+Ca)
 
     Returns
     -------
-    Pandas dataframe with integrated wave load and application point.
-    """
-    rho = kwargs.pop('rho', 1028)
-    v = kwargs.pop('v', 1.5 * 10 ** (-6))
-    dz = kwargs.pop('dz', 0.01)
-    phase = kwargs.pop('phase', Tp / 4)
-    interpolate = kwargs.pop('interpolate', True)
-    report = kwargs.pop('report', False)
+    (Fd, Fi) : tuple(float, float)
+        (drag, inertia) force
+    '''
+
+    rho = kwargs.pop('rho', 1030)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-    wave = lw(period=Tp, Hm0=Hs, angle=0, depth=depth)
-    L = wave.L
-    zs = np.arange(0, -depth, -dz)
-    u = []
-    ax = []
-    for z in zs:
-        wave.dynprop(z=z, t=phase, x=0)
-        u += [wave.u]
-        ax += [wave.ua]
-    u = np.array(u)
-    ax = np.array(ax)
-
-    Res = u * D / v
-    Cds = []
-    Cms = []
-    for Re in Res:
-        if Re <= 10 ** 5:
-            Cds += [1.2]
-        elif Re > 10 ** 5 and Re < 4 * 10**5:
-            if interpolate:
-                Cds += [1.2 - (Re - 10 ** 5) * ((1.2 - 0.6) / (4 * 10 ** 5 - 10 ** 5))]
-            else:
-                Cds += [1.2]
-        elif Re >= 4 * 10 ** 5:
-            if interpolate:
-                Cds += [0.6]
-            else:
-                Cds += [0.7]
-        if Re <= 2.5 * 10 ** 5:
-            Cms += [2]
-        elif Re > 2.5 * 10 ** 5 and Re < 5 * 10 ** 5:
-            Cms += [2.5 - Re / (5 * 10 ** 5)]
-        elif Re >= 5 * 10 ** 5:
-            Cms += [1.5]
-    Cds = np.array(Cds)
-    Cms = np.array(Cms)
-
-    Fds = 0.5 * Cds * rho * D * u * np.abs(u)
-    Fis = rho * Cms * (np.pi * D ** 2 / 4) * ax
-    if report:
-        if (Fds * dz).sum() * 0.8 > (Fis * dz).sum():
-            print('Drag dominated force')
-        elif (Fds * dz).sum() < (Fis * dz).sum() * 0.8:
-            print('Inertia dominated force')
-        else:
-            print('Mixed condition')
-    Fs = Fds + Fis
-    F = (Fs * dz).sum()
-    Moment = (Fs * dz * zs).sum()
-    F_z = Moment / F
-    return pd.DataFrame(data=[F, F_z, F / 4.44822, F_z / 0.3048],
-                        index=['Total Force (N)', 'Application (m, relative to water elevation)',
-                               'Total Force (lbf)', 'Application (ft, relative to water elevation)'],
-                        columns=['Values'])
+    Fd = (1 / 2) * Cd * rho * D * u * np.abs(u) * dz
+    Fi = rho * (np.pi / 4) * Cm * D ** 2 * du_dt * dz
+    return (Fd, Fi)
 
 
 def dAngremond(Rc, Hm0, B, Tp, tana):
