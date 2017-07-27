@@ -150,7 +150,6 @@ ENV/
 *.com
 *.class
 *.dll
-*.exe
 *.o
 *.so
 *.pyc
