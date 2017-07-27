@@ -641,7 +641,7 @@ def morrison(D, dz, u, du_dt, Cd=1.2, Cm=2, **kwargs):
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     Fd = (1 / 2) * Cd * rho * D * u * np.abs(u) * dz
-    Fi = rho * (np.pi / 4) * Cm * D ** 2 * du_dt * dz
+    Fi = rho * (np.pi / 4) * Cm * (D ** 2) * du_dt * dz
     return (Fd, Fi)
 
 

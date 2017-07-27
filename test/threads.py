@@ -1,7 +1,16 @@
 import time
 import threading
 import math
-from coastlib.miscutils.convenience_tools import print_update
+import sys
+
+
+def print_update(text):
+    """
+    Updates the same line in the terminal as long as no new lines are printed inbetween.
+    Useful when creating progress bars.
+    """
+    sys.stdout.write('\r{}'.format(text))
+    sys.stdout.flush()
 
 
 class ProgressBar(threading.Thread):

@@ -5,6 +5,8 @@ import subprocess
 import datetime
 import shutil
 import time
+import matplotlib.pyplot as plt
+import warnings
 
 
 def fData(title, H_to_d, measure, value_of_that_length, current_criterion, current_magnitude, N, height_steps):
@@ -186,7 +188,7 @@ def fourier(path, fdata, cPATH, ret_val=False, **kwargs):
         return out
 
 
-class FentonWave():
+class FentonWave:
     '''
     data : dict
         Data.dat input
@@ -235,11 +237,18 @@ class FentonWave():
         else:
             self.points = points
 
-        self.__write_inputs()
-
-        self.__run()
-
-        self.__parse(write_output=write_output)
+        sucess = False
+        for i in range(20):
+            try:
+                self.__write_inputs()
+                self.__run()
+                self.__parse(write_output=write_output)
+                sucess = True
+                break
+            except:
+                warnings.warn('Failure after {} iterations. Repeating'.format(i+1))
+        if not sucess:
+            raise RuntimeError('Wave was not resolved after 20 iterations. Time to debug :(')
 
         if self.path.endswith('ftmp'):
             shutil.rmtree(self.path)
@@ -290,11 +299,7 @@ class FentonWave():
         # Parse Surface.res
         surf = [i.split(sep='\t') for i in surface][8:-1]
         surf = np.array([[float(value) for value in row] for row in surf])
-        try:
-            self.surface = pd.DataFrame(data=surf, columns=['X (d)', 'eta (d)', 'pressure check'])
-        except ValueError:
-            print('Error ocurred in {}. Raw sting table was created instead of dataframe'.format(self.data))
-            self.surface = surf
+        self.surface = pd.DataFrame(data=surf, columns=['X (d)', 'eta (d)', 'pressure check'])
 
         # Parse Flowfield.res
         flow = ''.join(flowfield).split(sep='\n')[14:]
@@ -350,3 +355,50 @@ class FentonWave():
             ('Solution non-dimensionalised by', 'g & mean depth')
         ])
         return frame
+
+    def plot(self, what, scale=0.5, reduction=0, profiles=4):
+
+        try:
+            what = {
+                'u': 'u (sqrt(gd))',
+                'du/dt': 'du/dt (g)',
+                'v': 'v (sqrt(gd))',
+                'dv/dt': 'dv/dt (g)'
+            }.pop(what)
+        except:
+            raise ValueError('Unrecognized "{}" value passed in .plot'.format(what))
+
+        with plt.style.context('bmh'):
+            plt.figure(figsize=(24, 8))
+            plt.plot(self.surface['X (d)'].values, self.surface['eta (d)'].values, lw=2, color='royalblue')
+            plt.ylim([-0.1, 1.1])
+            plt.xlim([self.surface['X (d)'].values.min()*1.1, self.surface['X (d)'].values.max()*1.1])
+            plt.plot([self.surface['X (d)'].values.min(), self.surface['X (d)'].values.max()],
+                     [0, 0], color='saddlebrown', lw=2, ls='--')
+
+            X_flow = np.unique(self.flowfield['X (d)'].values)
+            print(self.flowfield.columns)
+
+            for i in np.arange(0, len(X_flow), int(np.round(len(X_flow)/profiles))):
+                flow_loc = self.flowfield[self.flowfield['X (d)'] == X_flow[i]]
+                plt.plot(
+                    [X_flow[i], X_flow[i]],
+                    [flow_loc['Y (d)'].values.min(), flow_loc['Y (d)'].values.max()],
+                    color='k', lw=1
+                )  # vertical line
+                plt.plot(
+                    [X_flow[i], X_flow[i] + (flow_loc[what].values[0] * scale - reduction)],
+                    [flow_loc['Y (d)'].values.min(), flow_loc['Y (d)'].values.min()],
+                    color='orangered', lw=1
+                )  # horizontal line bottom
+                plt.plot(
+                    [X_flow[i], X_flow[i] + (flow_loc[what].values[-1] * scale - reduction)],
+                    [flow_loc['Y (d)'].values.max(), flow_loc['Y (d)'].values.max()],
+                    color='orangered', lw=1
+                )  # horizontal line top
+                plt.plot(
+                    flow_loc[what].values * scale + X_flow[i] - reduction,
+                    flow_loc['Y (d)'].values,
+                    color='orangered', lw=1
+                )  # profile
+            plt.show()
