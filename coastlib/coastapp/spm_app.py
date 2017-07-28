@@ -8,12 +8,34 @@ import subprocess
 import shutil
 import shlex
 import pandas as pd
+import sys
 
 
 single_output = r'D:\Work folders\desktop projects\7 Kemano\1 Mooring\2 Mooring Analysis\outputs\SPM20.out'
 # print(','.join([str(float(i)) for i in np.arange(200, 500, 50)]))
-echo = True
+echo = False
 pc_name = os.environ['COMPUTERNAME'].lower()
+
+
+def logo():
+    print(r'''
+       _____  __     _                                  
+      / ___/ / /_   (_)____                             
+      \__ \ / __ \ / // __ \                            
+     ___/ // / / // // /_/ /                            
+    /____//_/ /_//_// .___/                             
+        __  ___    /_/ __   _                           
+       /  |/  /____   / /_ (_)____   ____               
+      / /|_/ // __ \ / __// // __ \ / __ \              
+     / /  / // /_/ // /_ / // /_/ // / / /              
+    /_/  /_/ \____/ \__//_/ \____//_/ /_/               
+        ____                                            
+       / __ \ _____ ____   ____ _ _____ ____ _ ____ ___ 
+      / /_/ // ___// __ \ / __ `// ___// __ `// __ `__ \
+     / ____// /   / /_/ // /_/ // /   / /_/ // / / / / /
+    /_/    /_/    \____/ \__, //_/    \__,_//_/ /_/ /_/ 
+                        /____/                          
+            ''')
 
 
 def help():
@@ -26,7 +48,7 @@ def help():
    │command         action                                                     │
    ├───────────────────────────────────────────────────────────────────────────┤
    │                                                                           │
-   │help, -h        provides a list of available commands                      │
+   │help            provides a list of available commands                      │
    │                                                                           │
    │echo            Sets the echo variable on or off. If on, echoes debug info │
    │                                                                           │
@@ -255,10 +277,10 @@ def parse_output(outpath, echo, excel=False, csv=False):
     print('Saved output to "{0}"'.format(outpath + '\Data.pyc'))
 
 
-def main(echo=echo, xml_input=xml_input, inpath=inpath, outpath=outpath, spmpath=spm_path):
+def command_line(echo=echo, xml_input=xml_input, inpath=inpath, outpath=outpath, spmpath=spm_path):
     while True:
         # Parse the SMP line
-        spm_line = input('{pc_name}@spm:~$ '.format(pc_name=pc_name))
+        spm_line = input('\n{pc_name}@spm:~$ '.format(pc_name=pc_name))
         try:
             spm_line = shlex.split(spm_line, posix=False)
         except ValueError:
@@ -270,9 +292,19 @@ def main(echo=echo, xml_input=xml_input, inpath=inpath, outpath=outpath, spmpath
             print(spm_line)
 
         # Execute commands
-        if spm_line[0] == 'exit':
-            break
+        # Pass if line is empty
+        if len(spm_line) == 0:
+            pass
 
+        # Exit
+        elif spm_line[0] == 'exit':
+            os.system('cls')
+            if __name__ == '__main__':
+                sys.exit(0)
+            else:
+                break
+
+        # Setup <echo> variable
         elif spm_line[0] == 'echo':
             if len(spm_line) == 2:
                 if spm_line[1] == 'on':
@@ -291,7 +323,8 @@ def main(echo=echo, xml_input=xml_input, inpath=inpath, outpath=outpath, spmpath
             else:
                 print('Incorrect syntax. Use \'echo on\' or \'echo off\'')
 
-        elif spm_line[0] == 'help' or spm_line[0] == '-h':
+        # Call help function
+        elif spm_line[0] == 'help':
             help()
 
         elif spm_line[0] == 'xml':
@@ -350,39 +383,40 @@ def main(echo=echo, xml_input=xml_input, inpath=inpath, outpath=outpath, spmpath
             try:
                 os.chdir(spm_line[1])
             except FileNotFoundError:
-                print('Directory \'{dir}\' does not exist. Please enter a valid UNC path.'.format(dir=smp_line[1]))
+                print('Directory \"{dir}\" does not exist. '
+                      'Please enter a valid UNC path.'.format(dir=spm_line[1]))
             except IndexError:
                 print(os.getcwd())
             except OSError:
                 os.chdir(spm_line[1][1:-1])
 
+        # Call 'dir' if Windows or 'ls' if Unix
         elif spm_line[0] == 'ls':
-            os.system('dir')
+            if os.name == 'nt':
+                os.system('dir')
+            else:
+                os.system('ls')
 
+        # Call terminal/command line
         elif spm_line[0] == 'cmd':
-            os.system(' '.join(spm_line[1:]))
+            if len(spm_line) == 1:
+                print('Correct usage is <cmd> [input1...] [input2...] ...')
+            else:
+                os.system(' '.join(spm_line[1:]))
 
         else:
-            print('Command \'{command}\' not recognized. '
-                  'Use \'help\' for a list of available commands.'.format(command=' '.join(spm_line)))
+            print('Command <{command}> not recognized. '
+                  'Use <help> for a list of available commands.'.format(command=' '.join(spm_line)))
+
+
+def main():
+    os.system('color 2')
+    os.system('cls')
+    logo()
+    command_line()
+    os.system('color')
+    os.system('cls')
 
 
 if __name__ == '__main__':
-    os.system('color 2')
-    os.system('cls')
-    print('''
- ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄       ▄▄ 
-▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░▌     ▐░░▌
-▐░█▀▀▀▀▀▀▀▀▀ ▐░█▀▀▀▀▀▀▀█░▌▐░▌░▌   ▐░▐░▌
-▐░▌          ▐░▌       ▐░▌▐░▌▐░▌ ▐░▌▐░▌
-▐░█▄▄▄▄▄▄▄▄▄ ▐░█▄▄▄▄▄▄▄█░▌▐░▌ ▐░▐░▌ ▐░▌
-▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░▌  ▐░▌  ▐░▌
- ▀▀▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀▀▀ ▐░▌   ▀   ▐░▌
-          ▐░▌▐░▌          ▐░▌       ▐░▌
- ▄▄▄▄▄▄▄▄▄█░▌▐░▌          ▐░▌       ▐░▌
-▐░░░░░░░░░░░▌▐░▌          ▐░▌       ▐░▌
- ▀▀▀▀▀▀▀▀▀▀▀  ▀            ▀         ▀ 
-    ''')
     main()
-    os.system('color')
-    os.system('cls')
