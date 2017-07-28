@@ -5,6 +5,7 @@ import subprocess
 import shutil
 import matplotlib.pyplot as plt
 import warnings
+import scipy.constants
 
 
 def fData(title, H_to_d, measure, value_of_that_length, current_criterion, current_magnitude, N, height_steps):
@@ -191,7 +192,7 @@ class FentonWave:
     Mandatory input
     ===============
     data : dict
-        Dictionaty with input to fData(**data)
+        Dictionaty with input to fData(**data). Make data=None in order to use
     bin_path : str
         Absolute path to folder with Fourier.exe or to Fourier.exe itself
 
@@ -212,57 +213,73 @@ class FentonWave:
     =======
     report : echoes solution summary and returns a dataframe with solution specifics
     plot : plots surface profile and velocity/acceleration profile slices
+    propagate : propagates the wave to a new depth
     """
 
-    def __init__(self,
-                 data, bin_path, path=None, convergence=None,
-                 points=None, write_output=False, max_iterations=20
-                 ):
+    def __init__(self, bin_path, **kwargs):
 
-        self.data, self.bin_path = data, bin_path
+        self.path = kwargs.pop('path', os.path.join(os.environ['ALLUSERSPROFILE'], 'ftmp'))
+        self._g = kwargs.pop('g', scipy.constants.g)
+        self._rho = kwargs.pop('rho', 1030)
+        self._max_iterations = kwargs.pop('max_iterations', 20)
+        self._write_output = kwargs.pop('write_output', False)
+        self.run_title = kwargs.pop('run_title', 'Wave')
 
+        self.wave_height = kwargs.pop('wave_height', 'dimensionless')
+        self.wave_period = kwargs.pop('wave_period', 'dimensionless')
+        self.depth = kwargs.pop('depth', 'dimensionless')
+        self.measure_of_wave_length = kwargs.pop('measure_of_wave_length', 'Period')
+        self.current_criterion = kwargs.pop('current_criterion', 1)  #
+        self.current_velocity = kwargs.pop('current_velocity', 0)
+        self.fourier_components = kwargs.pop('fourier_components', 20)
+        self.height_steps = kwargs.pop('height_steps', 10)
+        self.data = kwargs.pop(
+            'data',
+            {
+                'title'               : self.run_title,
+                'H_to_d'              : self.wave_height / self.depth,
+                'measure'             : self.measure_of_wave_length,
+                'value_of_that_length': self.wave_period * np.sqrt(self._g / self.depth),
+                'current_criterion'   : self.current_criterion,
+                'current_magnitude'   : self.current_velocity,
+                'N'                   : self.fourier_components,
+                'height_steps'        : self.height_steps,
+            }
+        )
+        self.convergence = kwargs.pop(
+            'convergence',
+            {
+                'maximum_number_of_iterations': 20,
+                'criterion_for_convergence'   : '1.e-4'
+            }  # recommended convergence criteria
+        )
+        self.points = kwargs.pop(
+            'points',
+            {
+                'M'   : 100,
+                'ua'  : 100,
+                'vert': 100
+            }  # 100 points per length/height by default
+        )
+        assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+        # Define the Fourier.exe path
         if bin_path.endswith('Fourier.exe'):
-            self.fPATH = bin_path
+            self._fpath = bin_path
         else:
-            self.fPATH = os.path.join(bin_path, 'Fourier.exe')
+            self._fpath = os.path.join(bin_path, 'Fourier.exe')
 
-        if not isinstance(self.data, dict):
-            raise ValueError('Data should be a dictionary')
-            pass
-            # TODO - parse other forms of inputs
-
-        if not path:
-            self.path = os.path.join(os.environ['ALLUSERSPROFILE'], 'ftmp')
-        else:
-            self.path = path
-
+        # Make sure work folder exists
         if not os.path.exists(self.path):
             os.makedirs(self.path)
 
-        if not convergence:
-            self.convergence = {
-                'maximum_number_of_iterations': 20,
-                'criterion_for_convergence': '1.e-4'
-            }  # recommended convergence criteria
-        else:
-            self.convergence = convergence
-
-        if not points:
-            self.points = {
-                'M': 100,
-                'ua': 100,
-                'vert': 100
-            }  # 100 points per length/height by default
-        else:
-            self.points = points
-
         # Try to generate inputs, call Fourier.exe, and parse outputs 20 times. Raise exception if failure persists
         sucess = False
-        for iteration in range(max_iterations):
+        for iteration in range(self._max_iterations):
             try:
                 self.__write_inputs()
                 self.__run()
-                self.__parse(write_output=write_output)
+                self.__parse()
                 sucess = True
                 break
             except Exception as exception:
@@ -272,12 +289,14 @@ class FentonWave:
         if not sucess:
             raise RuntimeError(
                 'No result was achieved after {0} iterations.\n'
-                'Check input for correctness. Read warnings with echoed exception'.format(max_iterations)
+                'Check input for correctness. Read warnings with echoed exception'.format(self._max_iterations)
             )
 
+        # Clean up
         if self.path.endswith('ftmp'):
             shutil.rmtree(self.path)
             self.path = None
+        self.__update_variables()
 
     def __write_inputs(self):
         with open(os.path.join(self.path, 'Data.dat'), 'w') as f:
@@ -290,9 +309,9 @@ class FentonWave:
     def __run(self):
 
         self.log = []  # Fourier.exe logs (stdout)
-        curdir = os.getcwd()
+        self._curdir = os.getcwd()
         os.chdir(path=self.path)
-        p = subprocess.Popen(self.fPATH, bufsize=1, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        p = subprocess.Popen(self._fpath, bufsize=1, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         while p.poll() is None:
             line = p.stdout.readline()
             try:
@@ -301,9 +320,10 @@ class FentonWave:
                     self.log += [line]
             except AttributeError:
                 pass
-        os.chdir(curdir)
+        self.log += ['\n=== Process exited with return code ({}) ==='.format(p.poll())]
+        os.chdir(self._curdir)
 
-    def __parse(self, write_output=False):
+    def __parse(self):
 
         # Open files generated by Fourier.exe
         with open(os.path.join(self.path, 'Solution.res'), 'r') as f:
@@ -314,7 +334,7 @@ class FentonWave:
             flowfield = f.readlines()
 
         # Parse Solution.res
-        self.solution = solution  # TODO: parse solution
+        self.solution = solution
 
         # Parse Surface.res
         surf = [i.split(sep='\t') for i in surface][8:-1]
@@ -346,7 +366,7 @@ class FentonWave:
         self.flowfield = pd.concat(flow)
 
         # Write output to self.path
-        if write_output:
+        if self._write_output:
             # Surface
             self.surface.to_pickle(os.path.join(self.path, 'surface.pyc'))
             self.surface.to_csv(os.path.join(self.path, 'surface.csv'))
@@ -362,6 +382,26 @@ class FentonWave:
                 slout=os.path.join(self.path, 'solution.pyc'), sout=os.path.join(self.path, 'surface.pyc'),
                 fout=os.path.join(self.path, 'flowfield.pyc')
             ))
+
+    def __update_variables(self):
+
+        # Update variables
+        if self.depth != 'dimensionless':
+            summary = self.report(echo=False)
+            self.depth *= summary[summary.index[0]].values[1]
+            self.wave_length = summary[summary.index[1]].values[1] * self.depth
+            self.wave_height = summary[summary.index[2]].values[1] * self.depth
+            self.wave_period = summary[summary.index[3]].values[1] / np.sqrt(self._g / self.depth)
+            self.wave_speed = summary[summary.index[4]].values[1] * np.sqrt(self._g * self.depth)
+            self.eulerian_current = summary[summary.index[5]].values[1] * np.sqrt(self._g * self.depth)
+            self.stokes_current = summary[summary.index[6]].values[1] * np.sqrt(self._g * self.depth)
+            self.mean_fluid_speed = summary[summary.index[7]].values[1] * np.sqrt(self._g * self.depth)
+            self.wave_volume_flux = summary[summary.index[8]].values[1] * np.sqrt(self._g * self.depth ** 3)
+            self.bernoulli_constant_r = summary[summary.index[9]].values[1] * (self._g * self.depth)
+            self.volume_flux = summary[summary.index[10]].values[1] * np.sqrt(self._g * self.depth ** 3)
+            self.bernoulli_constant_R = summary[summary.index[11]].values[1] * (self._g * self.depth)
+            self.momentum_flux = summary[summary.index[12]].values[1] * (self._rho * self._g * self.depth ** 2)
+            # TODO - check and enter the rest of the variables
 
     def report(self, echo=True):
 
@@ -385,13 +425,13 @@ class FentonWave:
 
         try:
             what = {
-                'u': 'u (sqrt(gd))',
+                'u'    : 'u (sqrt(gd))',
                 'du/dt': 'du/dt (g)',
-                'v': 'v (sqrt(gd))',
+                'v'    : 'v (sqrt(gd))',
                 'dv/dt': 'dv/dt (g)'
             }.pop(what)
         except:
-            raise ValueError('Unrecognized "{}" value passed in .plot'.format(what))
+            raise ValueError('Unrecognized value passed in what={}'.format(what))
 
         with plt.style.context('bmh'):
             plt.figure(figsize=(24, 8))
@@ -428,3 +468,37 @@ class FentonWave:
             plt.show()
             if savepath:
                 plt.savefig(savepath, dpi=300, bbox_inches='tight')
+
+    def propagate(self, new_depth):
+
+        self.depth = new_depth
+
+        # Make sure work folder exists
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
+
+        # Try to generate inputs, call Fourier.exe, and parse outputs 20 times. Raise exception if failure persists
+        sucess = False
+        for iteration in range(self._max_iterations):
+            try:
+                self.__write_inputs()
+                self.__run()
+                self.__parse()
+                sucess = True
+                break
+            except Exception as exception:
+                warnings.warn(
+                    'Got {0}. Failure after {1} iterations. Repeating'.format(exception, iteration + 1)
+                )
+        if not sucess:
+            raise RuntimeError(
+                'No result was achieved after {0} iterations.\n'
+                'Check input for correctness. Read warnings with echoed exception'.format(self._max_iterations)
+            )
+
+        # Clean up
+        if self.path.endswith('ftmp'):
+            shutil.rmtree(self.path)
+            self.path = None
+
+        self.__update_variables()

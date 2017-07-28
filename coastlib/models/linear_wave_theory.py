@@ -52,7 +52,7 @@ class LinearWave:
             depth associated with the wave (m) ('deep' for deepwater - default)
     """
 
-    def __init__(self, wave_period, wave_height, angle=0, depth='deep', sea_water_density=1030):
+    def __init__(self, wave_height, wave_period, depth='deep',angle=0, sea_water_density=1030):
         """
         Return a linear wave with:
             wave_period *wave_period* (sec),
