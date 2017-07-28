@@ -2,9 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import subprocess
-import datetime
 import shutil
-import time
 import matplotlib.pyplot as plt
 import warnings
 
@@ -53,8 +51,8 @@ def fInput(path, fdata, fpoints, fconvergence):
         print(fPoints(**fpoints), file=f)
 
 
-def fRun(path, cPATH):
-    fPATH = os.path.join(cPATH, 'Fourier.exe')
+def fRun(path, bin_path):
+    fPATH = os.path.join(bin_path, 'Fourier.exe')
     curdir = os.getcwd()
     os.chdir(path=path)
     p = subprocess.Popen(fPATH, bufsize=1, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -122,7 +120,7 @@ def fParse(path, ret_val=False):
         return sol, surf, flow
 
 
-def fourier(path, fdata, cPATH, ret_val=False, **kwargs):
+def fourier(path, fdata, bin_path, ret_val=False, **kwargs):
     """
     !!!!!!!!! USE FentonWave class - its better !!!!!!!!!
 
@@ -144,7 +142,7 @@ def fourier(path, fdata, cPATH, ret_val=False, **kwargs):
             'N' : 20,
             'height_steps' : 1
         }
-    cPATH : str
+    bin_path : str
         Path to "Fourier.exe"
     ret_val : bool
         If Ture, returns tuple of outputs (solution, surface, flowfield)
@@ -181,7 +179,7 @@ def fourier(path, fdata, cPATH, ret_val=False, **kwargs):
         os.makedirs(path)
 
     fInput(path=path, fdata=fdata, fpoints=fpoints, fconvergence=fconvergence)
-    fRun(path=path, cPATH=cPATH)
+    fRun(path=path, bin_path=bin_path)
     out = fParse(path=path, ret_val=ret_val)
 
     if ret_val:
@@ -189,31 +187,52 @@ def fourier(path, fdata, cPATH, ret_val=False, **kwargs):
 
 
 class FentonWave:
-    '''
+    """
+    Mandatory input
+    ===============
     data : dict
-        Data.dat input
-    cPATH : str
-        Absolute path to folder with Fourier.exe (can handle both path to folder or to .exe itself)
-    '''
+        Dictionaty with input to fData(**data)
+    bin_path : str
+        Absolute path to folder with Fourier.exe or to Fourier.exe itself
 
-    def __init__(self, data, cPATH, path=None, convergence=None, points=None, write_output=False):
+    Optional input
+    ==============
+    path : str
+        Path to simulation folder. If not specified, operates in temporary folder and cleans up afterwards.
+    convergence : dict
+        Dictionaty with input to fConvergence(**convergence)
+    points : dict
+        Dictionaty with input to fPoints(**points)
+    write_output : bool
+        If True, create .csv and .pyc of surface and flowfield dataframes in <path\>
+    max_terations : int
+        Some I/O instabilities may occur - this defines how many attempts will be made.
 
-        self.data, self.cPATH = data, cPATH
+    Methods
+    =======
+    report : echoes solution summary and returns a dataframe with solution specifics
+    plot : plots surface profile and velocity/acceleration profile slices
+    """
 
-        if self.cPATH.endswith('Fourier.exe'):
-            self.fPATH = self.cPATH
+    def __init__(self,
+                 data, bin_path, path=None, convergence=None,
+                 points=None, write_output=False, max_iterations=20
+                 ):
+
+        self.data, self.bin_path = data, bin_path
+
+        if bin_path.endswith('Fourier.exe'):
+            self.fPATH = bin_path
         else:
-            self.fPATH = os.path.join(self.cPATH, 'Fourier.exe')
+            self.fPATH = os.path.join(bin_path, 'Fourier.exe')
 
         if not isinstance(self.data, dict):
-            raise ValueError('data should be a dictionary')
+            raise ValueError('Data should be a dictionary')
             pass
             # TODO - parse other forms of inputs
 
         if not path:
-            self.path = os.path.join(
-                os.environ['ALLUSERSPROFILE'],
-                datetime.datetime.now().strftime('%y%m%d') + 'ftmp')
+            self.path = os.path.join(os.environ['ALLUSERSPROFILE'], 'ftmp')
         else:
             self.path = path
 
@@ -237,18 +256,24 @@ class FentonWave:
         else:
             self.points = points
 
+        # Try to generate inputs, call Fourier.exe, and parse outputs 20 times. Raise exception if failure persists
         sucess = False
-        for i in range(20):
+        for iteration in range(max_iterations):
             try:
                 self.__write_inputs()
                 self.__run()
                 self.__parse(write_output=write_output)
                 sucess = True
                 break
-            except:
-                warnings.warn('Failure after {} iterations. Repeating'.format(i+1))
+            except Exception as exception:
+                warnings.warn(
+                    'Got {0}. Failure after {1} iterations. Repeating'.format(exception, iteration+1)
+                )
         if not sucess:
-            raise RuntimeError('Wave was not resolved after 20 iterations. Time to debug :(')
+            raise RuntimeError(
+                'No result was achieved after {0} iterations.\n'
+                'Check input for correctness. Read warnings with echoed exception'.format(max_iterations)
+            )
 
         if self.path.endswith('ftmp'):
             shutil.rmtree(self.path)
@@ -267,7 +292,6 @@ class FentonWave:
         self.log = []  # Fourier.exe logs (stdout)
         curdir = os.getcwd()
         os.chdir(path=self.path)
-        time.sleep(0.1)  # TODO - is this useful? (code still unstable for long loops)
         p = subprocess.Popen(self.fPATH, bufsize=1, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         while p.poll() is None:
             line = p.stdout.readline()
@@ -275,12 +299,8 @@ class FentonWave:
                 line = line.decode()
                 if len(line) > 0:
                     self.log += [line]
-                if line.startswith('# Solution summary'):
-                    p.kill()
-            except:
+            except AttributeError:
                 pass
-
-        time.sleep(0.1)  # TODO - is this useful?
         os.chdir(curdir)
 
     def __parse(self, write_output=False):
@@ -331,6 +351,10 @@ class FentonWave:
             self.surface.to_pickle(os.path.join(self.path, 'surface.pyc'))
             self.surface.to_csv(os.path.join(self.path, 'surface.csv'))
             # Flowfield
+            try:
+                self.flowfield = self.flowfield.to_frame()
+            except AttributeError:
+                pass
             self.flowfield.to_pickle(os.path.join(self.path, 'flowfield.pyc'))
             self.flowfield.to_csv(os.path.join(self.path, 'flowfield.csv'))
             # Echo completion
@@ -339,10 +363,11 @@ class FentonWave:
                 fout=os.path.join(self.path, 'flowfield.pyc')
             ))
 
-    def report(self):
+    def report(self, echo=True):
 
         # Echo summary
-        print(''.join(self.solution[:10]))
+        if echo:
+            print(''.join(self.solution[:10]))
 
         # Parameters
         parameters = self.solution[14:33]
@@ -356,7 +381,7 @@ class FentonWave:
         ])
         return frame
 
-    def plot(self, what, scale=0.5, reduction=0, profiles=4):
+    def plot(self, what, savepath=None, scale=0.5, reduction=0, profiles=4):
 
         try:
             what = {
@@ -376,29 +401,30 @@ class FentonWave:
             plt.plot([self.surface['X (d)'].values.min(), self.surface['X (d)'].values.max()],
                      [0, 0], color='saddlebrown', lw=2, ls='--')
 
-            X_flow = np.unique(self.flowfield['X (d)'].values)
-            print(self.flowfield.columns)
+            x_flow = np.unique(self.flowfield['X (d)'].values)  # List of phases
 
-            for i in np.arange(0, len(X_flow), int(np.round(len(X_flow)/profiles))):
-                flow_loc = self.flowfield[self.flowfield['X (d)'] == X_flow[i]]
+            for i in np.arange(0, len(x_flow), int(np.round(len(x_flow)/profiles))):
+                flow_loc = self.flowfield[self.flowfield['X (d)'] == x_flow[i]]
                 plt.plot(
-                    [X_flow[i], X_flow[i]],
+                    [x_flow[i], x_flow[i]],
                     [flow_loc['Y (d)'].values.min(), flow_loc['Y (d)'].values.max()],
                     color='k', lw=1
                 )  # vertical line
                 plt.plot(
-                    [X_flow[i], X_flow[i] + (flow_loc[what].values[0] * scale - reduction)],
+                    [x_flow[i], x_flow[i] + (flow_loc[what].values[0] * scale - reduction)],
                     [flow_loc['Y (d)'].values.min(), flow_loc['Y (d)'].values.min()],
                     color='orangered', lw=1
                 )  # horizontal line bottom
                 plt.plot(
-                    [X_flow[i], X_flow[i] + (flow_loc[what].values[-1] * scale - reduction)],
+                    [x_flow[i], x_flow[i] + (flow_loc[what].values[-1] * scale - reduction)],
                     [flow_loc['Y (d)'].values.max(), flow_loc['Y (d)'].values.max()],
                     color='orangered', lw=1
                 )  # horizontal line top
                 plt.plot(
-                    flow_loc[what].values * scale + X_flow[i] - reduction,
+                    flow_loc[what].values * scale + x_flow[i] - reduction,
                     flow_loc['Y (d)'].values,
                     color='orangered', lw=1
                 )  # profile
             plt.show()
+            if savepath:
+                plt.savefig(savepath, dpi=300, bbox_inches='tight')
