@@ -233,9 +233,9 @@ class FentonWave:
         self.current_velocity = kwargs.pop('current_velocity', 0)
         self.fourier_components = kwargs.pop('fourier_components', 20)
         self.height_steps = kwargs.pop('height_steps', 10)
-        self.data = kwargs.pop(
-            'data',
-            {
+        try:
+            # Dimensional mode
+            self.data = {
                 'title'               : self.run_title,
                 'H_to_d'              : self.wave_height / self.depth,
                 'measure'             : self.measure_of_wave_length,
@@ -245,7 +245,9 @@ class FentonWave:
                 'N'                   : self.fourier_components,
                 'height_steps'        : self.height_steps,
             }
-        )
+        except TypeError:
+            # Dimensionless mode
+            self.data = kwargs.pop('data')
         self.convergence = kwargs.pop(
             'convergence',
             {
@@ -388,19 +390,28 @@ class FentonWave:
         # Update variables
         if self.depth != 'dimensionless':
             summary = self.report(echo=False)
-            self.depth *= summary[summary.index[0]].values[1]
-            self.wave_length = summary[summary.index[1]].values[1] * self.depth
-            self.wave_height = summary[summary.index[2]].values[1] * self.depth
-            self.wave_period = summary[summary.index[3]].values[1] / np.sqrt(self._g / self.depth)
-            self.wave_speed = summary[summary.index[4]].values[1] * np.sqrt(self._g * self.depth)
-            self.eulerian_current = summary[summary.index[5]].values[1] * np.sqrt(self._g * self.depth)
-            self.stokes_current = summary[summary.index[6]].values[1] * np.sqrt(self._g * self.depth)
-            self.mean_fluid_speed = summary[summary.index[7]].values[1] * np.sqrt(self._g * self.depth)
-            self.wave_volume_flux = summary[summary.index[8]].values[1] * np.sqrt(self._g * self.depth ** 3)
-            self.bernoulli_constant_r = summary[summary.index[9]].values[1] * (self._g * self.depth)
-            self.volume_flux = summary[summary.index[10]].values[1] * np.sqrt(self._g * self.depth ** 3)
-            self.bernoulli_constant_R = summary[summary.index[11]].values[1] * (self._g * self.depth)
-            self.momentum_flux = summary[summary.index[12]].values[1] * (self._rho * self._g * self.depth ** 2)
+            summary = (summary[summary.columns[1]]).to_frame()
+            summary = [row[0] for row in summary.values]
+            self.depth *= summary[0]
+            self.wave_length = summary[1] * self.depth
+            self.wave_height = summary[2] * self.depth
+            self.wave_period = summary[3] / np.sqrt(self._g / self.depth)
+            self.wave_speed = summary[4] * np.sqrt(self._g * self.depth)
+            self.eulerian_current = summary[5] * np.sqrt(self._g * self.depth)
+            self.stokes_current = summary[6] * np.sqrt(self._g * self.depth)
+            self.mean_fluid_speed = summary[7] * np.sqrt(self._g * self.depth)
+            self.wave_volume_flux = summary[8] * np.sqrt(self._g * self.depth ** 3)
+            self.bernoulli_constant_r = summary[9] * (self._g * self.depth)
+            self.volume_flux = summary[10] * np.sqrt(self._g * self.depth ** 3)
+            self.bernoulli_constant_R = summary[11] * (self._g * self.depth)
+            self.momentum_flux = summary[12] * (self._rho * self._g * self.depth ** 2)
+            self.impulse = summary[13] * (self._rho * np.sqrt(self._g * self.depth  ** 3))
+            self.kinetic_energy = summary[14] * (self._rho * self._g * self.depth ** 2)
+            self.potential_energy = summary[15] * (self._rho * self._g * self.depth ** 2)
+            self.mean_square_of_bed_velocity = summary[16] * (self._g * self.depth)
+            self.radiation_stress = summary[17] * (self._rho * self._g * self.depth ** 2)
+            self.wave_power = summary[18] * (self._rho * self._g ** (3/2) * self.depth ** (5/2))
+
             # TODO - check and enter the rest of the variables
 
     def report(self, echo=True):
