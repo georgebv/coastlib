@@ -9,13 +9,6 @@ Desktop.ini
 # Recycle Bin used on file shares
 $RECYCLE.BIN/
 
-# Output files for the test folder
-*.xlsx
-*.slx
-*.png
-*.txt
-*.jpg
-
 # Windows Installer files
 *.cab
 *.msi
@@ -158,7 +151,6 @@ ENV/
 ############
 # it's better to unpack these files and commit the raw source
 # git has its own built in compression methods
-*.7z
 *.dmg
 *.gz
 *.iso
@@ -185,3 +177,6 @@ tmtagsHistory
 *.sublime-project
 *.sublime-workspace
 .bundle
+*.bak
+*.dwl
+coastlib/models/data/applicability.dwl2
