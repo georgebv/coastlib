@@ -219,6 +219,7 @@ class FentonWave:
     def __init__(self, bin_path, **kwargs):
 
         # TODO - check if input data makes sense and tell how to improve it
+        # TODO - recompile Fourier source to make direct import from Python
 
         self._path = kwargs.pop('path', os.path.join(os.environ['ALLUSERSPROFILE'], 'ftmp'))
         self._g = kwargs.pop('g', scipy.constants.g)

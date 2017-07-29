@@ -1,94 +1,293 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import warnings
 
 
-with open(r'C:\Users\georg\Documents\GitHub\coastlib\coastlib\core\plotting\test.txt', 'r') as f:
-    data = f.readlines()
-data = [list(filter(None, i.split(sep=' '))) for i in data]
-values = np.array([float(i[8]) for i in data[1:]])
-directions = np.array([float(i[11]) for i in data[1:]])
-values = values[directions != 999]
-directions = directions[directions != 999]
-assert len(values) == len(directions)
+def __get_calms(values, calm_region_magnitude):
+    '''
+    Calculates percentage of events below specified threshold. Used to get the size of empty center circle.
+
+    :param calm_region_magnitude:
+    :return: percentage of calms
+    '''
+
+    return (values < calm_region_magnitude).sum() / len(values) * 100
 
 
-number_of_direction_bins = 8
-calm_region_magnitude = 0.5
-value_bin_boundaries = np.arange(calm_region_magnitude, 3, 0.5)  # boundaries for the value bins [0;1)...[4;inf)
-number_of_value_bins = len(value_bin_boundaries) - 1
-center_on_north = False  # This flag specifies if bins intersect main directions or not
-bar_notch = 0.9  # notch between bars proportional to bin width (only visual)
-colormap = plt.cm.jet
-assert len(value_bin_boundaries)-1 == number_of_value_bins
+def __get_theta(number_of_direction_bins, number_of_value_bins, center_on_north):
+    '''
+    Calculates 2D array with #rows=number_of_value_bins; #items per row=number_of_direction_bins.
+    Each value in the array represents angle in radians of a center of each bin. Repeated for each value bin.
 
-# Get calms and filter the data
-percentage_of_calms = (values < calm_region_magnitude).sum() / len(values)
-percentage_of_calms *= 100
+    :param number_of_direction_bins:
+    :param number_of_value_bins:
+    :param center_on_north:
+    :return: array of angles in radians of centers of direction bins
+    '''
 
-# Generate an array of centers of each bin
-if center_on_north:
-    theta = np.linspace(0, 2 * np.pi, number_of_direction_bins, endpoint=False)
-else:
-    theta = np.linspace(0, 2 * np.pi, number_of_direction_bins, endpoint=False) + np.pi / number_of_direction_bins
-theta = np.array([theta for i in range(number_of_value_bins+1)])  # array of thetas with 1 row per 1 value bin
+    if not center_on_north:
+        theta = np.linspace(0, 2 * np.pi, number_of_direction_bins, endpoint=False)
+    else:
+        theta = np.linspace(0, 2 * np.pi, number_of_direction_bins, endpoint=False) + np.pi / number_of_direction_bins
 
-# Generate an array of value bin boundaries in frequencies
-if not value_bin_boundaries.any():
-    value_bin_boundaries = np.linspace(0, 1, number_of_value_bins+1) * values.max()  # value bin boundaries
-radii = []
-__dangle = np.rad2deg((np.pi / number_of_direction_bins))
-for __angle in np.rad2deg(theta[0]):
-    __values = values[(directions >= __angle-__dangle) & (directions < __angle+__dangle)]  # select values in this bin
-    value_bins = []
-    for j in range(number_of_value_bins):
-        value_bins.extend([(
-            (__values >= value_bin_boundaries[j]) & (__values < value_bin_boundaries[j+1])
-            ).sum() / len(values)])
-    value_bins.extend([(__values >= value_bin_boundaries[-1]).sum() / len(values)])
-    radii += [value_bins]
-radii = np.array(radii).T  # frequencies for each value bin per each direction bin (or coordinates of end of each bar)
-radii *= 100
-
-colors = [colormap(i) for i in np.linspace(0.0, 1.0, number_of_value_bins+1)]   # an array of colors for each value bin
-                                                                                # patch
-
-__radii = [row.cumsum() for row in radii]
-__radii = [np.insert(row, 0, 0) for row in __radii]
-__radii = [row[:-1] for row in __radii]
-bottoms = np.zeros(shape=np.shape(radii))
-bottoms[0] = [percentage_of_calms] * len(bottoms[0])
-for i in range(1, len(bottoms)):
-    for j in range(len(bottoms[i])):
-        bottoms[i][j] = bottoms[i-1][j] + radii[i-1][j]  # this is the bottom of each bar
+    return np.array([theta for i in range(number_of_value_bins+1)])
 
 
+def __get_radii(
+        value_bin_boundaries, theta, values, directions, number_of_value_bins, number_of_direction_bins):
+    '''
+    Calculates percentages of each absolute bin (by direction + by value). Used to get height of each bar.
 
-ax = plt.subplot(111, polar=True)
-ax.set_theta_zero_location('N')
-for i in range(len(theta)):
-    bars = ax.bar(theta[i], radii[i], width=np.deg2rad(__dangle*2*bar_notch), bottom=bottoms[i])
-    for bar in bars:
-        bar.set_facecolor(colors[i])
-        bar.set_alpha(0.8)
-plt.show()
+    :param value_bin_boundaries:
+    :param theta:
+    :param values:
+    :param directions:
+    :param number_of_value_bins:
+    :param number_of_direction_bins:
+    :return: 2D array with percentages of each absolute bin (aka widths of the bars)
+    '''
+
+    _directions = directions + 0.00001
+    radii = []
+    __dangle = np.rad2deg((np.pi / number_of_direction_bins))
+    lens = []
+    for __angle in np.rad2deg(theta[0]):
+
+        # Filter by angle
+        bottom, top = __angle - __dangle, __angle + __dangle
+        if bottom < 0:
+            bottom = 360 + bottom
+        __values = []
+        for i in range(len(_directions)):
+            if _directions[i] > 360 and _directions[i] < 360.1:
+                _directions[i] = 359.99999
+            if _directions[i] >= bottom and _directions[i] < top:
+                __values += [values[i]]
+        # __values = values[(_directions >= bottom) & (_directions < top)]
+        lens+=[len(__values)]
+        # Filter by values
+        value_bins = []
+        for j in range(number_of_value_bins):
+            value_bins.extend([(
+                (__values >= value_bin_boundaries[j]) & (__values < value_bin_boundaries[j+1])
+                ).sum() / len(values)])
+        value_bins.extend([(__values >= value_bin_boundaries[-1]).sum() / len(values)])
+        radii += [value_bins]
+    return np.array(radii).T * 100
 
 
+def __get_colors(number_of_value_bins, colormap):
+    '''
+    Get colors for each value bins.
+
+    :param number_of_value_bins:
+    :param colormap:
+    :return: array of tuples with color for each value bin
+    '''
+
+    return [colormap(i) for i in np.linspace(0.0, 1.0, number_of_value_bins+1)]
 
 
-N = 20  # number of bars
-bottom = 1  # 'calm region' height
+def __get_bottoms(radii, percentage_of_calms):
+    '''
+    Calculates cooridanes of bottom for each bar.
+    All bars of the first value bin start from percentage_of_calms.
+    All subsequent bars start from ends of previous bars.
+
+    :param radii: numpy.ndarray
+    :param percentage_of_calms:
+    :return: 2D array with distances from 0 to start of each bar
+    '''
+
+    bottoms = np.zeros(shape=np.shape(radii))
+    bottoms[0] = [percentage_of_calms] * len(bottoms[0])
+    for i in range(1, len(bottoms)):
+        for j in range(len(bottoms[i])):
+            bottoms[i][j] = bottoms[i-1][j] + radii[i-1][j]  # this is the bottom of each bar
+    return bottoms
 
 
-theta = np.linspace(0.0, 2 * np.pi, N, endpoint=False) + np.pi / N
-radii = 10*np.random.rand(N)
-width = (2*np.pi) / N
+def rose_plot(
+        values, directions, value_bins, direction_bins=16, **kwargs
+):
+    """
+    Mandatory input
+    ===============
+    values : numpy.ndarray
+        1D array with values (e.g. wave heights or wind speeds). takes values in [0;inf)
+    directions : numpy.ndarray
+        1D array with directions (same length as <values>). takes directions in [0;360]
+    value_bins : numpy.ndarray
+        1D array with value bin boundaries (e.g. [0, 1,... n] will return [0;1)...[n;inf) ),
+        unless <calm_region> is specified
 
-ax = plt.subplot(111, polar=True)
-bars = ax.bar(theta, radii, width=width, bottom=bottom)
+    Optional input
+    ==============
+    direction_bins : int (default=16)
+        number of direction bins (results in a bin size 360/<direction_bins>)
+    calm_region : float (default=0)
+        threshold below which values are dicarded (i.e. noise)
+    center_on_north : bool (default=False)
+        if True, shifts direction bins so that they start from North (0 degrees)
+    notch : float (default=0.95)
+        magnitude of notch between bars (notch should be in (0;1] - if 1, no notches are drawn)
+    colormap : matplotlib colormap object (use plt.get_cmap['name'])
+        colormap to visualise value bins
+    value_name : str (default='Value')
+        name of the value on the figure legend (e.g. 'Hs' or 'Wind Speed')
+    alpha : float (default=0.8)
+        bars' transparency (alpha should be in [0;1] with 0 invisible, 1 fully visible)
+    bar_props : dict
+        dictionary with properties of ax.bar object (carfully read matplotlib tutorial before changing!!!)
+    fig_title : str (default='Rose Plot')
+        title of the figure
+    unit_name : str (default=None)
+        name of the <values> unit for the plot
+    save_path : str (default=None)
+        if save path is give, saves figure to this path (e.g. "C:\path\to\file\image.png")
+    min_ticks : int (default=4)
+        minimum number of frequency radii (increase if not enough)
 
-# Use custom colors and opacity
-for r, bar in zip(radii, bars):
-    bar.set_facecolor(plt.cm.jet(r / 10.))
-    bar.set_alpha(0.8)
+    Output
+    ======
+    """
 
-plt.show()
+    calm_region_magnitude = kwargs.pop('calm_region', 0)
+    center_on_north = kwargs.pop('center_on_north', False)
+    notch = kwargs.pop('notch', 0.95)
+    colormap = kwargs.pop('colormap', plt.get_cmap('jet'))
+    value_name = kwargs.pop('value_name', 'Value')
+    alpha = kwargs.pop('alpha', 0.8)
+    bar_props = kwargs.pop(
+        'bar_props',
+        {
+            'edgecolor': 'k',
+            'linewidth': 0.3,
+            'antialiased': True
+        }
+    )
+    fig_title = kwargs.pop('fig_title', 'Rose Plot')
+    unit_name = kwargs.pop('unit_name', None)
+    save_path = kwargs.pop('save_path', None)
+    min_ticks = kwargs.pop('min_ticks', 4)
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+    # Update value_bins array to include calm_region
+    value_bins = value_bins.astype(float)
+    if calm_region_magnitude != 0:
+        while True:
+            if value_bins[0] < calm_region_magnitude:
+                value_bins = value_bins[1:]
+            elif value_bins[0] > calm_region_magnitude:
+                value_bins = np.insert(value_bins, 0, calm_region_magnitude)
+            else:
+                break
+    elif value_bins[0] > 0:
+        value_bins = np.insert(value_bins, 0, 0)
+    number_of_value_bins = len(value_bins) - 1
+
+    # Calculate percentage of calms
+    calms = __get_calms(values=values, calm_region_magnitude=calm_region_magnitude)
+
+    # Get an array of angluar coordinates
+    theta = __get_theta(
+        number_of_direction_bins=direction_bins, number_of_value_bins=number_of_value_bins,
+        center_on_north=center_on_north
+    )
+
+    # Get an array of radial coordinates
+    radii = __get_radii(
+        value_bin_boundaries=value_bins, theta=theta, values=values,
+        directions=directions, number_of_value_bins=number_of_value_bins,
+        number_of_direction_bins=direction_bins
+    )
+    _error = radii.sum() + calms - 100
+    if not np.isclose(np.abs(_error), 0):
+        warnings.warn('Warning: cumulative error of {:.5f}%'.format(_error))
+
+    # Get an array of radial coordinates of bar bottoms
+    bottoms = __get_bottoms(radii=radii, percentage_of_calms=calms)
+
+    # Get an array of color values for value_bins
+    colors = __get_colors(number_of_value_bins=number_of_value_bins, colormap=colormap)
+
+    # Create a figure with poolar axes
+    plt.figure(figsize=(8,8), facecolor='w', edgecolor='w')
+    ax = plt.axes(polar=True)
+    ax.grid(b=True, color='grey', linestyle=':', axis='y')  # frequency grid
+    ax.grid(b=True, color='grey', linestyle='--', axis='x')  # direction grid
+    ax.set_theta_zero_location('N')  # move 'N' to top
+    ax.set_theta_direction(-1)  # make plot clockwise
+
+    # Setup radii axis
+    min_rtick_number = min_ticks  # set minimum number of r-ticks (ensures clarity)
+    if min_ticks <= 10:
+        max_rtick_number = 10  # set maximum number of r-ticks (ensures clarity)
+    else:
+        max_rtick_number = 100
+    _rmax = max([i.sum() for i in radii.T]) + calms
+    _ntix = int(min(
+        max(np.ceil(_rmax / 5), min_rtick_number),
+        max_rtick_number
+    ))
+    _tick_size = int(np.ceil(_rmax / _ntix))
+    _ytix = np.array([_tick_size * i for i in range(1, _ntix + 1)])
+    _ytix = _ytix[_ytix <= _rmax + _tick_size]
+    _ytix = _ytix[_ytix >= calms]
+    _ymargin = _tick_size / 2
+    ax.set_rgrids(
+        radii=_ytix, labels=['{}%'.format(tick, '.0f') for tick in _ytix],
+        size='medium', style='italic'
+    )
+    ax.set_ylim(0, _ytix[-1] + _ymargin)
+
+    # Setup theta axis
+    ax.set_thetagrids(
+        angles=np.arange(0, 360, 45), labels=['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'],
+        size='large', style='italic'
+    )
+
+    # Generate bar labels for legend
+    if calm_region_magnitude:
+        bar_labels = ['{0:.2f} ≤ {1} < {2:.2f}'.format(calm_region_magnitude, value_name, value_bins[1])]
+    else:
+        bar_labels = ['{0} < {1:.2f}'.format(value_name, value_bins[1])]
+    bar_labels.extend([
+        '{0:.2f} ≤ {1} < {2:.2f}'.format(value_bins[i], value_name, value_bins[i + 1])
+        for i in range(1, len(value_bins) - 1)
+    ])
+    bar_labels.extend(['{0} > {1:.2f}'.format(value_name, value_bins[-1])])
+
+    # Plot bars
+    for i in range(len(theta)):
+        ax.bar(
+            theta[i], radii[i], width=(2 * np.pi / direction_bins) * notch, bottom=bottoms[i],
+            color=colors[i], alpha=alpha, label=bar_labels[i], **bar_props
+        )
+
+    # Add legend and title
+    ax.set_title(label=fig_title, y=1.08, size='xx-large')
+    if calm_region_magnitude != 0:
+        # change color to see calms extent
+        ax.bar(0, calms, 2*np.pi, 0, color='white', alpha=0.3, label='{:.2f}% Calms'.format(calms))
+    if unit_name:
+        ax.legend(loc='upper left', bbox_to_anchor=(1.1, 1), title='{0} ({1})'.format(value_name, unit_name))
+    else:
+        ax.legend(loc='upper left', bbox_to_anchor=(1.1, 1), title='{0}'.format(value_name))
+
+    # Save the figure and close it
+    if save_path:
+        try:
+            plt.savefig(
+                save_path,
+                bbox_inches='tight', dpi=300
+            )  # extend window to see legend, it saves perfectly as is
+        except ValueError:
+            plt.savefig(
+                save_path + '.png',
+                bbox_inches='tight', dpi=300
+            )  # extend window to see legend, it saves perfectly as is
+        finally:
+            plt.close()
+    else:
+        plt.show()

@@ -1,4 +1,3 @@
-import coastlib.thirdpartyutils.detect_peaks as detect_peaks
 from coastlib.thirdpartyutils import windrose
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
@@ -58,92 +57,6 @@ def pdf_plot(df, **kwargs):
             plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight', dpi=600)
             plt.close()
 
-
-def time_series_plot(df, **kwargs):
-    """
-    Plots timeseries of *values* against *time*. Optionally plots peaks over timeseries
-    and saves output (figure and peaks table) to a specified location.
-
-    df : pandas DataFrame
-        Pandas dataframe with time as index
-    val : string
-        Column in the pandas dataframe (i.e. 'Hs')
-    showpeaks : bool
-        Indicates if peaks are found and plotted
-    savepath : string (optional)
-        Path to folder which timeseries plot and peaks table are saved to (i.e. 'C:\\foldername').
-        If not specified, shows plot in a pop-up window.
-    savename : string
-        Name of file
-    linewidth : float
-        Time series line width (default = 1)
-    figsize : tuple
-        Figure size (default = (16, 8))
-    xlabel, ylabel, title : string
-        X and Y axis labels and plot title
-    peaks_outname : string
-        Peaks .xlsx output file name
-    plot_style : string
-        Plot style (default = 'bmh')
-    """
-    val = kwargs.pop('val', 'Hs')
-    showpeaks = kwargs.pop('showpeaks', True)
-    peaks_outname = kwargs.pop('peaks_outname', 'Peaks')
-    savepath = kwargs.pop('savepath', None)
-    savename = kwargs.pop('savename', 'Time Series')
-    linewidth = kwargs.pop('linewidth', 0.5)
-    figsize = kwargs.pop('figsize', (16, 8))
-    title = kwargs.pop('title', 'Time Series')
-    xlabel = kwargs.pop('xlabel', 'Time')
-    ylabel = kwargs.pop('ylabel', 'Value')
-    plot_style = kwargs.pop('plot_style', 'bmh')
-    line_color = kwargs.pop('line_color', 'orangered')
-    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
-
-    with plt.style.context(plot_style):
-        if showpeaks:
-            indexes = detect_peaks.detect_peaks(df[val].as_matrix())
-            x = df[val][indexes].index.values
-            y = df[val][indexes].as_matrix()
-            if savepath is not None:
-                fig, ax = plt.subplots(figsize=figsize)
-                ax.plot(df[val], '-', color=line_color, linewidth=linewidth)
-                ax.scatter(x, y, s=20, label='Peaks', facecolors='none', edgecolors='royalblue')
-                plt.xlabel(xlabel)
-                plt.ylabel(ylabel)
-                plt.title(title)
-                plt.legend()
-                plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight', dpi=600)
-                plt.close()
-                writer = pd.ExcelWriter(savepath + '\\' + peaks_outname + '.xlsx')
-                df[val][indexes].to_frame().to_excel(writer, sheet_name=val + ' peaks')
-                writer.save()
-            else:
-                fig, ax = plt.subplots(figsize=figsize)
-                ax.plot(df[val], '-', color=line_color, linewidth=linewidth)
-                ax.scatter(x, y, s=20, label='Peaks', facecolors='none', edgecolors='royalblue')
-                plt.xlabel(xlabel)
-                plt.ylabel(ylabel)
-                plt.title(title)
-                plt.legend()
-                plt.show()
-        elif savepath is not None:
-            fig, ax = plt.subplots(figsize=figsize)
-            ax.plot(df[val], '-', color=line_color, linewidth=linewidth)
-            plt.xlabel(xlabel)
-            plt.ylabel(ylabel)
-            plt.title(title)
-            plt.legend()
-            plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight', dpi=600)
-            plt.close()
-        else:
-            fig, ax = plt.subplots(figsize=figsize)
-            ax.plot(df[val], '-', color=line_color, linewidth=linewidth)
-            plt.xlabel(xlabel)
-            plt.ylabel(ylabel)
-            plt.title(title)
-            plt.legend()
-            plt.show()
 
 
 def rose_plot(df, **kwargs):
