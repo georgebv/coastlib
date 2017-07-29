@@ -7,6 +7,6 @@ __version__ = '0.1.170727'
 __url__ = 'https://github.com/georgebv/coastlib'
 
 from coastlib.models.linear_wave_theory import LinearWave
-from coastlib.models.fourier_wave import FentonWave
+from coastlib.models.fenton_wave_theory import FentonWave
 
 

@@ -1,4 +1,5 @@
 import coastlib.thirdpartyutils.detect_peaks as detect_peaks
+from coastlib.thirdpartyutils import windrose
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -6,7 +7,6 @@ import pandas as pd
 import seaborn.apionly as sns
 import statsmodels.api as sm
 from scipy import stats
-from coastlib.thirdpartyutils import windrose
 
 
 def pdf_plot(df, **kwargs):

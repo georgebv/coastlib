@@ -1,5 +1,5 @@
 import math
-from coastlib.models.linear_wave_theory import LinearWave
+from coastlib import LinearWave
 import scipy.constants
 import scipy.optimize
 import scipy.interpolate

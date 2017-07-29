@@ -1,9 +1,9 @@
 import pandas as pd
 import scipy.constants
-from copy import deepcopy
-from math import sinh, pi, sqrt, sin, asin, cos, cosh, exp, tanh
-from scipy.optimize import newton
+import scipy.optimize
+import copy
 import warnings
+import numpy as np
 
 
 def solve_dispersion_relation(t, h, g=scipy.constants.g):
@@ -27,14 +27,14 @@ def solve_dispersion_relation(t, h, g=scipy.constants.g):
     """
 
     def disprel(k):
-        return (2 * pi / t) ** 2 - g * k * tanh(k * h)
+        return (2 * np.pi / t) ** 2 - g * k * np.sinh(k * h)
 
     def disprel_prime1(k):
-        return (-g) * (tanh(k * h) + k * h * (1 - tanh(k * h) ** 2))
+        return (-g) * (np.sinh(k * h) + k * h * (1 - np.sinh(k * h) ** 2))
 
-    l0 = g * (t ** 2) / (2 * pi)
-    k = newton(disprel, l0 / 2, fprime=disprel_prime1)
-    return (2 * pi) / k
+    l0 = g * (t ** 2) / (2 * np.pi)
+    k = scipy.optimize.newton(disprel, l0 / 2, fprime=disprel_prime1)
+    return (2 * np.pi) / k
 
 
 class LinearWave:
@@ -70,7 +70,7 @@ class LinearWave:
         self.wave_period = wave_period
         if depth == 'deep':
             self.depth = 'deep'
-            self.L = scipy.constants.g * (self.wave_period ** 2) / (2 * pi)
+            self.L = scipy.constants.g * (self.wave_period ** 2) / (2 * np.pi)
         elif isinstance(depth, float) or isinstance(depth, int):
             self.depth = depth
             self.L = solve_dispersion_relation(self.wave_period, self.depth)
@@ -78,12 +78,12 @@ class LinearWave:
         self.c = self.L / self.wave_period
         self.angle = angle
         self.E = sea_water_density * scipy.constants.g * (self.wave_height ** 2) / 8
-        self.k = 2 * pi / self.L
+        self.k = 2 * np.pi / self.L
         if depth == 'deep':
             self.cg = 0.5 * self.c
         else:
-            self.cg = 0.5 * self.c * (1 + (2 * self.k * self.depth) / sinh(2 * self.k * self.depth))
-        self.w = 2 * pi / self.wave_period
+            self.cg = 0.5 * self.c * (1 + (2 * self.k * self.depth) / np.sinh(2 * self.k * self.depth))
+        self.w = 2 * np.pi / self.wave_period
         self.a = self.wave_height / 2
         self.S = None
         self.z = None
@@ -154,25 +154,25 @@ class LinearWave:
         self.z = z
         self.x = x
         self.t = t
-        self.S = self.a * sin(self.w * t - self.k * x)
+        self.S = self.a * np.sin(self.w * t - self.k * x)
         if self.depth == 'deep':
-            self.pd = self.sea_water_density * scipy.constants.g * self.a * exp(self.k * z) \
-                      * sin(self.w * t - self.k * x)
-            self.ua = (self.w ** 2) * self.a * exp(self.k * z) * cos(self.w * t - self.k * x)
-            self.u = self.w * self.a * exp(self.k * z) * sin(self.w * t - self.k * x)
-            self.va = -(self.w ** 2) * self.a * exp(self.k * z) * sin(self.w * t - self.k * x)
-            self.v = self.w * self.a * exp(self.k * z) * cos(self.w * t - self.k * x)
+            self.pd = self.sea_water_density * scipy.constants.g * self.a * np.exp(self.k * z) \
+                      * np.sin(self.w * t - self.k * x)
+            self.ua = (self.w ** 2) * self.a * np.exp(self.k * z) * np.cos(self.w * t - self.k * x)
+            self.u = self.w * self.a * np.exp(self.k * z) * np.sin(self.w * t - self.k * x)
+            self.va = -(self.w ** 2) * self.a * np.exp(self.k * z) * np.sin(self.w * t - self.k * x)
+            self.v = self.w * self.a * np.exp(self.k * z) * np.cos(self.w * t - self.k * x)
         elif isinstance(self.depth, float) or isinstance(self.depth, int):
-            self.pd = self.sea_water_density * scipy.constants.g * self.a \
-                      * cosh(self.k * (z + self.depth)) * sin(self.w * t - self.k * x) / cosh(self.k * self.depth)
-            self.ua = (self.w ** 2) * self.a * cosh(self.k * (z + self.depth)) * cos(self.w * t - self.k * x) \
-                      / sinh(self.k * self.depth)
-            self.u = self.w * self.a * cosh(self.k * (z + self.depth)) * sin(self.w * t - self.k * x) \
-                     / sinh(self.k * self.depth)
-            self.va = -(self.w ** 2) * self.a * sinh(self.k * (z + self.depth)) * sin(self.w * t - self.k * x) \
-                      / sinh(self.k * self.depth)
-            self.v = self.w * self.a * sinh(self.k * (z + self.depth)) * cos(self.w * t - self.k * x) \
-                     / sinh(self.k * self.depth)
+            self.pd = self.sea_water_density * scipy.constants.g * self.a * np.cosh(self.k * (z + self.depth)) \
+                      * np.sin(self.w * t - self.k * x) / np.cosh(self.k * self.depth)
+            self.ua = (self.w ** 2) * self.a * np.cosh(self.k * (z + self.depth)) \
+                      * np.cos(self.w * t - self.k * x) / np.sinh(self.k * self.depth)
+            self.u = self.w * self.a * np.cosh(self.k * (z + self.depth)) * np.sin(self.w * t - self.k * x) \
+                     / np.sinh(self.k * self.depth)
+            self.va = -(self.w ** 2) * self.a * np.sinh(self.k * (z + self.depth)) \
+                      * np.sin(self.w * t - self.k * x) / np.sinh(self.k * self.depth)
+            self.v = self.w * self.a * np.sinh(self.k * (z + self.depth)) * np.cos(self.w * t - self.k * x) \
+                     / np.sinh(self.k * self.depth)
 
     def propagate(self, ndepth):
         """
@@ -191,13 +191,13 @@ class LinearWave:
         nl = solve_dispersion_relation(self.wave_period, ndepth)
         nc = nl / self.wave_period
         # Shoaling
-        k = 2 * pi / nl
-        ncg = 0.5 * nc * (1 + 2 * k * ndepth / sinh(2 * k * ndepth))
-        ks = sqrt(self.cg / ncg)
+        k = 2 * np.pi / nl
+        ncg = 0.5 * nc * (1 + 2 * k * ndepth / np.sinh(2 * k * ndepth))
+        ks = np.sqrt(self.cg / ncg)
         # Refraction
-        ac = (nl / self.L) * sin(self.angle * pi / 180)
-        a = asin(ac) * (180 / pi)
-        kr = sqrt(cos(self.angle * pi / 180) / cos(a * pi / 180))
+        ac = (nl / self.L) * np.sin(np.deg2rad(self.angle))
+        a = np.rad2deg(np.arcsin(ac))
+        kr = np.sqrt(np.cos(np.deg2rad(self.angle)) / np.cos(np.deg2rad(a)))
         if ndepth - self.wave_height * (ks * kr) * 1.28 < 0:
             warnings.warn('WARNING : The wave was propagated beyond breaking point', UserWarning)
         self.angle = a
@@ -206,9 +206,9 @@ class LinearWave:
         self.depth = ndepth
         self.L = nl
         self.E = self.sea_water_density * scipy.constants.g * (self.wave_height ** 2) / 8
-        self.k = 2 * pi / self.L
-        self.cg = 0.5 * self.c * (1 + 2 * self.k * self.depth / sinh(2 * self.k * self.depth))
-        self.w = 2 * pi / self.wave_period
+        self.k = 2 * np.pi / self.L
+        self.cg = 0.5 * self.c * (1 + 2 * self.k * self.depth / np.sinh(2 * self.k * self.depth))
+        self.w = 2 * np.pi / self.wave_period
         self.a = self.wave_height / 2
         if self.z is not None:
             if self.z + self.depth >= 0:
@@ -235,11 +235,11 @@ class LinearWave:
         depth = self.depth
         warnings.simplefilter('ignore', UserWarning)
         while True:
-            b = deepcopy(self)
+            b = copy.deepcopy(self)
             depth -= precision
             b.propagate(depth)
-            kr = sqrt(cos(self.angle * pi / 180) / cos(b.angle * pi / 180))
-            ks = sqrt(self.cg / b.cg)
+            kr = np.sqrt(np.cos(np.deg2rad(self.angle)) / np.cos(np.deg2rad(b.angle)))
+            ks = np.sqrt(self.cg / b.cg)
             crt1 = b.depth - b.wave_height * 1.28
             crt2 = kr * ks - b.wave_height / self.wave_height
             if crt1 < 0 and crt2 < 0:
