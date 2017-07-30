@@ -58,7 +58,6 @@ def pdf_plot(df, **kwargs):
             plt.close()
 
 
-
 def rose_plot(df, **kwargs):
     """
     Plots rose of values *val* for directions *direction*

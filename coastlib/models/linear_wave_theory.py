@@ -27,10 +27,10 @@ def solve_dispersion_relation(t, h, g=scipy.constants.g):
     """
 
     def disprel(k):
-        return (2 * np.pi / t) ** 2 - g * k * np.sinh(k * h)
+        return (2 * np.pi / t) ** 2 - g * k * np.tanh(k * h)
 
     def disprel_prime1(k):
-        return (-g) * (np.sinh(k * h) + k * h * (1 - np.sinh(k * h) ** 2))
+        return (-g) * (np.tanh(k * h) + k * h * (1 - np.tanh(k * h) ** 2))
 
     l0 = g * (t ** 2) / (2 * np.pi)
     k = scipy.optimize.newton(disprel, l0 / 2, fprime=disprel_prime1)
@@ -52,7 +52,7 @@ class LinearWave:
             depth associated with the wave (m) ('deep' for deepwater - default)
     """
 
-    def __init__(self, wave_height, wave_period, depth='deep',angle=0, sea_water_density=1030):
+    def __init__(self, wave_height, wave_period, depth='deep',angle=0, sea_water_density=1025):
         """
         Return a linear wave with:
             wave_period *wave_period* (sec),
@@ -243,6 +243,9 @@ class LinearWave:
             crt1 = b.depth - b.wave_height * 1.28
             crt2 = kr * ks - b.wave_height / self.wave_height
             if crt1 < 0 and crt2 < 0:
+                print('Solution reached with:'
+                      '    <depth> - <wave height> * 1.28 = {0:.2f}'
+                      '    <kr> * <ks> - <wave height 0> / <wave height 1> = {1:.2f}'.format(crt1, crt2))
                 depth += precision
                 break
         self.propagate(depth)

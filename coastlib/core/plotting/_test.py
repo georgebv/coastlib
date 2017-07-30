@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 
 # Parse test data
-with open(r'C:\Users\georg\Documents\GitHub\coastlib\coastlib\core\plotting\test.txt', 'r') as f:
+with open(r'C:\Users\georg\Documents\GitHub\coastlib\coastlib\core\plotting\test2.txt', 'r') as f:
     data = f.readlines()
 data = [list(filter(None, i.split(sep=' '))) for i in data]
 values = np.array([float(i[8]) for i in data[1:]])
@@ -15,7 +15,7 @@ assert len(values) == len(directions)
 
 rose_plot(
     values, directions, value_bins=np.arange(0, 5, 1),
-    colormap=plt.get_cmap('jet'), alpha=.8, direction_bins=1, calm_region=0.35)
+    colormap=plt.get_cmap('jet'), alpha=.8, direction_bins=32, calm_region=0.35)
 
 
 #=================================#

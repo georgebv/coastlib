@@ -9,4 +9,4 @@ __url__ = 'https://github.com/georgebv/coastlib'
 from coastlib.models.linear_wave_theory import LinearWave
 from coastlib.models.fenton_wave_theory import FentonWave
 from coastlib.core.plotting.rose_plot import rose_plot
-
+from coastlib.core.analyze.extreme import EVA

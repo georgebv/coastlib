@@ -223,7 +223,7 @@ class FentonWave:
 
         self._path = kwargs.pop('path', os.path.join(os.environ['ALLUSERSPROFILE'], 'ftmp'))
         self._g = kwargs.pop('g', scipy.constants.g)
-        self._rho = kwargs.pop('rho', 1030)
+        self._rho = kwargs.pop('rho', 1025)
         self._max_iterations = kwargs.pop('max_iterations', 20)
         self._write_output = kwargs.pop('write_output', False)
         self.run_title = kwargs.pop('run_title', 'Wave')
@@ -353,8 +353,24 @@ class FentonWave:
                 headers += [i]
         fields = []
         for i in range(len(headers) - 1):
-            fields += [list(filter(None, flow[headers[i]:headers[i + 1]]))]
-        fields += [list(filter(None, flow[headers[-1]:]))]
+            fields += [
+                list(
+                    filter(
+                        None,
+                        flow[
+                        headers[i]:headers[i+1]
+                        ]
+                    )
+                )
+            ]
+        fields += [
+            list(
+                filter(
+                    None,
+                    flow[headers[-1]:]
+                )
+            )
+        ]
         fields = [[list(filter(None, row.split('\t'))) for row in field] for field in fields]
         headers = [field[0] for field in fields]
         fields = [[[float(item) for item in row] for row in field[1:]] for field in fields]

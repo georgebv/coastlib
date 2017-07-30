@@ -4,6 +4,7 @@ import os
 import shlex
 import sys
 from coastlib.coastapp.spm_app import main as spm_app
+import coastlib
 
 
 pc_name = os.environ['COMPUTERNAME'].lower()
@@ -30,32 +31,42 @@ def logo():
 
 def help():
     print('''
-   ┌───────────────────────────────────────────────────────────────────────────┐
-   │                                                                           │
-   │                     Recongized Coastlib App commands                      │
-   │                                                                           │
-   ├───────────────────────────────────────────────────────────────────────────┤
-   │command         action                                                     │
-   ├───────────────────────────────────────────────────────────────────────────┤
-   │                                                                           │
-   │help            provides a list of available commands                      │
-   │                                                                           │
-   │echo            Sets the echo variable on or off. If on, echoes debug info │
-   │                                                                           │
-   │cmd             sends everything after cmd to command line                 │
-   │                                                                           │
-   │cPATH           path to the coastapp root                                  │
-   │                                                                           │
-   │spm             launches the SPM program                                   │
-   │                                                                           │
-   │ls              list files in directory                                    │
-   │                                                                           │
-   │cd              change directory                                           │
-   │                                                                           │
-   │exit            exits the coastapp program                                 │
-   │                                                                           │
-   └───────────────────────────────────────────────────────────────────────────┘
-    ''')
+   ┌────────────────────────────────────────────────────────────────────────────┐
+   │                                                                            │
+   │                     Recongized Coastlib App Commands                       │
+   │                                                                            │
+   ├─────────────────────────────┬──────────────────────────────────────────────┤
+   │command                      │  action                                      │
+   ├─────────────────────────────┼──────────────────────────────────────────────┤
+   │                             │                                              │
+   │help                         │  provides a list of available commands       │
+   │                             │                                              │
+   │echo                         │  sets the echo variable on or off.           │
+   │                             │  if on, echoes debug info                    │
+   │                             │                                              │
+   │cmd                          │  sends everything after cmd to command line  │
+   │                             │                                              │
+   │cPATH                        │  path to the coastapp root                   │
+   │                             │                                              │
+   │spm                          │  launches the SPM program                    │
+   │                             │                                              │
+   │ls                           │  list files in directory                     │
+   │                             │                                              │
+   │cd                           │  change directory                            │
+   │                             │                                              │
+   │Fenton -hs [wave height]     │  solve Fenton wave and get a report          │
+   │       -tp [wave period]     │                                              │
+   │       -d [depth]            │                                              │
+   │                             │                                              │
+   │Airy -hs [wave height]       │  solve Airy wave and get a report            │
+   │     -tp [wave period]       │                                              │
+   │     -d [depth]              │                                              │
+   │                             │                                              │
+   │                             │                                              │
+   │exit                         │  exits the coastapp program                  │
+   │                             │                                              │
+   └─────────────────────────────┴──────────────────────────────────────────────┘
+''')
 
 
 def command_line(echo=echo, cPATH=cPATH):
@@ -145,6 +156,7 @@ def command_line(echo=echo, cPATH=cPATH):
             else:
                 print('ERROR: cPATH command takes exactly one argument')
 
+        # Run the SPM program
         elif coastapp_line[0] == 'spm':
             if len(coastapp_line) > 1:
                 print('The spm command takes no arguments')
@@ -152,6 +164,38 @@ def command_line(echo=echo, cPATH=cPATH):
                 spm_app()
                 os.system('cls')
                 logo()
+
+        # Solve a Fenton wave and get a summary report
+        elif coastapp_line[0] == 'Fenton':
+            try:
+                _hs = float(coastapp_line[coastapp_line.index('-hs') + 1])
+                _tp = float(coastapp_line[coastapp_line.index('-tp') + 1])
+                _d = float(coastapp_line[coastapp_line.index('-d') + 1])
+                _fenton_wave = coastlib.FentonWave(
+                    bin_path=os.path.join(cPATH, 'bin'), wave_height=_hs,
+                    wave_period=_tp, depth=_d
+                )
+                print('\n' + '=' * 75)
+                print(_fenton_wave.report())
+                print('=' * 75)
+            except:
+                print('Bad syntax. Correct syntax (any order after <Fenton>) is:\n'
+                      '    <Fenton> <-hs> [wave height] <-tp> [wave period] <-d> [depth]')
+
+        # Solve an Airy wave and get a summary report
+        elif coastapp_line[0] == 'Airy':
+            try:
+                _hs = float(coastapp_line[coastapp_line.index('-hs') + 1])
+                _tp = float(coastapp_line[coastapp_line.index('-tp') + 1])
+                _d = float(coastapp_line[coastapp_line.index('-d') + 1])
+                _airy_wave = coastlib.LinearWave(wave_height=_hs, wave_period=_tp, depth=_d)
+                print('\n' + '=' * 31)
+                print(_airy_wave.as_dataframe())
+                print('=' * 31)
+            except:
+                print('Bad syntax. Correct syntax (any order after <Fenton>) is:\n'
+                      '    <Airy> <-hs> [wave height] <-tp> [wave period] <-d> [depth]')
+            pass
 
         else:
             print('Command <{command}> not recognized. '
