@@ -15,9 +15,19 @@ assert len(values) == len(directions)
 
 rose_plot(
     values, directions, value_bins=np.arange(0, 5, 1),
-    colormap=plt.get_cmap('jet'), alpha=1, direction_bins=64, calm_region=0.35,
-    min_ticks=4,
-    save_path=r'C:\Users\georg\Documents\GitHub\coastlib\coastlib\core\plotting\on north',
-    center_on_north=True
-)
+    colormap=plt.get_cmap('jet'), alpha=.8, direction_bins=1, calm_region=0.35)
 
+
+#=================================#
+value_bins = np.arange(0, 5, 1)
+direction_bins=16
+number_of_direction_bins = 16
+number_of_value_bins = 4
+center_on_north = False
+calm_region_magnitude = 0.35
+value_bin_boundaries = value_bins
+
+calms=__get_calms(values, calm_region_magnitude)
+(values < calm_region_magnitude).sum()
+theta = __get_theta(number_of_direction_bins, number_of_value_bins, center_on_north)
+radii = __get_radii(value_bin_boundaries, theta, values, directions, number_of_value_bins, number_of_direction_bins)

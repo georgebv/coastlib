@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import warnings
+import pandas as pd
 
 
 def __get_calms(values, calm_region_magnitude):
@@ -25,7 +26,7 @@ def __get_theta(number_of_direction_bins, number_of_value_bins, center_on_north)
     :return: array of angles in radians of centers of direction bins
     '''
 
-    if not center_on_north:
+    if center_on_north:
         theta = np.linspace(0, 2 * np.pi, number_of_direction_bins, endpoint=False)
     else:
         theta = np.linspace(0, 2 * np.pi, number_of_direction_bins, endpoint=False) + np.pi / number_of_direction_bins
@@ -34,7 +35,9 @@ def __get_theta(number_of_direction_bins, number_of_value_bins, center_on_north)
 
 
 def __get_radii(
-        value_bin_boundaries, theta, values, directions, number_of_value_bins, number_of_direction_bins):
+        value_bin_boundaries, theta, values, directions,
+        number_of_value_bins, number_of_direction_bins
+):
     '''
     Calculates percentages of each absolute bin (by direction + by value). Used to get height of each bar.
 
@@ -47,31 +50,30 @@ def __get_radii(
     :return: 2D array with percentages of each absolute bin (aka widths of the bars)
     '''
 
-    _directions = directions + 0.00001
-    radii = []
-    __dangle = np.rad2deg((np.pi / number_of_direction_bins))
-    lens = []
-    for __angle in np.rad2deg(theta[0]):
+    # Prepare a dataframe
+    data = pd.DataFrame(data=values, columns=['Val'])
+    data['Dir'] = directions
+    data.sort_values('Dir', inplace=True)
 
-        # Filter by angle
-        bottom, top = __angle - __dangle, __angle + __dangle
-        if bottom < 0:
-            bottom = 360 + bottom
-        __values = []
-        for i in range(len(_directions)):
-            if _directions[i] > 360 and _directions[i] < 360.1:
-                _directions[i] = 359.99999
-            if _directions[i] >= bottom and _directions[i] < top:
-                __values += [values[i]]
-        # __values = values[(_directions >= bottom) & (_directions < top)]
-        lens+=[len(__values)]
+    # Filter by angles
+    angles = np.rad2deg(theta[0])
+    dangle = 180 / number_of_direction_bins
+    bins = [[np.round(angle - dangle, 3), np.round(angle + dangle, 3)] for angle in angles]
+    if bins[0][0] < 0:
+        bins[0][0] += 360
+    if bins[-1][1] == 360:
+        bins[-1][1] += 1
+    datas = [data[(data['Dir'] >= bin[0]) & (data['Dir'] < bin[1])] for bin in bins]
+
+    radii = []
+    for _data in datas:
         # Filter by values
         value_bins = []
         for j in range(number_of_value_bins):
             value_bins.extend([(
-                (__values >= value_bin_boundaries[j]) & (__values < value_bin_boundaries[j+1])
-                ).sum() / len(values)])
-        value_bins.extend([(__values >= value_bin_boundaries[-1]).sum() / len(values)])
+                (_data['Val'].values >= value_bin_boundaries[j]) & (_data['Val'].values < value_bin_boundaries[j+1])
+                ).sum() / len(data)])
+        value_bins.extend([(_data['Val'].values >= value_bin_boundaries[-1]).sum() / len(data)])
         radii += [value_bins]
     return np.array(radii).T * 100
 
