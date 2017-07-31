@@ -3,8 +3,8 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 import subprocess
-import os
 import scipy.stats as sps
+import os
 
 
 ######################
@@ -119,13 +119,13 @@ We can also have figures automatically generated!
 \begin{{figure}}[h]
 	\centering
 	\includegraphics[height=0.3\textheight]{{./Images/{VALUE_path1}}}
-	\caption{{Square root plot}}
+	\caption{{Square root}}
 \end{{figure}}
 
 \begin{{figure}}[h]
 	\centering
 	\includegraphics[height=0.3\textheight]{{./Images/{VALUE_path2}}}
-	\caption{{{VALUE_rvals} normally distributed random values histogram plot}}
+	\caption{{{VALUE_rvals} normally distributed random values}}
 \end{{figure}}
 """
 
@@ -133,7 +133,7 @@ We can also have figures automatically generated!
 # Perform calulations here #
 ############################
 
-path = r'C:\Users\GRBH.COWI.001\Desktop\GitHub repositories\coastlib\test\TeX'
+path = os.path.join(os.getcwd(), 'Tex')
 document_name = '\PyTeX.tex'
 
 # Disperion relation

@@ -1,7 +1,4 @@
-from coastlib.thirdpartyutils import windrose
-import matplotlib.cm as cm
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn.apionly as sns
 import statsmodels.api as sm
@@ -56,87 +53,6 @@ def pdf_plot(df, **kwargs):
         if savepath is not None:
             plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight', dpi=600)
             plt.close()
-
-
-def rose_plot(df, **kwargs):
-    """
-    Plots rose of values *val* for directions *direction*
-    in dtaframe *df* and saves it to folder *savepath*.
-
-    Parameters
-    ----------
-    df : pandas dataframe
-        Pandas dataframe with columns *val* and *direction*
-    val : string
-        Column name of values in dataframe *df* (i.e. 'Hs')
-    direction : string
-        Column name of directions in dataframe *df* (i.e. 'Dp)
-    valbins : int
-        Number or value bins (default = 6)
-    dirbins : int
-        Number of directional bins (default = 12)
-    savepath : string
-        Path to output folder (default = doesn't save) (i.e. 'C:\\folder')
-    savename : string
-        Name of file
-    startfromzero : bool
-        Indicates if plot starts from 0 (N) (default = False)
-    valbinsize : float
-        Set binsize to override *valbins* parameter (default = None, assigns bins automatically)
-    valbin_max : float
-        Set the upper limit for value bins (can be useful if bin and color
-        consistency is required across multiple roses or to highlight spicific domains)
-    title : str
-        Plot title
-    colormap : module link
-        Matplotlib colormap (cm.colormap, i.e. cm.viridis)
-    legend : str
-        Legend title.
-    """
-    direction = kwargs.pop('direction', 'Dp')
-    val = kwargs.pop('val', 'Hs')
-    valbins = kwargs.pop('valbins', 6)
-    dirbins = kwargs.pop('dirbins', 12)
-    savepath = kwargs.pop('savepath', None)
-    savename = kwargs.pop('savename', 'Rose')
-    title = kwargs.pop('title', 'Rose')
-    legend = kwargs.pop('legend', 'Value [unit]')
-    startfromzero = kwargs.pop('startfromzero', False)
-    valbinsize = kwargs.pop('valbinsize', None)
-    valbin_max = kwargs.pop('valbin_max', None)
-    colormap = kwargs.pop('colormap', cm.jet)
-    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
-
-    plt.hist([0, 1])
-    plt.close()
-    a = df[pd.notnull(df[val])]
-    a = a[pd.notnull(a[direction])]
-    if startfromzero:
-        a[direction] = a[direction].apply(lambda x: x - 0.5 * 360 / dirbins)
-    ax = windrose.WindroseAxes.from_ax()
-    if valbinsize is not None:
-        if valbin_max is None:
-            valbin_max = a[val].max()
-        valbins = np.arange(0, valbin_max + valbinsize, valbinsize)
-    ax.bar(
-        a[direction],
-        a[val],
-        normed=True,
-        opening=0.95,
-        edgecolor=None,
-        bins=valbins,
-        nsector=dirbins,
-        cmap=colormap,
-        startfromzero=startfromzero
-    )
-    ax.set_legend()
-    ax.legend(loc=(-0.12, 0.75), title=legend, fontsize=9)
-    ax.get_legend().get_title().set_fontsize('9')
-    ax.grid('on', linestyle=':')
-    plt.title(title, y=1.08, fontsize=16)
-    if savepath is not None:
-        plt.savefig(savepath + '\\' + savename + '.png', bbox_inches='tight', dpi=600)
-        plt.close()
 
 
 def joint_plot(df, **kwargs):
