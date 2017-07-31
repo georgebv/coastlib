@@ -1,4 +1,4 @@
-from coastlib.models.linear_wave_theory import solve_dispersion_relation
+from coastlib.models.airy import solve_dispersion_relation
 import math
 import matplotlib.pyplot as plt
 import numpy as np

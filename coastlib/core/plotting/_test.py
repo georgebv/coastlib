@@ -1,5 +1,5 @@
 import numpy as np
-from coastlib.core.plotting.rose_plot import rose_plot
+from coastlib.core.plotting.rose import rose_plot
 import matplotlib.pyplot as plt
 
 

@@ -8,8 +8,7 @@ import coastlib
 
 
 pc_name = os.environ['COMPUTERNAME'].lower()
-echo = False
-cPATH = os.path.dirname(os.path.abspath(__file__))
+_cpath = os.path.dirname(os.path.abspath(__file__))
 costeira_bin = r'C:\Users\GRBH\Desktop\GitHub Repositories\Costeira\costeira\bin'
 
 
@@ -29,7 +28,7 @@ def logo():
         ''')  # slant fitted/fitted
 
 
-def help():
+def _help():
     print('''
    ┌────────────────────────────────────────────────────────────────────────────┐
    │                                                                            │
@@ -45,8 +44,6 @@ def help():
    │                             │  if on, echoes debug info                    │
    │                             │                                              │
    │cmd                          │  sends everything after cmd to command line  │
-   │                             │                                              │
-   │cPATH                        │  path to the coastapp root                   │
    │                             │                                              │
    │spm                          │  launches the SPM program                    │
    │                             │                                              │
@@ -69,7 +66,7 @@ def help():
 ''')
 
 
-def command_line(echo=echo, cPATH=cPATH):
+def command_line(echo=False):
     while True:
         # Parse the coastapp line
         coastapp_line = input('\n{pc_name}@coastlib:~$ '.format(pc_name=pc_name))
@@ -117,7 +114,7 @@ def command_line(echo=echo, cPATH=cPATH):
 
         # Call help function
         elif coastapp_line[0] == 'help':
-            help()
+            _help()
 
         # Call Windows 'cd' command
         elif coastapp_line[0] == 'cd':
@@ -145,17 +142,6 @@ def command_line(echo=echo, cPATH=cPATH):
             else:
                 os.system(' '.join(coastapp_line[1:]))
 
-        # Setup the 'cPATH' variable
-        elif coastapp_line[0] == 'cPATH':
-            if len(coastapp_line) == 2:
-                if input('You are about to change cPATH value to "{0}". '
-                         'Proceed? (y/n) '.format(coastapp_line[1])) in ['y', 'Y']:
-                    cPATH = coastapp_line[1]
-            elif len(coastapp_line) == 1:
-                print('Coastapp PATH is "{0}"'.format(cPATH))
-            else:
-                print('ERROR: cPATH command takes exactly one argument')
-
         # Run the SPM program
         elif coastapp_line[0] == 'spm':
             if len(coastapp_line) > 1:
@@ -172,15 +158,16 @@ def command_line(echo=echo, cPATH=cPATH):
                 _tp = float(coastapp_line[coastapp_line.index('-tp') + 1])
                 _d = float(coastapp_line[coastapp_line.index('-d') + 1])
                 _fenton_wave = coastlib.FentonWave(
-                    bin_path=os.path.join(cPATH, 'bin'), wave_height=_hs,
+                    bin_path=os.path.join(_cpath, 'bin'), wave_height=_hs,
                     wave_period=_tp, depth=_d
                 )
                 print('\n' + '=' * 75)
                 print(_fenton_wave.report())
                 print('=' * 75)
-            except:
-                print('Bad syntax. Correct syntax (any order after <Fenton>) is:\n'
-                      '    <Fenton> <-hs> [wave height] <-tp> [wave period] <-d> [depth]')
+            except Exception as _e:
+                print('Bad syntax. Got {}\n'
+                      'Correct syntax (any order after <Fenton>) is:\n'
+                      '    <Fenton> <-hs> [wave height] <-tp> [wave period] <-d> [depth]'.format(_e))
 
         # Solve an Airy wave and get a summary report
         elif coastapp_line[0] == 'Airy':
@@ -188,13 +175,14 @@ def command_line(echo=echo, cPATH=cPATH):
                 _hs = float(coastapp_line[coastapp_line.index('-hs') + 1])
                 _tp = float(coastapp_line[coastapp_line.index('-tp') + 1])
                 _d = float(coastapp_line[coastapp_line.index('-d') + 1])
-                _airy_wave = coastlib.LinearWave(wave_height=_hs, wave_period=_tp, depth=_d)
+                _airy_wave = coastlib.AiryWave(wave_height=_hs, wave_period=_tp, depth=_d)
                 print('\n' + '=' * 31)
                 print(_airy_wave.as_dataframe())
                 print('=' * 31)
-            except:
-                print('Bad syntax. Correct syntax (any order after <Fenton>) is:\n'
-                      '    <Airy> <-hs> [wave height] <-tp> [wave period] <-d> [depth]')
+            except Exception as _e:
+                print('Bad syntax. Got {}\n'
+                      'Correct syntax (any order after <Fenton>) is:\n'
+                      '    <Airy> <-hs> [wave height] <-tp> [wave period] <-d> [depth]'.format(_e))
             pass
 
         else:

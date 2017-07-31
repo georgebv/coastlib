@@ -1,5 +1,5 @@
 import math
-from coastlib import LinearWave
+from coastlib import AiryWave
 import scipy.constants
 import scipy.optimize
 import scipy.interpolate
@@ -461,7 +461,7 @@ def goda_1974(Hs, hs, T, d, hc, hw, **kwargs):
 
     if h_design is None:
         h_design = 1.8 * Hs
-    wave = LinearWave(T, Hs, depth=hs)
+    wave = AiryWave(T, Hs, depth=hs)
     a_1 = 0.6 + 0.5 * (((4 * math.pi * hs / wave.L) / (math.sinh(4 * math.pi * hs / wave.L))) ** 2)
     a_2 = min(
         (((hb - d) / (3 * hb)) * ((h_design / d) ** 2)),
@@ -539,7 +539,7 @@ def goda_2000(H13, T13, h, hc, **kwargs):
     B = np.deg2rad(angle)
     if Hmax is None:
         Hmax = 1.8 * H13
-    wave = LinearWave(T13, H13, depth=h)
+    wave = AiryWave(T13, H13, depth=h)
     L = wave.L
     s = 0.75 * (1 + math.cos(B)) * Hmax
     a_1 = 0.6 + 0.5 * (((4 * math.pi * h / L) / (math.sinh(4 * math.pi * h / L))) ** 2)
@@ -612,44 +612,6 @@ def goda_2000(H13, T13, h, hc, **kwargs):
         ]
     )
     return output
-
-
-def morrison(D, dz, u, du_dt, Cd=1.2, Cm=2, **kwargs):
-    '''
-
-    Parameters
-    ----------
-    D : float
-        Cylinder diameter
-    u : float
-        Flow velocity amplitude
-    du_dt : float
-        Flow acceleration
-    dz : float
-        Cylinder height
-    Cd : float
-        Drag coefficient
-    Cm : float
-        Added mass coefficient (Cm=1+Ca)
-
-    Returns
-    -------
-    (Fd, Fi) : tuple(float, float)
-        (drag, inertia) force
-    '''
-
-    rho = kwargs.pop('rho', 1030)
-    section = kwargs.pop('section', 'cylinder')
-    if section == 'h-beam':
-        section_area = kwargs.pop('section_area')
-    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
-
-    Fd = (1 / 2) * Cd * rho * D * u * np.abs(u) * dz
-    if section == 'cylinder':
-        Fi = rho * (np.pi / 4) * Cm * (D ** 2) * du_dt * dz
-    elif section == 'h-beam':
-        Fi = rho * Cm * section_area * du_dt * dz
-    return (Fd, Fi)
 
 
 def d50w50(unit, mode='d50 to w50'):

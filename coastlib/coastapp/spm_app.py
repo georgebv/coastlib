@@ -1,44 +1,39 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import xml.etree.ElementTree as xml
+import xml.etree.ElementTree as Xml
 import numpy as np
 import os
-import time
 import subprocess
 import shutil
 import shlex
 import pandas as pd
 import sys
-
-
-single_output = r'D:\Work folders\desktop projects\7 Kemano\1 Mooring\2 Mooring Analysis\outputs\SPM20.out'
-# print(','.join([str(float(i)) for i in np.arange(200, 500, 50)]))
-echo = False
-pc_name = os.environ['COMPUTERNAME'].lower()
+import datetime
 
 
 def logo():
     print(r'''
-       _____  __     _                                  
-      / ___/ / /_   (_)____                             
-      \__ \ / __ \ / // __ \                            
-     ___/ // / / // // /_/ /                            
-    /____//_/ /_//_// .___/                             
-        __  ___    /_/ __   _                           
-       /  |/  /____   / /_ (_)____   ____               
-      / /|_/ // __ \ / __// // __ \ / __ \              
-     / /  / // /_/ // /_ / // /_/ // / / /              
-    /_/  /_/ \____/ \__//_/ \____//_/ /_/               
-        ____                                            
-       / __ \ _____ ____   ____ _ _____ ____ _ ____ ___ 
-      / /_/ // ___// __ \ / __ `// ___// __ `// __ `__ \
-     / ____// /   / /_/ // /_/ // /   / /_/ // / / / / /
-    /_/    /_/    \____/ \__, //_/    \__,_//_/ /_/ /_/ 
-                        /____/                          
-            ''')
+       _____  _                __                  
+      / ___/ (_)____   ____ _ / /___               
+      \__ \ / // __ \ / __ `// // _ \              
+     ___/ // // / / // /_/ // //  __/              
+    /____//_//_/ /_/ \__, //_/ \___/               
+                    /____/                         
+        ____          _         __                 
+       / __ \ ____   (_)____   / /_                
+      / /_/ // __ \ / // __ \ / __/                
+     / ____// /_/ // // / / // /_                  
+    /_/     \____//_//_/ /_/ \__/                  
+        __  ___                     _              
+       /  |/  /____   ____   _____ (_)____   ____ _
+      / /|_/ // __ \ / __ \ / ___// // __ \ / __ `/
+     / /  / // /_/ // /_/ // /   / // / / // /_/ / 
+    /_/  /_/ \____/ \____//_/   /_//_/ /_/ \__, /  
+                                          /____/   
+''')  # slant fitted/fitted
 
 
-def help():
+def _help():
     print('''
    ┌───────────────────────────────────────────────────────────────────────────┐
    │                                                                           │
@@ -77,22 +72,23 @@ def help():
     ''')
 
 
-xml_input = r'D:\Work folders\desktop projects\7 Kemano\1 Mooring\2 Mooring Analysis\Kemano.xml'
-inpath = r'D:\Work folders\desktop projects\7 Kemano\1 Mooring\2 Mooring Analysis\inputs'
-outpath = r'D:\Work folders\desktop projects\7 Kemano\1 Mooring\2 Mooring Analysis\outputs'
-spm_path = r'C:\Users\GRBH\Desktop\GitHub Repositories\Costeira\costeira\bin\SPM.exe'
+# Defaults
+_xml_input = r'D:\Work folders\desktop projects\7 Kemano\1 Mooring\2 Mooring Analysis\Kemano.xml'
+_inpath = r'D:\Work folders\desktop projects\7 Kemano\1 Mooring\2 Mooring Analysis\inputs'
+_outpath = r'D:\Work folders\desktop projects\7 Kemano\1 Mooring\2 Mooring Analysis\outputs'
+_spm_path = r'C:\Users\GRBH\Desktop\GitHub Repositories\Costeira\costeira\bin\SPM.exe'
 
 
 def generate_input(xml_input, outpath, echo):
     with open(xml_input, 'r') as f:
-        tree = xml.parse(f)
+        tree = Xml.parse(f)
         root = tree.getroot()
 
-    def convert(address, root=root, type=float):
+    def convert(address, stype=float):
         loc_data = root.find(address).text
         try:
             loc_data = loc_data.split(sep=',')
-            loc_data = np.array([type(i) for i in loc_data])
+            loc_data = np.array([stype(value) for value in loc_data])
             return loc_data
         except ValueError:
             print('ERROR: Ivalid input in "{add}"! Revise the xml file before proceding'.format(add=address))
@@ -118,7 +114,7 @@ def generate_input(xml_input, outpath, echo):
     ANG = 0.0  # anchor angle; use 0 for single point mooring (deg clockwise)
     LRWs = convert('./Hawser/HorizontalLength')  # horizontal length chock-to-buoy (ft)
     SYN = root.find('./Hawser/Material').text  # synthetic material type (N=nylon,P=polypropylene,p=old poly.,
-    SYN = SYN.strip() # A=AmSteel-Blue, S=steel, U=user defined) (-)
+    SYN = SYN.strip()  # A=AmSteel-Blue, S=steel, U=user defined) (-)
 
     BUOY = "DC"  # anchor leg type (DC = double catenary) (-)
     CLIIs = convert('./UpperChain/Length')  # chain length of upper segment (ft)
@@ -133,7 +129,7 @@ def generate_input(xml_input, outpath, echo):
     WaterLevel = convert('./Environment/WaterLevel')
     WDs = ChartedDepth + WaterLevel  # water depth at anchor (ft)
     MBLs = convert('./Hawser/MBL')
-    NLINESs = convert('./Hawser/Number', type=int)
+    NLINESs = convert('./Hawser/Number', stype=int)
     PMAXs = convert('./General/MaximumLoad')  # breaking strength of weakest chain (lb)
     PLDs = convert('./Hawser/Preload')  # horizontal pre-load (lb)
     ONDECKs = convert('./Hawser/OnDeckLength')  # on deck hawser length (ft)
@@ -141,19 +137,19 @@ def generate_input(xml_input, outpath, echo):
     ESTRAN = 0.0  # modulus of elasticity of steel line (PSI)
 
     # Generate input ASCII files
-    def gen_loc_inp(CWII, CLI, CWI, WS, SB, PMAX, PLD, ONDECK, LRW, WD, NLINES, MBL):
-        s = ['''Analysis Date: 2017-07-21
-Project: Kemano
-Description: Buoy mooring analysis
+    def gen_loc_inp(cwii, cli, cwi, ws, sb, pmax, pld, ondeck, lrw, wd, nlines, mbl):
+        s = ['''Analysis Date: {:%D}
+Project: SPM
+Description: Mooring analysis
 Analyst: GRBH
-Configuration: Low tide''']
+Configuration: Custom'''.format(datetime.datetime.today())]
         s += ['{:10d}{:10.2f}{:10.1f}{:5d}{:5d}{:5d}{:5d}{:5d}'.format(NT, TS, ZW, JPLOT, JLIST, JDATA, JPLTLD, NUSER)]
         s += ['    {:1s}{:10.2f}{:10.2f}{:10.2f}{:10.2f}{:10.2f}{:10.2f}'
-              '    {:1s}'.format(NBUOY, A, B, XD, YD, ANG, LRW, SYN)]
-        s += ['{:5d}{:10.2f}'.format(NLINES, MBL)]
-        s += ['        {:2s}{:10.2f}{:10.2f}{:10.2f}{:10.2f}{:10.2f}'.format(BUOY, CLII, CWII, CLI, CWI, WS)]
+              '    {:1s}'.format(NBUOY, A, B, XD, YD, ANG, lrw, SYN)]
+        s += ['{:5d}{:10.2f}'.format(nlines, mbl)]
+        s += ['        {:2s}{:10.2f}{:10.2f}{:10.2f}{:10.2f}{:10.2f}'.format(BUOY, CLII, cwii, cli, cwi, ws)]
         s += [
-            '{:10.1f}{:10.1f}{:10.0f}{:10.0f}{:10.0f}{:10.2f}{:10.0f}'.format(SB, WD, PMAX, PLD, ONDECK, AREA, ESTRAN)]
+            '{:10.1f}{:10.1f}{:10.0f}{:10.0f}{:10.0f}{:10.2f}{:10.0f}'.format(sb, wd, pmax, pld, ondeck, AREA, ESTRAN)]
         return '\n'.join(s)
 
     inputs = []
@@ -185,36 +181,56 @@ Configuration: Low tide''']
                 ))
         if not os.path.exists(r'C:\SPMinp'):
             os.makedirs(r'C:\SPMinp')
-        with open( r'C:\SPMinp\SPM{ind:d}.in'.format(ind=i), 'w') as outfile:
+        with open(r'C:\SPMinp\SPM{ind:d}.in'.format(ind=i), 'w') as outfile:
             outfile.write(inputs[i])
 
 
-def run_spm(spm_path, inpath, outpath, echo, wait_time=1):
-    if not os.path.exists(r'C:\SPMout'):
-        os.makedirs(r'C:\SPMout')
+def run_spm(spm_path, inpath, outpath, echo):
+    temp_inpath = os.path.join(os.environ['ALLUSERSPROFILE'], 'spmtmpin')
+    if not os.path.exists(temp_inpath):
+        os.makedirs(temp_inpath)
+
+    temp_outpath = os.path.join(os.environ['ALLUSERSPROFILE'], 'spmtmpout')
+    if not os.path.exists(temp_outpath):
+        os.makedirs(temp_outpath)
+
     for file in os.listdir(inpath):
-        command = '\"' + spm_path + '\" \"C:\SPMinp' + '\\' + file + '\" \"C:\SPMout' + '\\' + file[:-2] + 'out\"'
-        p = subprocess.call(command)
+        command = '\"' + spm_path + '\"' +\
+                  '\"' + temp_inpath + '\\' + file + '\"' +\
+                  '\"' + temp_outpath + '\\' + file[:-2] + 'out' + '\"'
+        p = subprocess.Popen(command, bufsize=1, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        log = []
+        while p.poll() is None:
+            line = p.stdout.readline()
+            try:
+                line = line.decode()
+                if len(line) > 0:
+                    log += [line]
+            except AttributeError:
+                pass
         if echo:
-            print('Called in cmd - "{call}"'.format(call=command))
-        time.sleep(wait_time)
-    shutil.rmtree(r'C:\SPMinp')
+            print('Called in cmd - "{call}"\n'
+                  'Process logs\n'.format(call=command) + '='*75 + '\n')
+            print('\n'.join(log))
+
+    shutil.rmtree(temp_inpath)
     if not os.path.exists(outpath):
         os.makedirs(outpath)
     try:
-        shutil.copytree(r'C:\SPMout', outpath)
+        shutil.copytree(temp_outpath, outpath)
     except FileExistsError:
-        for file in os.listdir(r'C:\SPMout'):
-            shutil.copyfile(r'C:\SPMout\\'+file, outpath + '\\' + file)
-    shutil.rmtree(r'C:\SPMout')
+        for file in os.listdir(temp_outpath):
+            shutil.copyfile(os.path.join(temp_outpath, file), os.path.join(outpath, file))
+    shutil.rmtree(temp_outpath)
     if echo:
         print()
 
 
 def parse_output(outpath, echo, excel=False, csv=False):
+
     def parse_single(single_output):
-        with open(single_output, 'r') as file:
-            raw_data = file.readlines()
+        with open(single_output, 'r') as _file:
+            raw_data = _file.readlines()
         columns = [
             'Test id',
             'Horizontal chain force at buoy (lbs)',
@@ -245,42 +261,43 @@ def parse_output(outpath, echo, excel=False, csv=False):
         data = [list(filter(None, i)) for i in data]
         data = np.array([[float(value) for value in row] for row in data])
         data = [[data[i][j] for i in range(len(data))] for j in range(len(data[0]))]
-        data.insert(0, [single_output.split(sep='\\')[-1].split(sep='.')[0][3:] for i in range(len(data[0]))])
-        data.append([float(list(filter(None, raw_data[55].split(sep=' ')))[4]) for i in range(len(data[0]))])
-        data.append([float(list(filter(None, raw_data[55].split(sep=' ')))[5]) for i in range(len(data[0]))])
-        data.append([float(list(filter(None, raw_data[55].split(sep=' ')))[6]) for i in range(len(data[0]))])
-        data.append([float(list(filter(None, raw_data[55].split(sep=' ')))[7]) for i in range(len(data[0]))])
-        data.append([float(list(filter(None, raw_data[55].split(sep=' ')))[8]) for i in range(len(data[0]))])
-        data.append([float(list(filter(None, raw_data[65].split(sep=' ')))[3]) for i in range(len(data[0]))])
+        data.insert(0, [single_output.split(sep='\\')[-1].split(sep='.')[0][3:] for _ in range(len(data[0]))])
+        data.append([float(list(filter(None, raw_data[55].split(sep=' ')))[4]) for _ in range(len(data[0]))])
+        data.append([float(list(filter(None, raw_data[55].split(sep=' ')))[5]) for _ in range(len(data[0]))])
+        data.append([float(list(filter(None, raw_data[55].split(sep=' ')))[6]) for _ in range(len(data[0]))])
+        data.append([float(list(filter(None, raw_data[55].split(sep=' ')))[7]) for _ in range(len(data[0]))])
+        data.append([float(list(filter(None, raw_data[55].split(sep=' ')))[8]) for _ in range(len(data[0]))])
+        data.append([float(list(filter(None, raw_data[65].split(sep=' ')))[3]) for _ in range(len(data[0]))])
         data = np.array(data)
         fl = np.vectorize(lambda x: float(x))
         data = fl(data)
         data = pd.DataFrame(data=data.T, columns=columns)
         col = data.columns
-        data['Chain length / Water depth'] = (data[col[14]].values + data[col[15]].values) / (data[col[19]].values)
+        data['Chain length / Water depth'] = (data[col[14]].values + data[col[15]].values) / data[col[19]].values
         return data
 
     outputs = []
     for file in os.listdir(outpath):
         if file.endswith('.out'):
-            outputs += [parse_single(single_output=outpath + '\\' + file)]
+            outputs += [parse_single(single_output=os.path.join(outpath, file))]
             if echo:
-                print('Parsed "{0}"'.format(outpath + '\\' + file))
+                print('Parsed "{0}"'.format(os.path.join(outpath, file)))
     output = pd.concat(outputs)
+
     if excel:
         output.to_excel(outpath + '\Data.xlsx')
-        print('Saved output to "{0}"'.format(outpath + '\Data.xlsx'))
+        print('Saved output to "{0}"'.format(os.path.join(outpath, 'Data.xlsx')))
     if csv:
         output.to_csv(outpath + '\Data.csv')
-        print('Saved output to "{0}"'.format(outpath + '\Data.csv'))
+        print('Saved output to "{0}"'.format(os.path.join(outpath, 'Data.csv')))
     output.to_pickle(outpath + '\Data.pyc')
-    print('Saved output to "{0}"'.format(outpath + '\Data.pyc'))
+    print('Saved output to "{0}"'.format(os.path.join(outpath, 'Data.pyc')))
 
 
-def command_line(echo=echo, xml_input=xml_input, inpath=inpath, outpath=outpath, spmpath=spm_path):
+def command_line(echo=False, xml_input=_xml_input, inpath=_inpath, outpath=_outpath, spmpath=_spm_path):
     while True:
         # Parse the SMP line
-        spm_line = input('\n{pc_name}@spm:~$ '.format(pc_name=pc_name))
+        spm_line = input('\n{pc_name}@spm:~$ '.format(pc_name=os.environ['COMPUTERNAME'].lower()))
         try:
             spm_line = shlex.split(spm_line, posix=False)
         except ValueError:
@@ -325,7 +342,7 @@ def command_line(echo=echo, xml_input=xml_input, inpath=inpath, outpath=outpath,
 
         # Call help function
         elif spm_line[0] == 'help':
-            help()
+            _help()
 
         elif spm_line[0] == 'xml':
             if len(spm_line) > 1:
@@ -354,14 +371,7 @@ def command_line(echo=echo, xml_input=xml_input, inpath=inpath, outpath=outpath,
         elif spm_line[0] == 'run':
             try:
                 generate_input(xml_input=xml_input, outpath=inpath, echo=echo)
-                if len(spm_line) > 1:
-                    try:
-                        run_spm(spm_path=spmpath, inpath=inpath, outpath=outpath,
-                                echo=echo, wait_time=int(spm_line[1]))
-                    except ValueError:
-                        print('Wait time should be an integer. "{0}" was given instead'.format(spm_line[1]))
-                else:
-                    run_spm(spm_path=spm_path, inpath=inpath, outpath=outpath, echo=echo, wait_time=1)
+                run_spm(spm_path=spmpath, inpath=inpath, outpath=outpath, echo=echo)
             except FileNotFoundError:
                 print('File "{0}" does not exist'.format(xml_input))
 

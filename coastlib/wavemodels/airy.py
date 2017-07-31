@@ -37,7 +37,7 @@ def solve_dispersion_relation(t, h, g=scipy.constants.g):
     return (2 * np.pi) / k
 
 
-class LinearWave:
+class AiryWave:
     """
     A linear wave with the following properties:
 
@@ -125,7 +125,7 @@ class LinearWave:
             index=[
                 'Wave length [m]',
                 'Wave height [m]',
-                'wave_period [s]',
+                'Wave period [s]',
                 'Water depth [m]',
                 'Approach angle [deg]',
                 'Wave number',
