@@ -174,6 +174,15 @@ def rose_plot(
     min_ticks = kwargs.pop('min_ticks', 4)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
+    # Ensure data is numpy array
+    if (not isinstance(values, np.ndarray)) or (not isinstance(directions, np.ndarray)):
+        try:
+            values = np.array(values)
+            directions = np.array(directions)
+        except Exception as _e:
+            raise ValueError('Input values should be arrays.'
+                             '{}'.format(_e))
+
     # Update value_bins array to include calm_region
     value_bins = value_bins.astype(float)
     if calm_region_magnitude != 0:

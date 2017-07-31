@@ -167,7 +167,7 @@ def associated_value(values_1, values_2, value, search_range, confidence=0.5, pl
     kde = statsmodels.nonparametric.kde.KDEUnivariate(target['v2'].values)
     kde.fit()
     fit = scipy.interpolate.interp1d(kde.cdf, kde.support, kind='slinear')
-    if plot_cdf == True:
+    if plot_cdf:
         with plt.style.context('bmh'):
             plt.plot(kde.support, kde.cdf, lw=1, color='orangered')
             plt.title('CDF of value_1 for value_2 in range [{low} - {top}]'.

@@ -125,6 +125,7 @@ def overtopping(Hm0, Rc, **kwargs):
     manual = kwargs.pop('manual', 2016)
     confidence = kwargs.pop('confidence', 0.90)
     bound = kwargs.pop('bound', 'upper')
+    g = kwargs.pop('g', scipy.constants.g)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     if manual == 2007:
@@ -219,7 +220,7 @@ def hudson(Hs, alpha, rock_density, **kwargs):
     return Dn50
 
 
-def vanDerMeer(Hs, h, Tp, alpha, rock_density, **kwargs):
+def van_der_meer(Hs, h, Tp, alpha, rock_density, **kwargs):
     """
     Finds median rock diameter Dn50 using Van der Meer formula (The Rock Manual 2007, p.)
 
@@ -451,7 +452,7 @@ def goda_1974(Hs, hs, T, d, hc, hw, **kwargs):
     l_3 = kwargs.pop('l_3', 1)
     h_design = kwargs.pop('h_design', None)
     hb = kwargs.pop('hb', hs)
-    g = kwarg.pop('g', scipy.constants.g)
+    g = kwargs.pop('g', scipy.constants.g)
     sea_water_density = kwargs.pop('sea_water_density', 1030)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
@@ -649,61 +650,6 @@ def morrison(D, dz, u, du_dt, Cd=1.2, Cm=2, **kwargs):
     elif section == 'h-beam':
         Fi = rho * Cm * section_area * du_dt * dz
     return (Fd, Fi)
-
-
-def dAngremond(Rc, Hm0, B, Tp, tana):
-    """
-    Calculates wave transmission coefficient for emerged breakwaters
-    using the dAngremond (1996) (EurOtop 2016) formula
-
-    :param Rc: freeboard [m]
-    :param Hm0: incident significant wave height [m]
-    :param B: crest width [m]
-    :param Tp: wave period [sec]
-    :param tana: seaward breakwater slope
-    :return: wave transmission coefficient
-    """
-    Sop = 2 * math.pi * Hm0 / (scipy.constants.g * Tp ** 2)
-    Eop = tana / Sop ** 0.5
-    Kt_small = -0.4 * Rc / Hm0 + 0.64 * (B / Hm0) ** (-0.31) * (1 - math.exp(-0.5 * Eop))
-    Kt_large = -0.35 * Rc / Hm0 + 0.51 * (B / Hm0) ** (-0.65) * (1 - math.exp(-0.41 * Eop))
-    scale = B / Hm0
-
-    if scale < 8:
-        Kt = Kt_small
-    elif scale > 12:
-        Kt = Kt_large
-    else:
-        Kt = (Kt_large - Kt_small) * (scale - 8) / (12 - 8) + Kt_small # linear interpolation
-
-    if Kt >= 0.8:
-        return 1
-    elif Kt <= 0.075:
-        return 0.075
-    else:
-        return Kt
-
-
-def Seabrook(Hm0, ds, B, L, D50):
-    """
-    Calculates wave transmission coefficient for submerged breakwaters
-    using the Seabrook & Hall (1998) formula
-
-    :param Hm0: incident significant wave height [m]
-    :param ds: depth of submergence (positive value of the negative freeboard) [m]
-    :param B: crest width [m]
-    :param L: wave length [m]
-    :param D50: rock armor median rock size [m]
-    :return: wave transmission coefficient
-    """
-    Kt = 1 - (math.exp(-0.65 * ds / Hm0 - 1.09 * Hm0 / B) + 0.047 * B * ds / (L * D50) - 0.067 * ds * Hm0 / (B * D50))
-    condition_1 = B * ds / (L * D50)
-    condition_2 = ds * Hm0 / (B * D50)
-    if 0 <= condition_1 <= 7.08 and 0 <= condition_2 <= 2.14:
-        return Kt
-    else:
-        warnings.warn('Breakwater parameters beyond the validity levels')
-        return np.nan
 
 
 def d50w50(unit, mode='d50 to w50'):
