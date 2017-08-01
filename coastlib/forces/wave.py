@@ -58,5 +58,3 @@ class Morrison:
 
         # Calculate force and moment against seabed over wave phase and save internally
         # TODO
-
-        #

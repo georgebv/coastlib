@@ -81,7 +81,7 @@ class FentonWave:
     propagate : propagates the wave to a new depth
     """
 
-    def __init__(self, bin_path, **kwargs):
+    def __init__(self, **kwargs):
 
         # TODO - check if input data makes sense and tell how to improve it
         # TODO - recompile Fourier source to make direct import from Python
@@ -133,12 +133,6 @@ class FentonWave:
         )
         assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-        # Define the Fourier.exe path
-        if bin_path.endswith('Fourier.exe'):
-            self._fpath = bin_path
-        else:
-            self._fpath = os.path.join(bin_path, 'Fourier.exe')
-
         # Make sure work folder exists
         if not os.path.exists(self._path):
             os.makedirs(self._path)
@@ -180,7 +174,7 @@ class FentonWave:
         self.log = []  # Fourier.exe logs (stdout)
         self._curdir = os.getcwd()
         os.chdir(path=self._path)
-        p = subprocess.Popen(self._fpath, bufsize=1, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        p = subprocess.Popen('Fourier', bufsize=1, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         while p.poll() is None:
             line = p.stdout.readline()
             try:

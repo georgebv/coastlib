@@ -7,11 +7,6 @@ from coastlib.coastapp.spm_app import main as spm_app
 import coastlib
 
 
-pc_name = os.environ['COMPUTERNAME'].lower()
-_cpath = os.path.dirname(os.path.abspath(__file__))
-costeira_bin = r'C:\Users\GRBH\Desktop\GitHub Repositories\Costeira\costeira\bin'
-
-
 def logo():
     print(r'''
        ______                     __   __ _  __  
@@ -69,7 +64,7 @@ def _help():
 def command_line(echo=False):
     while True:
         # Parse the coastapp line
-        coastapp_line = input('\n{pc_name}@coastlib:~$ '.format(pc_name=pc_name))
+        coastapp_line = input('\n{pc_name}@coastlib:~$ '.format(pc_name=os.environ['COMPUTERNAME'].lower()))
         try:
             coastapp_line = shlex.split(coastapp_line, posix=False)
         except ValueError:
@@ -157,10 +152,7 @@ def command_line(echo=False):
                 _hs = float(coastapp_line[coastapp_line.index('-hs') + 1])
                 _tp = float(coastapp_line[coastapp_line.index('-tp') + 1])
                 _d = float(coastapp_line[coastapp_line.index('-d') + 1])
-                _fenton_wave = coastlib.FentonWave(
-                    bin_path=os.path.join(_cpath, 'bin'), wave_height=_hs,
-                    wave_period=_tp, depth=_d
-                )
+                _fenton_wave = coastlib.FentonWave(wave_height=_hs, wave_period=_tp, depth=_d)
                 print('\n' + '=' * 75)
                 print(_fenton_wave.report())
                 print('=' * 75)

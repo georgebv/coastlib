@@ -5,7 +5,7 @@ setup(
     version='0.2',
     description='Coastal engineering library and tools',
     author='Georgii Bocharov',
-    license='GNU GPL V3',
+    license='GPLv3',
     author_email='bocharovgeorgii@gmail.com',
     url='https://github.com/georgebv/coastlib',
     keywords=['coastal', 'ocean', 'marine'],
@@ -13,9 +13,9 @@ setup(
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Engineers',
-        'Topic :: Coastal engineering :: Design Tools',
-        'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3.5.2',
+        'Topic :: Coastal engineering',
+        'License :: OSI Approved :: GPLv3 License',
+        'Programming Language :: Python :: 3.6.2',
     ],
     zip_safe=False
 )
