@@ -101,21 +101,6 @@ class FentonWave:
         self.current_velocity = kwargs.pop('current_velocity', 0)
         self.fourier_components = kwargs.pop('fourier_components', 20)
         self.height_steps = kwargs.pop('height_steps', 10)
-        try:
-            # Dimensional mode
-            self.data = {
-                'title'               : self.run_title,
-                'h_to_d'              : self.wave_height / self.depth,
-                'measure'             : self.measure_of_wave_length,
-                'value_of_that_length': self.wave_period * np.sqrt(self._g / self.depth),
-                'current_criterion'   : self.current_criterion,
-                'current_magnitude'   : self.current_velocity,
-                'n'                   : self.fourier_components,
-                'height_steps'        : self.height_steps,
-            }
-        except TypeError:
-            # Dimensionless mode
-            self.data = kwargs.pop('data')
         self.convergence = kwargs.pop(
             'convergence',
             {
@@ -131,6 +116,25 @@ class FentonWave:
                 'vert': 100
             }  # 100 points per length/height by default
         )
+        try:
+            # Dimensional mode
+            self.data = {
+                'title'               : self.run_title,
+                'h_to_d'              : self.wave_height / self.depth,
+                'measure'             : self.measure_of_wave_length,
+                'value_of_that_length': self.wave_period * np.sqrt(self._g / self.depth),
+                'current_criterion'   : self.current_criterion,
+                'current_magnitude'   : self.current_velocity,
+                'n'                   : self.fourier_components,
+                'height_steps'        : self.height_steps,
+            }
+        except TypeError:
+            try:
+                # Dimensionless mode
+                self.data = kwargs.pop('data')
+            except Exception as _e:
+                assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+                raise ValueError('Bad input provided. Got {}'.format(_e))
         assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
         # Make sure work folder exists
@@ -151,6 +155,7 @@ class FentonWave:
                     'Got {0}. Failure after {1} iterations. Repeating'.format(exception, iteration+1)
                 )
         if not sucess:
+            print(self.log)
             raise RuntimeError(
                 'No result was achieved after {0} iterations.\n'
                 'Check input for correctness. Read warnings with echoed exception'.format(self._max_iterations)
@@ -162,6 +167,7 @@ class FentonWave:
         self.__update_variables()
 
     def __write_inputs(self):
+
         with open(os.path.join(self._path, 'Data.dat'), 'w') as f:
             f.write(_fdata(**self.data))
         with open(os.path.join(self._path, 'Convergence.dat'), 'w') as f:
@@ -183,7 +189,8 @@ class FentonWave:
                     self.log.extend([line])
             except AttributeError:
                 pass
-        self.log += ['\n=== Process exited with return code ({}) ==='.format(p.poll())]
+        self.log.extend(['\n=== Process exited with return code ({}) ==='.format(p.poll())])
+        self.log = ''.join(self.log)
         os.chdir(self._curdir)
 
     def __parse(self):
@@ -204,16 +211,15 @@ class FentonWave:
         # Parse Flowfield.res
         xd, phase, fields, _field = [], [], [], []
         for line in flowfield:
-            if line.startswith('# X/d'):
+            if line[:3] == '# X':
                 _header = [float(line[7:16]), float(line[25:32])]
             elif line == '\n' and len(_field) != 0:
-                _field = [[float(number) for number in row.split('\t')] for row in _field[1:]]
                 fields.extend(_field)
                 xd.extend([_header[0]] * len(_field))
                 phase.extend([_header[1]] * len(_field))
                 _field = []
-            else:
-                _field.extend([line])
+            elif line != '\n':
+                _field.extend([[float(number) for number in line.split('\t')]])
         self.flowfield = pd.DataFrame(data=fields, columns=[
             'Y (d)', 'u (sqrt(gd))', 'v (sqrt(gd))', 'dphi/dt (gd)', 'du/dt (g)', 'dv/dt (g)', 'du/dx (sqrt(g/d))',
             'du/dy (sqrt(gd))', 'Bernoully check (gd)'
