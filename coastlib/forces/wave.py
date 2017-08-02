@@ -32,7 +32,7 @@ class Morrison:
     def __init__(self, wave_height, wave_period, depth, **kwargs):
 
         # Parse and verify inputs
-        self.wave_height = wave_height
+        self.wave_height = wave_height  # up to user to provide the 1.8Hs value
         self.wave_period = wave_period
         self.depth = depth
         self.current_velocity = kwargs.pop('current_velocity', 0)
@@ -41,11 +41,12 @@ class Morrison:
         self.fenton_wave = FentonWave(
             wave_heigh=wave_height, wave_period=wave_period, depth=depth,
             current_criterion=1, current_velocity=self.current_velocity,
-            rho=self._rho, g=self._g
-        )
+            rho=self._rho, g=self._g, points=dict(m=100, ua=100, vert=1000)
+        )  # 1000 points per vertical profile for extra accuracy
         self.type = kwargs.pop('element_type', 'vertical cylinder')
 
         if self.type == 'vertical cylinder':
+            self.cylinder_diameter = kwargs.pop('cylinder_diameter', None)
             self.cylinder_top = kwargs.pop('cylinder_top', None)
             self.cylinder_bottom = kwargs.pop('cylinder bottom', None)
 
