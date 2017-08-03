@@ -100,7 +100,7 @@ class AiryWave:
     def __test_wave__(self):
         if self.wave_height / self.L > 1 / 7:
             warnings.warn('WARNING: Critical steepness of 1/7 has been exceeded', UserWarning)
-        if isinstance(self.depth, float) or isinstance(self.depth, int):
+        if not isinstance(self.depth, str):
             if self.depth / self.wave_height <= 1.28:
                 warnings.warn('WARNING: Depth limited breaking is occurring', UserWarning)
 
