@@ -86,7 +86,7 @@ class FentonWave:
         # TODO - check if input data makes sense and tell how to improve it
         # TODO - recompile Fourier source to make direct import from Python
 
-        self._path = kwargs.pop('path', os.path.join(os.environ['ALLUSERSPROFILE'], 'ftmp'))
+        self._path = kwargs.pop('path', os.path.join(os.environ['TEMP'], 'fenton_temp'))
         self._g = kwargs.pop('g', scipy.constants.g)
         self._rho = kwargs.pop('rho', 1025)
         self._max_iterations = kwargs.pop('max_iterations', 20)
@@ -124,7 +124,7 @@ class FentonWave:
                 'measure'             : self.measure_of_wave_length,
                 'value_of_that_length': self.wave_period * np.sqrt(self._g / self.depth),
                 'current_criterion'   : self.current_criterion,
-                'current_magnitude'   : self.current_velocity,
+                'current_magnitude'   : self.current_velocity / np.sqrt(self._g * self.depth),
                 'n'                   : self.fourier_components,
                 'height_steps'        : self.height_steps,
             }
@@ -150,19 +150,22 @@ class FentonWave:
                 self.__parse()
                 sucess = True
                 break
-            except Exception as exception:
+            except Exception as _e:
                 warnings.warn(
-                    'Got {0}. Failure after {1} iterations. Repeating'.format(exception, iteration+1)
+                    'Got {0}. Failure after {1} iterations. Repeating'.format(_e, iteration+1)
                 )
         if not sucess:
-            print(self.log)
+            try:
+                print(self.log)
+            except Exception as _e:
+                print('No logs were generated due to {}'.format(_e))
             raise RuntimeError(
                 'No result was achieved after {0} iterations.\n'
                 'Check input for correctness. Read warnings with echoed exception'.format(self._max_iterations)
             )
 
         # Clean up
-        if self._path.endswith('ftmp'):
+        if self._path.endswith('fenton_temp'):
             shutil.rmtree(self._path)
         self.__update_variables()
 
