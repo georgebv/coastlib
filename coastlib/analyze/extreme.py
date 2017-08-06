@@ -349,11 +349,11 @@ class EVA:
             parameters = scipy.stats.weibull_min.fit(self.extremes[self.col].values - self.threshold)
         elif self.distribution == 'Log-normal':
             def ret_val(t, param, rate, u):
-                return u + sps.lognorm.ppf(1 - 1 / (rate * t), s=param[0], loc=param[1], scale=param[2])
+                return u + scipy.stats.lognorm.ppf(1 - 1 / (rate * t), s=param[0], loc=param[1], scale=param[2])
             parameters = scipy.stats.lognorm.fit(self.extremes[self.col].values - self.threshold)
         elif self.distribution == 'Pearson 3':
             def ret_val(t, param, rate, u):
-                return u + sps.pearson3.ppf(1 - 1 / (rate * t), skew=param[0], loc=param[1], scale=param[2])
+                return u + scipy.stats.pearson3.ppf(1 - 1 / (rate * t), skew=param[0], loc=param[1], scale=param[2])
             parameters = scipy.stats.pearson3.fit(self.extremes[self.col].values - self.threshold)
         else:
             raise ValueError('Distribution type not recognized.')
@@ -406,7 +406,7 @@ class EVA:
                     sims += 1
 
             # Using normal distribution, get <confidence> confidence bounds
-            moments = [scipy.stats.norm.fit(x) for x in mrv.T]
+            moments = [scipy.stats.norm.fit(x) for x in np.array(mrv).T]
             intervals = [scipy.stats.norm.interval(alpha=confidence, loc=x[0], scale=x[1]) for x in moments]
             self.retvalsum['Lower'] = pd.Series(data=[x[0] for x in intervals], index=rp)
             self.retvalsum['Upper'] = pd.Series(data=[x[1] for x in intervals], index=rp)
