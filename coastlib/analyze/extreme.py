@@ -31,14 +31,15 @@ class EVA:
             Default = None (takes first column as variables = df.columns[0]).
         """
 
-        if type(df) != type(pd.DataFrame()):
+        if not isinstance(df, pd.DataFrame):
             try:
                 self.data = df.to_frame()
-            except:
-                raise ValueError('Invalid data type in <df>.'
-                                 ' EVA takes only Pandas DataFrame or Series objects.')
+            except AttributeError:
+                raise TypeError('Invalid data type in <df>.'
+                                ' EVA takes only Pandas DataFrame or Series objects.')
         else:
             self.data = df
+
         if col:
             self.col = col
         else:
@@ -46,7 +47,8 @@ class EVA:
 
         # Calculate number of years in data
         self.N = np.unique(self.data.index.year).max() - np.unique(self.data.index.year).min() + 1
-        if self.N > len(np.unique(self.data.index.year)):
+        if self.N != len(np.unique(self.data.index.year)):
+            self.N = len(np.unique(self.data.index.year))
             warnings.warn('Data is not continuous - some years are missing')
 
     def get_extremes(self, method='POT', **kwargs):
@@ -81,7 +83,7 @@ class EVA:
             self.extremes = self.data[self.data[self.col] > u]
             if decluster:
                 r = datetime.timedelta(hours=r)
-                indexes = self.extremes.index.to_pydatetime()  # TODO is to_pydatetime necessary here?
+                indexes = self.extremes.index.to_pydatetime()
                 values = self.extremes[self.col].values
                 new_indexes = [indexes[0]]
                 new_values = [values[0]]
@@ -388,7 +390,7 @@ class EVA:
                     _param = scipy.stats.genextreme.fit(sample, floc=parameters[1])
                     return ret_val(rp, param=_param, rate=_rate, u=self.threshold)
             else:
-                raise ValueError('Monte Carlo method not defined for this distribution yet.')
+                raise ValueError('Monte Carlo method not implemented for this distribution yet.')
 
             # Collect statistics using defined montecarlo
             sims = 0

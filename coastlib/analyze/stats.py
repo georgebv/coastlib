@@ -84,7 +84,7 @@ def joint(value_1, value_2, binsize_1=0.3, binsize_2=4, relative=False):
     return pd.DataFrame(data=table, index=index_1, columns=index_2)
 
 
-def montecarlo_fit(function, bounds, x, y, x_new, confidence=90, sims=1000, **kwargs):
+def montecarlo_fit(function, x, y, x_new, confidence=90, sims=1000, **kwargs):
     '''
     Fits function <function> to the <x,y> locus of points and evaluates the fit for a new set of values <x_new>.
     Returns <lower ci, fit, upper ci> using <how> method for a confidence interval <confidence>.
@@ -92,7 +92,6 @@ def montecarlo_fit(function, bounds, x, y, x_new, confidence=90, sims=1000, **kw
     Mandatory inputs
     ================
     function : callable
-    bounds : 2-tuple of array-like
     x : list or array
     y : list or array
     x_new : list or array
@@ -105,15 +104,20 @@ def montecarlo_fit(function, bounds, x, y, x_new, confidence=90, sims=1000, **kw
     poisson : bool (default=True)
     how : str (default='kde')
         'montecarlo', 'kde'
+    bounds : 2-tuple of array-like (default=(-np.inf, np.inf) - equivalent to no bounds)
+        Bounds in the form of (lower, upper) where lower and upper are lists of bounds for each of the
+        independent variables in <function>. If float, then all variables have this bound.
 
     Output
     ======
-
+    (y_new, lower, upper) : tuple of <numpy.ndarray>s
+        a tuple with (y_new fitted to <x_new>, lower bound for <confidence>, upper bound for <confidence>)
     '''
 
     sample = kwargs.pop('sample', 0.4)
     poisson = kwargs.pop('poisson', True)
     how = kwargs.pop('how', 'kde')
+    bounds = kwargs.pop('bounds', (-np.inf, np.inf))
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     popt, pcov = scipy.optimize.curve_fit(function, x, y, bounds=bounds)
@@ -146,15 +150,15 @@ def montecarlo_fit(function, bounds, x, y, x_new, confidence=90, sims=1000, **kw
     intervals = [scipy.stats.norm.interval(alpha=confidence/100, loc=x[0], scale=x[1]) for x in moments]
     lower = [x[0] for x in intervals]
     upper = [x[1] for x in intervals]
-    return y_new, lower, upper
+    return np.array(y_new), np.array(lower), np.array(upper)
 
 
 def associated_value(values_1, values_2, value, search_range, confidence=0.5, plot_cdf=False):
     """
     Calculates a statistically associated value for a series of 2 correllated values (joint probability)
 
-    Parameters
-    ----------
+    Mandatory inputs
+    ================
     values_1, values_2 : array
         Arrays with
     value : float
@@ -162,10 +166,18 @@ def associated_value(values_1, values_2, value, search_range, confidence=0.5, pl
     search_range : float
         Range of <values_1> within which values of <values_2> will be extraced for analysis
         (searches within ± <search_range> of <value>)
-    confidence : float
+
+    Optional inputs
+    ===============
+    confidence : float (default=0.5)
         Confidence for associated value - shows probability of non-exceedance (default 0.5 - median value)
-    plot_cdf : bool
+    plot_cdf : bool (default=False)
         If True - display a CDF plot of <values_2> in range <value> ± <search_range>
+
+    Output
+    ======
+     : float
+        a value from <values_2> associated with <value> from <values_1>
     """
 
     df = pd.DataFrame(data=values_1, columns=['v1'])
