@@ -8,21 +8,26 @@ import matplotlib.pyplot as plt
 import statsmodels.nonparametric.kde
 
 
-def joint(value_1, value_2, binsize_1=0.3, binsize_2=4, relative=True):
+def joint(value_1, value_2, binsize_1=0.3, binsize_2=4, relative=False):
     """
     Generates a joint probability table of 2 variables
     Filtering data before and removing empty columns after is up to user
 
-    Input
-    =====
-    value_1, value_2 : list or array
+    Mandatory input
+    ===============
+    value_1, value_2 : 1D lists or arrays
         Arrays of equal length
-    binsize_1, binsize_2 : float
+
+    Optional input
+    ==============
+    binsize_1, binsize_2 : float (default=0.3,4)
         Bin sizes for variables value_1 and value_2
+    relative : bool (default=False)
+        If True, returns relative probabilities (<=1)
 
     Output
     ======
-    Pandas dataframe with joint probability table
+    Pandas dataframe with a joint probability table
     """
 
     if (not isinstance(value_1, np.ndarray)) or (not isinstance(value_2, np.ndarray)):
@@ -30,8 +35,8 @@ def joint(value_1, value_2, binsize_1=0.3, binsize_2=4, relative=True):
             value_1 = np.array(value_1)
             value_2 = np.array(value_2)
         except Exception as _e:
-            raise ValueError('Input values should be arrays.'
-                             '{}'.format(_e))
+            raise ValueError('{}\n'
+                             'Input values should be 1D lists or arrays.'.format(_e))
 
     data = pd.DataFrame(data=value_1, columns=['v1'])
     data['v2'] = value_2
@@ -50,13 +55,13 @@ def joint(value_1, value_2, binsize_1=0.3, binsize_2=4, relative=True):
 
     index_1 = ['(-inf ; {0:.2f}]'.format(bots_1[1])]
     for bot in bots_1[1:-1]:
-        index_1 += ['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_1)]
-    index_1 += ['[{0:.2f} ; inf)'.format(bots_1[-1])]
+        index_1.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_1)])
+    index_1.extend(['[{0:.2f} ; inf)'.format(bots_1[-1])])
 
     index_2 = ['(-inf ; {0:.2f}]'.format(bots_2[1])]
     for bot in bots_2[1:-1]:
-        index_2 += ['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_2)]
-    index_2 += ['[{0:.2f} ; inf)'.format(bots_2[-1])]
+        index_2.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_2)])
+    index_2.extend(['[{0:.2f} ; inf)'.format(bots_2[-1])])
 
     bins = [[_round(bot), _round(bot + binsize_1)] for bot in bots_1]
     datas = [data[(data['v1'] >= bin[0]) & (data['v1'] < bin[1])] for bin in bins]
@@ -84,22 +89,25 @@ def montecarlo_fit(function, bounds, x, y, x_new, confidence=90, sims=1000, **kw
     Fits function <function> to the <x,y> locus of points and evaluates the fit for a new set of values <x_new>.
     Returns <lower ci, fit, upper ci> using <how> method for a confidence interval <confidence>.
 
-    Parameters
-    ----------
-    function
-    bounds
-    x
-    y
-    x_new
-    confidence
-    sims
-    sample
-    poisson
-    how : str
+    Mandatory inputs
+    ================
+    function : callable
+    bounds : 2-tuple of array-like
+    x : list or array
+    y : list or array
+    x_new : list or array
+
+    Optional inputs
+    ===============
+    confidence : float (default=90)
+    sims : int (default=1000)
+    sample : float (default=0.4)
+    poisson : bool (default=True)
+    how : str (default='kde')
         'montecarlo', 'kde'
 
-    Returns
-    -------
+    Output
+    ======
 
     '''
 
@@ -115,7 +123,7 @@ def montecarlo_fit(function, bounds, x, y, x_new, confidence=90, sims=1000, **kw
             idx = np.random.choice(np.arange(len(x)), int(len(x) * sample), replace=False)
             x_s, y_s = x[idx], y[idx]
             popt_l, pcov_l = scipy.optimize.curve_fit(function, x_s, y_s, bounds=bounds)
-            popt_s += [popt_l]
+            popt_s.extend([popt_l])
     elif how == 'kde':
         values = np.vstack([x, y])
         kernel = scipy.stats.gaussian_kde(values)
@@ -123,14 +131,14 @@ def montecarlo_fit(function, bounds, x, y, x_new, confidence=90, sims=1000, **kw
             if poisson:
                 # Generate a sample of a size <len_sample> from Poisson distibution and fit function to it
                 len_sample = scipy.stats.poisson.rvs(len(x))
-                sample = kernel.resample(len_sample)
+                kde_sample = kernel.resample(len_sample)
             else:
-                sample = kernel.resample(len(x))
-            x_s, y_s = sample[0], sample[1]
+                kde_sample = kernel.resample(len(x))
+            x_s, y_s = kde_sample[0], kde_sample[1]
             popt_l, pcov_l = scipy.optimize.curve_fit(function, x_s, y_s, bounds=bounds)
-            popt_s += [popt_l]
+            popt_s.extend([popt_l])
     else:
-        raise ValueError('ERROR: Method {} not recognized.'.format(how))
+        raise ValueError('Method {} not recognized.'.format(how))
 
     y_new = function(x_new, *popt)
     y_s = np.array([function(x_new, *j) for j in popt_s])
@@ -138,7 +146,7 @@ def montecarlo_fit(function, bounds, x, y, x_new, confidence=90, sims=1000, **kw
     intervals = [scipy.stats.norm.interval(alpha=confidence/100, loc=x[0], scale=x[1]) for x in moments]
     lower = [x[0] for x in intervals]
     upper = [x[1] for x in intervals]
-    return lower, y_new, upper
+    return y_new, lower, upper
 
 
 def associated_value(values_1, values_2, value, search_range, confidence=0.5, plot_cdf=False):
