@@ -378,8 +378,10 @@ class FentonWave:
             what = {
                 'u'    : 'u (sqrt(gd))',
                 'du/dt': 'du/dt (g)',
+                'ua'   : 'du/dt (g)',
                 'v'    : 'v (sqrt(gd))',
-                'dv/dt': 'dv/dt (g)'
+                'dv/dt': 'dv/dt (g)',
+                'va'   : 'dv/dt (g)'
             }.pop(what)
         except:
             raise ValueError('Unrecognized value passed in what={}'.format(what))
@@ -420,18 +422,21 @@ class FentonWave:
             if savepath:
                 plt.savefig(savepath, dpi=300, bbox_inches='tight')
 
-    def heighest(self):
+    def highest(self):
 
-        # Rerun the solver until
+        # TODO - implement for dimensionless waves
+
+        # Check if wave is dimensional
+        if isinstance(self.wave_height, str):
+            raise ValueError('Implemented only for dimensional waves')
+
+        # Rerun the solver until highest possible wave is resolved
         while True:
+
             # Set wave height to heighest for this depth
             if format(self.wave_height / self.depth, '.3f') == self.solution[4].split(' ')[-4]:
                 break
             self.wave_height = float(self.solution[4].split(' ')[-4]) * self.depth
-
-            # Make sure work folder exists
-            if not os.path.exists(self._path):
-                os.makedirs(self._path)
 
             try:
                 # Dimensional mode
@@ -446,7 +451,11 @@ class FentonWave:
                     'height_steps'        : self.height_steps,
                 }
             except TypeError:
-                raise ValueError('Only dimensional waves can be propagated')
+                raise ValueError('Implemented only for dimensional waves')
+
+            # Make sure work folder exists
+            if not os.path.exists(self._path):
+                os.makedirs(self._path)
 
             # Try to generate inputs, call Fourier.exe, and parse outputs 20 times. Raise exception if failure persists
             sucess = False
@@ -474,6 +483,7 @@ class FentonWave:
 
     def propagate(self, new_depth):
 
+        # TODO - not ready to be used (use Airy theory)
         # TODO - include shoalind and refraction, check if new wave is valid (realistic)
 
         self.depth = new_depth
