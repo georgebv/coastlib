@@ -197,8 +197,8 @@ def associated_value(values_1, values_2, value, search_range, confidence=0.5, pl
             plt.annotate(
                 r'{perc}% Associated value {0}={1}'.format('value_1', np.round(fit(confidence).tolist(), 2),
                                                            perc=confidence * 100),
-                xy=(fit(confidence).tolist(), confidence),
-                xytext=(fit(0.5).tolist() + search_range, 0.5),
+                xy=(float(fit(confidence)), confidence),
+                xytext=(float(fit(0.5)) + search_range, 0.5),
                 arrowprops=dict(facecolor='k', shrink=0.01)
             )
-    return fit(confidence).tolist()
+    return float(fit(confidence))
