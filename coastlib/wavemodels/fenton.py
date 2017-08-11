@@ -54,25 +54,53 @@ def _finput(path, fdata, fpoints, fconvergence):
 
 class FentonWave:
     """
-    Mandatory input
-    ===============
-    data : dict
-        Dictionaty with input to _fdata(**data). Make data=None in order to use
-    bin_path : str
-        Absolute path to folder with Fourier.exe or to Fourier.exe itself
+    Mandatory inputs
+    ================
+    dimensional mode
+        wave_height : float
+            wave height in meters
+        wave_period : float
+            wave period in seconds
+        depth : float
+            water depth in meters
+    dimensionless mode
+        data : dict
+            {
+                'title'               : <title>, : str
+                'h_to_d'              : <wave height> / <depth>, : float / float
+                'measure'             : 'Period', : str (read manual before changing)
+                'value_of_that_length': <wave period> * sqrt(<g> / <depth>), : float * sqrt(float * float)
+                'current_criterion'   : 1, : int (read manual before changing)
+                'current_magnitude'   : <current velocity> / sqrt(<g> * <depth>), : float / sqrt(float * float)
+                'n'                   : 20, : int (read manual before changing)
+                'height_steps'        : 10 : int (read manual before changing)
+            }
 
-    Optional input
-    ==============
-    path : str
-        Path to simulation folder. If not specified, operates in temporary folder and cleans up afterwards.
+    Optional inputs
+    ===============
+    path : str (default=None)
+        save output to this folder
+    g : float (default=scipy.constants.g) ~9.81
+        gravity acceleration in m^2/s
+    rho : float (default=1025)
+        water density in kg/m^3
+    max_iterations : int (default=20)
+        maximum number of iterations
+    write_output : bool (default=False)
+        if True, saves output to <path> as .csv and .pyc
+    run_title : str (default='Wave')
+        title of a run
     convergence : dict
-        Dictionaty with input to _fonvergence(**convergence)
+        {
+            'maximum_number_of_iterations': 20, : int (read manual before changing)
+            'criterion_for_convergence'   : '1.e-4' : str (read manual before changing)
+        }
     points : dict
-        Dictionaty with input to _fpoints(**points)
-    write_output : bool
-        If True, create .csv and .pyc of surface and flowfield dataframes in <path\>
-    max_terations : int
-        Some I/O instabilities may occur - this defines how many attempts will be made.
+        {
+            'm'   : 100, : int (read manual before changing)
+            'ua'  : 100, : int (read manual before changing)
+            'vert': 100 : int (read manual before changing)
+        }
 
     Methods
     =======
@@ -181,7 +209,7 @@ class FentonWave:
     def __run(self):
 
         self.log = []  # Fourier.exe logs (stdout)
-        self._curdir = os.getcwd()
+        curdir = os.getcwd()
         os.chdir(path=self._path)
         p = subprocess.Popen('Fourier', bufsize=1, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         while p.poll() is None:
@@ -194,7 +222,7 @@ class FentonWave:
                 pass
         self.log.extend(['\n=== Process exited with return code ({}) ==='.format(p.poll())])
         self.log = ''.join(self.log)
-        os.chdir(self._curdir)
+        os.chdir(curdir)
 
     def __parse(self):
 
@@ -387,7 +415,7 @@ class FentonWave:
             raise ValueError('Unrecognized value passed in what={}'.format(what))
 
         with plt.style.context('bmh'):
-            plt.figure(figsize=(24, 8))
+            plt.figure()
             plt.plot(self.surface['X (d)'].values, self.surface['eta (d)'].values, lw=2, color='royalblue')
             plt.ylim([-0.1, 1.1])
             plt.xlim([self.surface['X (d)'].values.min()*1.1, self.surface['X (d)'].values.max()*1.1])
@@ -432,7 +460,6 @@ class FentonWave:
 
         # Rerun the solver until highest possible wave is resolved
         while True:
-
             # Set wave height to heighest for this depth
             if format(self.wave_height / self.depth, '.3f') == self.solution[4].split(' ')[-4]:
                 break
@@ -477,7 +504,7 @@ class FentonWave:
                 )
 
             # Clean up
-            if self._path.endswith('ftmp'):
+            if self._path.endswith('fenton_temp'):
                 shutil.rmtree(self._path)
             self.__update_variables()
 
@@ -487,10 +514,6 @@ class FentonWave:
         # TODO - include shoalind and refraction, check if new wave is valid (realistic)
 
         self.depth = new_depth
-
-        # Make sure work folder exists
-        if not os.path.exists(self._path):
-            os.makedirs(self._path)
 
         try:
             # Dimensional mode
@@ -506,6 +529,10 @@ class FentonWave:
             }
         except TypeError:
             raise ValueError('Only dimensional waves can be propagated')
+
+        # Make sure work folder exists
+        if not os.path.exists(self._path):
+            os.makedirs(self._path)
 
         # Try to generate inputs, call Fourier.exe, and parse outputs 20 times. Raise exception if failure persists
         sucess = False
@@ -527,6 +554,6 @@ class FentonWave:
             )
 
         # Clean up
-        if self._path.endswith('ftmp'):
+        if self._path.endswith('fenton_temp'):
             shutil.rmtree(self._path)
         self.__update_variables()

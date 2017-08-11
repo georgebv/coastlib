@@ -27,7 +27,7 @@ def seabrook_hall(wave_height, ds, crest_width, wave_length, stone_size):
     if 0 <= condition_1 <= 7.08 and 0 <= condition_2 <= 2.14:
         return kt
     else:
-        warnings.warn('crest_widthreakwater parameters beyond the validity levels')
+        warnings.warn('Parameters beyond the validity levels. Returned <nan>')
         return np.nan
 
 
@@ -67,16 +67,13 @@ def d_angremond(freeboard, wave_height, crest_width, wave_period, tana):
         return kt
 
 
-# TODO - below are not implemented
-
-
-def hudson(Hs, alpha, rock_density, **kwargs):
+def hudson(wave_height, alpha, rock_density, kd=4, **kwargs):
     """
     Solves Hudson equation for median rock diameter. Checks stability (Ns < 2)
 
-    Paramters
-    ---------
-    Hs : float
+    Parameters
+    ----------
+    wave_height : float
         Significant wave height at structure's toe (m) (CEM formulation suggests using a 1.27 factor for Hs)
     alpha : float
         Structure angle (degrees to horizontal)
@@ -95,27 +92,31 @@ def hudson(Hs, alpha, rock_density, **kwargs):
     Dn50 : float
         Nominal median diameter of armour blocks (m)
     """
-    kd = kwargs.pop('kd', 4)
+
     sd = kwargs.pop('sd', 2)
     formulation = kwargs.pop('formulation', 'CIRIA')
-    sea_water_density = kwargs.pop('sea_water_density', 1030)
+    rho = kwargs.pop('rho', 1025)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-    delta = rock_density / sea_water_density - 1
+    delta = rock_density / rho - 1
     alpha = np.deg2rad(alpha)
     if formulation == 'CIRIA':
-        Dn50 = Hs / (delta * 0.7 * (kd / np.tan(alpha)) ** (1 / 3) * sd ** 0.15)
-        Ns = Hs / (delta * Dn50)
+        dn50 = wave_height / (delta * 0.7 * (kd / np.tan(alpha)) ** (1 / 3) * sd ** 0.15)
+        ns = wave_height / (delta * dn50)
     elif formulation == 'CEM':
-        Dn50 = Hs / (delta * (kd / np.tan(alpha)) ** (1 / 3))
-        Ns = Hs / (delta * Dn50)
+        dn50 = wave_height / (delta * (kd / np.tan(alpha)) ** (1 / 3))
+        ns = wave_height / (delta * dn50)
     else:
         raise ValueError('Formulation {0} not recognized. Use CIRIA or CEM.'.format(formulation))
 
-    if Ns > 2:
-        warnings.warn('Armour is not stable with the stability number Ns={0}, Dn50={1} [m]'.
-                      format(round(Ns, 2), round(Dn50, 2)))
-    return Dn50
+    if ns > 2:
+        warnings.warn('Armour is not stable with the stability number Ns={0}, Dn50={1} m'.
+                      format(round(ns, 2), round(dn50, 2)))
+    return dn50
+
+
+# TODO - below are not implemented
+
 
 
 def van_der_meer(Hs, h, Tp, alpha, rock_density, **kwargs):

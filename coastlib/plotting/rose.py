@@ -12,7 +12,7 @@ def __get_calms(values, calm_region_magnitude):
     :return: percentage of calms
     '''
 
-    return (values < calm_region_magnitude).sum() / len(values) * 100
+    return sum(values < calm_region_magnitude) / len(values) * 100
 
 
 def __get_theta(number_of_direction_bins, number_of_value_bins, center_on_north):
@@ -31,7 +31,7 @@ def __get_theta(number_of_direction_bins, number_of_value_bins, center_on_north)
     else:
         theta = np.linspace(0, 2 * np.pi, number_of_direction_bins, endpoint=False) + np.pi / number_of_direction_bins
 
-    return np.array([theta for i in range(number_of_value_bins+1)])
+    return np.array([theta for _ in range(number_of_value_bins+1)])
 
 
 def __get_radii(
@@ -70,10 +70,15 @@ def __get_radii(
         # Filter by values
         value_bins = []
         for j in range(number_of_value_bins):
-            value_bins.extend([(
-                (_data['Val'].values >= value_bin_boundaries[j]) & (_data['Val'].values < value_bin_boundaries[j+1])
-                ).sum() / len(data)])
-        value_bins.extend([(_data['Val'].values >= value_bin_boundaries[-1]).sum() / len(data)])
+            value_bins.extend([
+                sum(
+                    (_data['Val'].values >= value_bin_boundaries[j]) &
+                    (_data['Val'].values < value_bin_boundaries[j+1])
+                ) / len(data)
+            ])
+        value_bins.extend([
+            sum(_data['Val'].values >= value_bin_boundaries[-1]) / len(data)
+        ])
         radii += [value_bins]
     return np.array(radii).T * 100
 
@@ -113,8 +118,8 @@ def rose_plot(
         values, directions, value_bins, direction_bins=16, **kwargs
 ):
     """
-    Mandatory input
-    ===============
+    Mandatory inputs
+    ================
     values : numpy.ndarray
         1D array with values (e.g. wave heights or wind speeds). takes values in [0;inf)
     directions : numpy.ndarray
@@ -123,8 +128,8 @@ def rose_plot(
         1D array with value bin boundaries (e.g. [0, 1,... n] will return [0;1)...[n;inf) ),
         unless <calm_region> is specified
 
-    Optional input
-    ==============
+    Optional inputs
+    ===============
     direction_bins : int (default=16)
         number of direction bins (results in a bin size 360/<direction_bins>)
     calm_region : float (default=0)
@@ -194,7 +199,7 @@ def rose_plot(
             else:
                 break
     elif value_bins[0] > 0:
-        value_bins = np.insert(value_bins, 0, 0)
+        value_bins = np.insert(value_bins, 0, [0])
     number_of_value_bins = len(value_bins) - 1
 
     # Calculate percentage of calms
@@ -207,14 +212,14 @@ def rose_plot(
     )
 
     # Get an array of radial coordinates
-    radii = __get_radii(
+    radii: np.ndarray = __get_radii(
         value_bin_boundaries=value_bins, theta=theta, values=values,
         directions=directions, number_of_value_bins=number_of_value_bins,
         number_of_direction_bins=direction_bins
     )
-    _error = radii.sum() + calms - 100
-    if not np.isclose(np.abs(_error), 0):
-        warnings.warn('Warning: cumulative error of {:.5f}%'.format(_error))
+    error = sum(radii) + calms - 100
+    if not np.isclose(abs(error), 0):
+        warnings.warn('Warning: cumulative error of {:.5f}%'.format(error))
 
     # Get an array of radial coordinates of bar bottoms
     bottoms = __get_bottoms(radii=radii, percentage_of_calms=calms)
@@ -236,21 +241,21 @@ def rose_plot(
         max_rtick_number = 10  # set maximum number of r-ticks (ensures clarity)
     else:
         max_rtick_number = 100
-    _rmax = max([i.sum() for i in radii.T]) + calms
-    _ntix = int(min(
-        max(np.ceil(_rmax / 5), min_rtick_number),
+    rmax = max([i.sum() for i in radii.T]) + calms
+    ntix = int(min(
+        max(np.ceil(rmax / 5), min_rtick_number),
         max_rtick_number
     ))
-    _tick_size = int(np.ceil(_rmax / _ntix))
-    _ytix = np.array([_tick_size * i for i in range(1, _ntix + 1)])
-    _ytix = _ytix[_ytix <= _rmax + _tick_size]
-    _ytix = _ytix[_ytix >= calms]
-    _ymargin = _tick_size / 2
+    tick_size = int(np.ceil(rmax / ntix))
+    ytix = np.array([tick_size * i for i in range(1, ntix + 1)])
+    ytix = ytix[ytix <= rmax + tick_size]
+    ytix = ytix[ytix >= calms]
+    ymargin = tick_size / 2
     ax.set_rgrids(
-        radii=_ytix, labels=['{}%'.format(tick, '.0f') for tick in _ytix],
+        radii=ytix, labels=['{}%'.format(tick, '.0f') for tick in ytix],
         size='medium', style='italic'
     )
-    ax.set_ylim(0, _ytix[-1] + _ymargin)
+    ax.set_ylim(0, ytix[-1] + ymargin)
 
     # Setup theta axis
     ax.set_thetagrids(

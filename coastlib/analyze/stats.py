@@ -8,18 +8,18 @@ import matplotlib.pyplot as plt
 import statsmodels.nonparametric.kde
 
 
-def joint(value_1, value_2, binsize_1=0.3, binsize_2=4, relative=False):
+def joint(values_1, values_2, binsize_1=0.3, binsize_2=4, relative=False):
     """
     Generates a joint probability table of 2 variables
     Filtering data before and removing empty columns after is up to user
 
-    Mandatory input
-    ===============
+    Mandatory inputs
+    ================
     value_1, value_2 : 1D lists or arrays
         Arrays of equal length
 
-    Optional input
-    ==============
+    Optional inputs
+    ===============
     binsize_1, binsize_2 : float (default=0.3,4)
         Bin sizes for variables value_1 and value_2
     relative : bool (default=False)
@@ -30,25 +30,25 @@ def joint(value_1, value_2, binsize_1=0.3, binsize_2=4, relative=False):
     Pandas dataframe with a joint probability table
     """
 
-    if (not isinstance(value_1, np.ndarray)) or (not isinstance(value_2, np.ndarray)):
+    if (not isinstance(values_1, np.ndarray)) or (not isinstance(values_2, np.ndarray)):
         try:
-            value_1 = np.array(value_1)
-            value_2 = np.array(value_2)
+            values_1 = np.array(values_1)
+            values_2 = np.array(values_2)
         except Exception as _e:
             raise ValueError('{}\n'
                              'Input values should be 1D lists or arrays.'.format(_e))
 
-    data = pd.DataFrame(data=value_1, columns=['v1'])
-    data['v2'] = value_2
+    data = pd.DataFrame(data=values_1, columns=['v1'])
+    data['v2'] = values_2
 
     def _round(_x):
         return float(format(_x, '.5f'))
 
-    _b1min = _round(value_1.min() - value_1.min() % binsize_1)
-    _b1max = _round(value_1.max() - value_1.max() % binsize_1 + binsize_1)
+    _b1min = _round(values_1.min() - values_1.min() % binsize_1)
+    _b1max = _round(values_1.max() - values_1.max() % binsize_1 + binsize_1)
 
-    _b2min = _round(value_2.min() - value_2.min() % binsize_2)
-    _b2max = _round(value_2.max() - value_2.max() % binsize_2 + binsize_2)
+    _b2min = _round(values_2.min() - values_2.min() % binsize_2)
+    _b2max = _round(values_2.max() - values_2.max() % binsize_2 + binsize_2)
 
     bots_1 = np.arange(_b1min-binsize_1, _b1max+binsize_1, binsize_1)
     bots_2 = np.arange(_b2min-binsize_2, _b2max+binsize_2, binsize_2)
@@ -70,13 +70,13 @@ def joint(value_1, value_2, binsize_1=0.3, binsize_2=4, relative=False):
     for i, _data in enumerate(datas):
         for j, bot_2 in enumerate(bots_2):
             top_2 = bot_2 + binsize_2
-            table[i][j] = (
+            table[i][j] = sum(
                 (_data['v2'] >= bot_2) &
                 (_data['v2'] < top_2)
-            ).sum()
+            )
 
-    if not np.isclose(len(value_1), table.sum()):
-        warnings.warn('THE RESULT IS WRONG. Missing {} values.'.format(len(value_1) - table.sum()))
+    if not np.isclose(len(values_1), table.sum()):
+        warnings.warn('THE RESULT IS WRONG. Missing {} values.'.format(len(values_1) - table.sum()))
 
     if relative:
         table /= len(data)
@@ -84,7 +84,7 @@ def joint(value_1, value_2, binsize_1=0.3, binsize_2=4, relative=False):
     return pd.DataFrame(data=table, index=index_1, columns=index_2)
 
 
-def montecarlo_fit(function, x, y, x_new, confidence=90, sims=1000, **kwargs):
+def montecarlo_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
     '''
     Fits function <function> to the <x,y> locus of points and evaluates the fit for a new set of values <x_new>.
     Returns <lower ci, fit, upper ci> using <how> method for a confidence interval <confidence>.
@@ -98,7 +98,7 @@ def montecarlo_fit(function, x, y, x_new, confidence=90, sims=1000, **kwargs):
 
     Optional inputs
     ===============
-    confidence : float (default=90)
+    confidence : float (default=95)
     sims : int (default=1000)
     sample : float (default=0.4)
     poisson : bool (default=True)

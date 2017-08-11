@@ -52,7 +52,7 @@ class AiryWave:
             depth associated with the wave (m) ('deep' for deepwater - default)
     """
 
-    def __init__(self, wave_height, wave_period, depth='deep',angle=0, sea_water_density=1025):
+    def __init__(self, wave_height, wave_period, depth='deep', angle=0, rho=1025):
         """
         Return a linear wave with:
             wave_period *wave_period* (sec),
@@ -67,44 +67,38 @@ class AiryWave:
             angular frequency *w* (Hz),
             wave amplitude *a* (m).
         """
+
         self.wave_period = wave_period
         if depth == 'deep':
             self.depth = 'deep'
-            self.L = scipy.constants.g * (self.wave_period ** 2) / (2 * np.pi)
+            self.L = scipy.constants.g * (wave_period ** 2) / (2 * np.pi)
         elif isinstance(depth, float) or isinstance(depth, int):
             self.depth = depth
-            self.L = solve_dispersion_relation(self.wave_period, self.depth)
+            self.L = solve_dispersion_relation(wave_period, depth)
+        else:
+            raise ValueError('Depth should be float/int or \'deep\'. {} was given'.format(depth))
         self.wave_height = wave_height
-        self.c = self.L / self.wave_period
+        self.c = self.L / wave_period
         self.angle = angle
-        self.E = sea_water_density * scipy.constants.g * (self.wave_height ** 2) / 8
+        self.E = rho * scipy.constants.g * (wave_height ** 2) / 8
         self.k = 2 * np.pi / self.L
         if depth == 'deep':
             self.cg = 0.5 * self.c
         else:
-            self.cg = 0.5 * self.c * (1 + (2 * self.k * self.depth) / np.sinh(2 * self.k * self.depth))
-        self.w = 2 * np.pi / self.wave_period
-        self.a = self.wave_height / 2
-        self.S = None
-        self.z = None
-        self.u = None
-        self.v = None
-        self.ua = None
-        self.va = None
-        self.pd = None
-        self.x = None
-        self.t = None
-        self.sea_water_density = sea_water_density
+            self.cg = 0.5 * self.c * (1 + (2 * self.k * depth) / np.sinh(2 * self.k * depth))
+        self.w = 2 * np.pi / wave_period
+        self.a = wave_height / 2
+        self.rho = rho
         self.__test_wave__()
 
     def __test_wave__(self):
         if self.wave_height / self.L > 1 / 7:
             warnings.warn('WARNING: Critical steepness of 1/7 has been exceeded', UserWarning)
-        if not isinstance(self.depth, str):
+        if isinstance(self.depth, float) or isinstance(self.depth, int):
             if self.depth / self.wave_height <= 1.28:
                 warnings.warn('WARNING: Depth limited breaking is occurring', UserWarning)
 
-    def as_dataframe(self):
+    def report(self):
         if isinstance(self.depth, float) or isinstance(self.depth, int):
             depth = round(self.depth, 2)
         else:
@@ -147,23 +141,23 @@ class AiryWave:
             wave profile (free surface elevation) *S* (m, above still water surface).
         """
         if z > 0:
-            raise ValueError('ERROR: Value *z* should be negative')
+            raise ValueError('ERROR: Value <z> should be negative')
         elif self.depth != 'deep':
             if z + self.depth < 0:
-                raise ValueError('ERROR: Value *z* should be less or equal to negative depth')
+                raise ValueError('ERROR: Value <z> should be less or equal to negative depth')
         self.z = z
         self.x = x
         self.t = t
         self.S = self.a * np.sin(self.w * t - self.k * x)
         if self.depth == 'deep':
-            self.pd = self.sea_water_density * scipy.constants.g * self.a * np.exp(self.k * z) \
+            self.pd = self.rho * scipy.constants.g * self.a * np.exp(self.k * z) \
                       * np.sin(self.w * t - self.k * x)
             self.ua = (self.w ** 2) * self.a * np.exp(self.k * z) * np.cos(self.w * t - self.k * x)
             self.u = self.w * self.a * np.exp(self.k * z) * np.sin(self.w * t - self.k * x)
             self.va = -(self.w ** 2) * self.a * np.exp(self.k * z) * np.sin(self.w * t - self.k * x)
             self.v = self.w * self.a * np.exp(self.k * z) * np.cos(self.w * t - self.k * x)
         elif isinstance(self.depth, float) or isinstance(self.depth, int):
-            self.pd = self.sea_water_density * scipy.constants.g * self.a * np.cosh(self.k * (z + self.depth)) \
+            self.pd = self.rho * scipy.constants.g * self.a * np.cosh(self.k * (z + self.depth)) \
                       * np.sin(self.w * t - self.k * x) / np.cosh(self.k * self.depth)
             self.ua = (self.w ** 2) * self.a * np.cosh(self.k * (z + self.depth)) \
                       * np.cos(self.w * t - self.k * x) / np.sinh(self.k * self.depth)
@@ -205,7 +199,7 @@ class AiryWave:
         self.c = nc
         self.depth = ndepth
         self.L = nl
-        self.E = self.sea_water_density * scipy.constants.g * (self.wave_height ** 2) / 8
+        self.E = self.rho * scipy.constants.g * (self.wave_height ** 2) / 8
         self.k = 2 * np.pi / self.L
         self.cg = 0.5 * self.c * (1 + 2 * self.k * self.depth / np.sinh(2 * self.k * self.depth))
         self.w = 2 * np.pi / self.wave_period
@@ -233,7 +227,6 @@ class AiryWave:
         if self.depth == 'deep':
             self.depth = 0.6 * self.L
         depth = self.depth
-        warnings.simplefilter('ignore', UserWarning)
         while True:
             b = copy.deepcopy(self)
             depth -= precision
@@ -249,5 +242,4 @@ class AiryWave:
                 depth += precision
                 break
         self.propagate(depth)
-        warnings.simplefilter('always')
         self.__test_wave__()

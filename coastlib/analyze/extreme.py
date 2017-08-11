@@ -91,7 +91,7 @@ class EVA:
 
             self.method = 'POT'
             self.threshold = u
-            self.extremes = self.data[self.data[self.col] > u]
+            self.extremes: pd.DataFrame = self.data[self.data[self.col] > u]
             if decluster:
                 r = datetime.timedelta(hours=r)
                 indexes = self.extremes.index.to_pydatetime()
