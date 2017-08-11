@@ -85,19 +85,19 @@ def __get_radii(
 
 
 def __get_colors(number_of_value_bins, colormap):
-    '''
+    """
     Get colors for each value bins.
 
     :param number_of_value_bins:
     :param colormap:
     :return: array of tuples with color for each value bin
-    '''
+    """
 
     return [colormap(i) for i in np.linspace(0.0, 1.0, number_of_value_bins+1)]
 
 
 def __get_bottoms(radii, percentage_of_calms):
-    '''
+    """
     Calculates cooridanes of bottom for each bar.
     All bars of the first value bin start from percentage_of_calms.
     All subsequent bars start from ends of previous bars.
@@ -105,7 +105,7 @@ def __get_bottoms(radii, percentage_of_calms):
     :param radii: numpy.ndarray
     :param percentage_of_calms:
     :return: 2D array with distances from 0 to start of each bar
-    '''
+    """
 
     bottoms = np.zeros(shape=np.shape(radii))
     bottoms[0] = [percentage_of_calms] * len(bottoms[0])
