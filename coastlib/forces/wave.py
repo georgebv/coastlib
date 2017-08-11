@@ -1,7 +1,8 @@
 import numpy as np
-import scipy.constants
-from coastlib.wavemodels.fenton import FentonWave
 import pandas as pd
+import scipy.constants
+
+from coastlib.wavemodels.fenton import FentonWave
 
 
 def drag_force(velocity, drag_coefficient, face_area, rho=1025):

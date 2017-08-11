@@ -1,9 +1,10 @@
+import copy
+import warnings
+
+import numpy as np
 import pandas as pd
 import scipy.constants
 import scipy.optimize
-import copy
-import warnings
-import numpy as np
 
 
 def solve_dispersion_relation(t, h, g=scipy.constants.g):

@@ -1,10 +1,11 @@
+import warnings
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import warnings
-import scipy.stats
-import scipy.optimize
 import scipy.interpolate
-import matplotlib.pyplot as plt
+import scipy.optimize
+import scipy.stats
 import statsmodels.nonparametric.kde
 
 
@@ -50,8 +51,8 @@ def joint(values_1, values_2, binsize_1=0.3, binsize_2=4, relative=False):
     _b2min = _round(values_2.min() - values_2.min() % binsize_2)
     _b2max = _round(values_2.max() - values_2.max() % binsize_2 + binsize_2)
 
-    bots_1 = np.arange(_b1min-binsize_1, _b1max+binsize_1, binsize_1)
-    bots_2 = np.arange(_b2min-binsize_2, _b2max+binsize_2, binsize_2)
+    bots_1 = np.arange(_b1min - binsize_1, _b1max + binsize_1, binsize_1)
+    bots_2 = np.arange(_b2min - binsize_2, _b2max + binsize_2, binsize_2)
 
     index_1 = ['(-inf ; {0:.2f}]'.format(bots_1[1])]
     for bot in bots_1[1:-1]:
@@ -147,7 +148,7 @@ def montecarlo_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
     y_new = function(x_new, *popt)
     y_s = np.array([function(x_new, *j) for j in popt_s])
     moments = [scipy.stats.norm.fit(x) for x in y_s.T]
-    intervals = [scipy.stats.norm.interval(alpha=confidence/100, loc=x[0], scale=x[1]) for x in moments]
+    intervals = [scipy.stats.norm.interval(alpha=confidence / 100, loc=x[0], scale=x[1]) for x in moments]
     lower = [x[0] for x in intervals]
     upper = [x[1] for x in intervals]
     return np.array(y_new), np.array(lower), np.array(upper)

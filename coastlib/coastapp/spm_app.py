@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import xml.etree.ElementTree as Xml
-import numpy as np
-import os
-import subprocess
-import shutil
-import shlex
-import pandas as pd
-import sys
 import datetime
+import os
+import shlex
+import shutil
+import subprocess
+import sys
+import xml.etree.ElementTree as Xml
+
+import numpy as np
+import pandas as pd
 
 
 def logo():

@@ -3,8 +3,9 @@
 import os
 import shlex
 import sys
-from coastlib.coastapp.spm_app import main as spm_app
+
 import coastlib
+from coastlib.coastapp.spm_app import main as spm_app
 
 
 def logo():
