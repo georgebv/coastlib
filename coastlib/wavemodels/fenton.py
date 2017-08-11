@@ -79,6 +79,8 @@ class FentonWave:
 
     Optional inputs
     ===============
+    current_velocity : float (default=0)
+        Eulerian current velocity in m/s for dimensional mode
     path : str (default=None)
         save output to this folder
     g : float (default=scipy.constants.g) ~9.81
@@ -169,6 +171,9 @@ class FentonWave:
         # Make sure work folder exists
         if not os.path.exists(self._path):
             os.makedirs(self._path)
+        elif self._path.endswith('fenton_temp'):
+            shutil.rmtree(self._path)
+            os.makedirs(self._path)
 
         # Try to generate inputs, call Fourier.exe, and parse outputs 20 times. Raise exception if failure persists
         sucess = False
@@ -179,15 +184,18 @@ class FentonWave:
                 self.__parse()
                 sucess = True
                 break
+            except FileNotFoundError:
+                raise RuntimeError('Fourier.exe was not executed or output files were removed by another application'
+                                   '\nCould be caused by permission or antivirus related issues')
             except Exception as _e:
-                warnings.warn(
-                    'Got {0}. Failure after {1} iterations. Repeating'.format(_e, iteration+1)
-                )
+                print('Got {0}. Failure after {1} iterations. Repeating'.format(_e, iteration+1))
+
         if not sucess:
             try:
                 print(self.log)
             except Exception as _e:
-                print('No logs were generated due to {}'.format(_e))
+                print('No logs were generated due to'
+                      '\n    {}'.format(_e))
             raise RuntimeError(
                 'No result was achieved after {0} iterations.\n'
                 'Check input for correctness. Read warnings with echoed exception'.format(self._max_iterations)
@@ -221,7 +229,7 @@ class FentonWave:
                     self.log.extend([line])
             except AttributeError:
                 pass
-        self.log.extend(['\n=== Process exited with return code ({}) ==='.format(p.poll())])
+        self.log.extend(['\n=== "Fourier.exe" process finished with an exit code ({}) ==='.format(p.poll())])
         self.log = ''.join(self.log)
         os.chdir(curdir)
 
@@ -484,6 +492,9 @@ class FentonWave:
             # Make sure work folder exists
             if not os.path.exists(self._path):
                 os.makedirs(self._path)
+            elif self._path.endswith('fenton_temp'):
+                shutil.rmtree(self._path)
+                os.makedirs(self._path)
 
             # Try to generate inputs, call Fourier.exe, and parse outputs 20 times. Raise exception if failure persists
             sucess = False
@@ -533,6 +544,9 @@ class FentonWave:
 
         # Make sure work folder exists
         if not os.path.exists(self._path):
+            os.makedirs(self._path)
+        elif self._path.endswith('fenton_temp'):
+            shutil.rmtree(self._path)
             os.makedirs(self._path)
 
         # Try to generate inputs, call Fourier.exe, and parse outputs 20 times. Raise exception if failure persists
