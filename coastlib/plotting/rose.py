@@ -6,18 +6,18 @@ import pandas as pd
 
 
 def __get_calms(values, calm_region_magnitude):
-    '''
+    """
     Calculates percentage of events below specified threshold. Used to get the size of empty center circle.
 
     :param calm_region_magnitude:
     :return: percentage of calms
-    '''
+    """
 
     return sum(values < calm_region_magnitude) / len(values) * 100
 
 
 def __get_theta(number_of_direction_bins, number_of_value_bins, center_on_north):
-    '''
+    """
     Calculates 2D array with #rows=number_of_value_bins; #items per row=number_of_direction_bins.
     Each value in the array represents angle in radians of a center of each bin. Repeated for each value bin.
 
@@ -25,7 +25,7 @@ def __get_theta(number_of_direction_bins, number_of_value_bins, center_on_north)
     :param number_of_value_bins:
     :param center_on_north:
     :return: array of angles in radians of centers of direction bins
-    '''
+    """
 
     if center_on_north:
         theta = np.linspace(0, 2 * np.pi, number_of_direction_bins, endpoint=False)
@@ -39,7 +39,7 @@ def __get_radii(
         value_bin_boundaries, theta, values, directions,
         number_of_value_bins, number_of_direction_bins
 ):
-    '''
+    """
     Calculates percentages of each absolute bin (by direction + by value). Used to get height of each bar.
 
     :param value_bin_boundaries:
@@ -49,7 +49,7 @@ def __get_radii(
     :param number_of_value_bins:
     :param number_of_direction_bins:
     :return: 2D array with percentages of each absolute bin (aka widths of the bars)
-    '''
+    """
 
     # Prepare a dataframe
     data = pd.DataFrame(data=values, columns=['Val'])
@@ -64,7 +64,7 @@ def __get_radii(
         bins[0][0] += 360
     if bins[-1][1] == 360:
         bins[-1][1] += 1
-    datas = [data[(data['Dir'] >= bin[0]) & (data['Dir'] < bin[1])] for bin in bins]
+    datas = [data[(data['Dir'] >= _bin[0]) & (data['Dir'] < _bin[1])] for _bin in bins]
 
     radii = []
     for _data in datas:
@@ -80,7 +80,7 @@ def __get_radii(
         value_bins.extend([
             sum(_data['Val'].values >= value_bin_boundaries[-1]) / len(data)
         ])
-        radii += [value_bins]
+        radii.extend([value_bins])
     return np.array(radii).T * 100
 
 
@@ -161,7 +161,7 @@ def rose_plot(
     """
 
     calm_region_magnitude = kwargs.pop('calm_region', 0)
-    value_bins = kwargs.pop('value_bins', [np.percentile(values[values>=calm_region_magnitude], _p)
+    value_bins = kwargs.pop('value_bins', [np.percentile(values[values >= calm_region_magnitude], _p)
                                            for _p in np.arange(0, 100, 10)])
     center_on_north = kwargs.pop('center_on_north', False)
     notch = kwargs.pop('notch', 0.95)
@@ -217,7 +217,7 @@ def rose_plot(
     )
 
     # Get an array of radial coordinates
-    radii: np.ndarray = __get_radii(
+    radii = __get_radii(
         value_bin_boundaries=value_bins, theta=theta, values=values,
         directions=directions, number_of_value_bins=number_of_value_bins,
         number_of_direction_bins=direction_bins
@@ -233,7 +233,7 @@ def rose_plot(
     colors = __get_colors(number_of_value_bins=number_of_value_bins, colormap=colormap)
 
     # Create a figure with poolar axes
-    plt.figure(figsize=(8,8), facecolor='w', edgecolor='w')
+    plt.figure(figsize=(8, 8), facecolor='w', edgecolor='w')
     ax = plt.axes(polar=True)
     ax.grid(b=True, color='grey', linestyle=':', axis='y')  # frequency grid
     ax.grid(b=True, color='grey', linestyle='--', axis='x')  # direction grid
