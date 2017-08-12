@@ -116,7 +116,7 @@ def __get_bottoms(radii, percentage_of_calms):
 
 
 def rose_plot(
-        values, directions, value_bins, direction_bins=16, **kwargs
+        values, directions, direction_bins=16, **kwargs
 ):
     """
     Mandatory inputs
@@ -125,12 +125,12 @@ def rose_plot(
         1D array with values (e.g. wave heights or wind speeds). takes values in [0;inf)
     directions : numpy.ndarray
         1D array with directions (same length as <values>). takes directions in [0;360]
-    value_bins : numpy.ndarray
-        1D array with value bin boundaries (e.g. [0, 1,... n] will return [0;1)...[n;inf) ),
-        unless <calm_region> is specified
 
     Optional inputs
     ===============
+    value_bins : numpy.ndarray (default=split into 10 quantile ranges)
+        1D array with value bin boundaries (e.g. [0, 1,... n] will return [0;1)...[n;inf) ),
+        unless <calm_region> is specified
     direction_bins : int (default=16)
         number of direction bins (results in a bin size 360/<direction_bins>)
     calm_region : float (default=0)
@@ -161,6 +161,8 @@ def rose_plot(
     """
 
     calm_region_magnitude = kwargs.pop('calm_region', 0)
+    value_bins = kwargs.pop('value_bins', [np.percentile(values[values>=calm_region_magnitude], _p)
+                                           for _p in np.arange(0, 100, 10)])
     center_on_north = kwargs.pop('center_on_north', False)
     notch = kwargs.pop('notch', 0.95)
     colormap = kwargs.pop('colormap', plt.get_cmap('jet'))
@@ -181,10 +183,12 @@ def rose_plot(
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     # Ensure data is numpy array
-    if (not isinstance(values, np.ndarray)) or (not isinstance(directions, np.ndarray)):
+    if (not isinstance(values, np.ndarray)) or (not isinstance(directions, np.ndarray))\
+            or not isinstance(value_bins, np.ndarray):
         try:
             values = np.array(values)
             directions = np.array(directions)
+            value_bins = np.array(value_bins)
         except Exception as _e:
             raise ValueError('Input values should be arrays.'
                              '{}'.format(_e))
@@ -218,8 +222,8 @@ def rose_plot(
         directions=directions, number_of_value_bins=number_of_value_bins,
         number_of_direction_bins=direction_bins
     )
-    error = sum(radii) + calms - 100
-    if not np.isclose(abs(error), 0):
+    error = radii.sum() + calms - 100
+    if not np.isclose([error], [0]):
         warnings.warn('Warning: cumulative error of {:.5f}%'.format(error))
 
     # Get an array of radial coordinates of bar bottoms
@@ -273,7 +277,7 @@ def rose_plot(
         '{0:.2f} ≤ {1} < {2:.2f}'.format(value_bins[i], value_name, value_bins[i + 1])
         for i in range(1, len(value_bins) - 1)
     ])
-    bar_labels.extend(['{0} > {1:.2f}'.format(value_name, value_bins[-1])])
+    bar_labels.extend(['{0} ≥ {1:.2f}'.format(value_name, value_bins[-1])])
 
     # Plot bars
     for i in range(len(theta)):
@@ -286,7 +290,8 @@ def rose_plot(
     ax.set_title(label=fig_title, y=1.08, size='xx-large')
     if calm_region_magnitude != 0:
         # change color to see calms extent
-        ax.bar(0, calms, 2*np.pi, 0, color='white', alpha=0.3, label='{:.2f}% Calms'.format(calms))
+        ax.bar(0, calms, 2*np.pi, 0, color='white', alpha=0.3,
+               label='{0:.2f}% Calms ({1:.2f})'.format(calms, calm_region_magnitude))
     if unit_name:
         ax.legend(loc='upper left', bbox_to_anchor=(1.1, 1), title='{0} ({1})'.format(value_name, unit_name))
     else:

@@ -384,14 +384,13 @@ class EVA:
                                                         scale=param[2])
 
         # TODO =================================================================================
-        # TODO - seems good, but test
+        # TODO - seems good, but test (expon, fretchet)
         elif self.distribution == 'Gumbel':
             if self.method != 'BM':
                 raise ValueError('Gumbel distribution is applicable only with the BM method')
             def ret_val(t, param, rate, u):
                 return scipy.stats.gumbel_r.ppf(1 - 1 / (rate * t), loc=param[0], scale=param[1])
             parameters = scipy.stats.gumbel_r.fit(self.extremes[self.col].values)
-
         else:
             raise ValueError('Distribution type {} not recognized'.format(self.distribution))
         # TODO =================================================================================
