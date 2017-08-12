@@ -1,5 +1,6 @@
 import datetime
 import warnings
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -44,7 +45,7 @@ class EVA:
                                 ' EVA takes only Pandas DataFrame or Series objects.')
         else:
             self.data = df
-        df.sort_index(inplace=True)
+        self.data.sort_index(inplace=True)
 
         if col:
             self.col = col
@@ -58,6 +59,7 @@ class EVA:
         if self.N != len(years_all):
             missing = [year for year in years_all if year not in years]
             warnings.warn('\n\nData is not continuous!\nMissing years {}'.format(missing))
+
 
     def get_extremes(self, method='POT', **kwargs):
         """
@@ -82,51 +84,51 @@ class EVA:
             Block size (years) (BM method only)
         """
 
+        self.method = method
         if method == 'POT':
 
-            decluster = kwargs.pop('decluster', False)
+            decluster = kwargs.pop('decluster', True)
             dmethod = kwargs.pop('dmethod', 'naive')
-            u = kwargs.pop('u', 10)
+            try:
+                u = kwargs.pop('u')
+            except KeyError:
+                raise ValueError('Threshold <u> is required for the POT method')
             r = kwargs.pop('r', 24)
             assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-            self.method = 'POT'
             self.threshold = u
             self.extremes: pd.DataFrame = self.data[self.data[self.col] > u]
             if decluster:
                 r = datetime.timedelta(hours=r)
-                indexes = self.extremes.index.to_pydatetime()
-                values = self.extremes[self.col].values
                 if dmethod == 'naive':
-                    new_indexes = [indexes[0]]
-                    new_values = [values[0]]
-                    for i in range(1, len(indexes)):
-                        if indexes[i] - new_indexes[-1] >= r:
-                            new_indexes.extend([indexes[i]])
-                            new_values.extend([values[i]])
-                        else:
-                            if values[i] > new_values[-1]:
-                                new_indexes[-1] = indexes[i]
-                                new_values[-1] = values[i]
+                    indexes, values = [self.extremes.index[0]], [self.extremes[self.col][0]]
+                    for index, value in zip(self.extremes.index, self.extremes[self.col]):
+                        if index - indexes[-1] >= r:
+                            indexes.extend([index])
+                            values.extend([value])
+                        elif value > values[-1]:
+                            indexes[-1] = index
+                            values[-1] = value
                 else:
                     raise ValueError('Method {} is not yet implemented'.format(dmethod))
-                self.extremes = pd.DataFrame(data=new_values, index=new_indexes, columns=[self.col])
+                self.extremes = pd.DataFrame(data=values, index=indexes, columns=[self.col])
 
         elif method == 'BM':
 
             block = kwargs.pop('block', 'Y')
             assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-            self.method = 'BM'
-            years = np.unique(self.data.index.year)
-            # months = np.array([np.unique(self.data[self.data.index.year == year].index.month) for year in years])
             if block == 'Y':
-                # generate a list of dataframes with a dataframe per each year
-                # drop duplicates to have only unique peaks
-                bmextremes = [self.data[self.data.index.year == year].drop_duplicates(self.col) for year in years]
-                # from each of generated dataframes extract the row with largest value
-                bmextremes = [x[x[self.col] == x[self.col].max()] for x in bmextremes]
-                self.extremes = pd.concat(bmextremes)
+                indexes, values = [self.data.index[0]], [self.data[self.col][0]]
+                for index, value in zip(self.data.index, self.data[self.col]):
+                    if index.year == indexes[-1].year:
+                        if value > values[-1]:
+                            indexes[-1] = index
+                            values[-1] = value
+                    else:
+                        indexes.extend([index])
+                        values.extend([value])
+                self.extremes = pd.DataFrame(data=values, index=indexes, columns=[self.col])
             elif block == 'M':
                 raise NotImplementedError('Not yet implemented')
             elif block == 'W':
@@ -136,12 +138,12 @@ class EVA:
         else:
             raise ValueError('Unrecognized extremes parsing method {}. Use POT or BM methods.'.format(method))
 
-        # rank extremes and get return periods for each
+        # Weibull plotting position
         self.extremes.sort_values(by=self.col, ascending=True, inplace=True)
-        cdf = np.arange(len(self.extremes)) / len(self.extremes)
-        # Weibul plotting position (the only truly correct one)
-        return_periods = (self.N + 1) / (len(self.extremes) * (1 - cdf))
-        self.extremes['T'] = pd.DataFrame(index=self.extremes.index, data=return_periods)
+        self.rate = len(self.extremes) / self.N  # extreme events per year
+        cdf = np.arange(1, len(self.extremes) + 1) / (len(self.extremes) + 1)  # m/N+1 (rank/total+1)
+        icdf = 1 - cdf  # inverse cdf (probability of exceedance)
+        self.extremes['T'] = 1 / (icdf * self.rate)
         self.extremes.sort_index(inplace=True)
 
     def pot_residuals(self, u, decluster=True, r=24, save_path=None, dmethod='naive', name='_DATA_SOURCE_'):
@@ -167,15 +169,14 @@ class EVA:
         if u.max() > self.data[self.col].max():
             u = u[u <= self.data[self.col].max()]
         if decluster:
-            nu = []
-            res_ex_sum = []
+            nu, res_ex_sum = [], []
             for i in range(len(u)):
                 self.get_extremes(method='POT', u=u[i], r=r, decluster=True, dmethod=dmethod)
-                nu.extend([len(self.extremes[self.col].values)])
+                nu.extend([len(self.extremes)])
                 res_ex_sum.extend([self.extremes[self.col].values - u[i]])
         else:
             nu = [len(self.data[self.data[self.col] >= i]) for i in u]
-            res_ex_sum = [(self.data[self.data[self.col] >= u[i]][self.col] - u[i]).values for i in range(len(u))]
+            res_ex_sum = [(self.data[self.data[self.col] >= _u][self.col] - _u).values for _u in u]
         residuals = [(sum(res_ex_sum[i]) / nu[i]) for i in range(len(u))]
         intervals = [
             scipy.stats.norm.interval(
@@ -183,10 +184,9 @@ class EVA:
             )
             for i in range(len(u))
         ]
-        intervals_u = [intervals[i][0] for i in range(len(intervals))]
-        intervals_l = [intervals[i][1] for i in range(len(intervals))]
+        intervals_u = [interval[0] for interval in intervals]
+        intervals_l = [interval[1] for interval in intervals]
         with plt.style.context('bmh'):
-            plt.figure(figsize=(16, 8))
             plt.subplot(1, 1, 1)
             plt.plot(u, residuals, lw=2, color='orangered', label=r'Mean Residual Life')
             plt.fill_between(u, intervals_u, intervals_l, alpha=0.3, color='royalblue',
@@ -198,7 +198,8 @@ class EVA:
         if not save_path:
             plt.show()
         else:
-            plt.savefig(save_path + '\{} Mean Residual Life.png'.format(name), bbox_inches='tight', dpi=300)
+            plt.savefig(os.path.join(save_path, '{} Mean Residual Life.png'.format(name)),
+                        bbox_inches='tight', dpi=300)
             plt.close()
 
     def empirical_threshold(self, decluster=False, dmethod='naive', r=24, u_step=0.1, u_start=0):
@@ -228,14 +229,14 @@ class EVA:
         if decluster:
             self.get_extremes(method='POT', u=u, r=r, decluster=True, dmethod=dmethod)
             while len(self.extremes) > k:
-                u += u_start
+                u += u_step
                 self.get_extremes(method='POT', u=u, r=r, decluster=True, dmethod=dmethod)
         else:
             self.get_extremes(method='POT', u=u, r=r, decluster=False)
             while len(self.extremes) > k:
                 u += u_step
                 self.get_extremes(method='POT', u=u, r=r, decluster=False)
-        tres += [u]
+        tres.extend([u])
 
         # log method
         k = int((len(self.data) ** (2 / 3)) / np.log(np.log(len(self.data))))
@@ -250,7 +251,7 @@ class EVA:
             while len(self.extremes) > k:
                 u += u_step
                 self.get_extremes(method='POT', u=u, r=r, decluster=False)
-        tres += [u]
+        tres.extend([u])
         return pd.DataFrame(data=tres, index=['90% Quantile', 'Squre Root Rule', 'Logarithm Rule'],
                             columns=['Threshold'])
 
@@ -305,12 +306,13 @@ class EVA:
             if not save_path:
                 plt.show()
             else:
-                plt.savefig(save_path + '\{} Parameter Stability Plot.png'.format(name), bbox_inches='tight', dpi=600)
+                plt.savefig(os.path.join(save_path,'{} Parameter Stability Plot.png'.format(name)),
+                            bbox_inches='tight', dpi=600)
                 plt.close()
         else:
             print('The {} distribution is not yet implemented for this method'.format(distribution))
 
-    def fit(self, distribution='GPD', confidence=0.95, k=10**2, trunc=True):
+    def fit(self, distribution='GPD', confidence=0.95, k=10**2, trunc=True, method='montecarlo'):
         """
         Implemented: GEV, GPD
 
@@ -333,24 +335,24 @@ class EVA:
         """
 
         self.distribution = distribution
+        if self.method == 'BM':
+            self.threshold = None
 
         # Define the <ret_val> function for selected distibution. This function takes
         # fit parameters (scale, loc,..) and returns <return values> for return periods <t>
         if self.distribution == 'GPD':
-            if self.method == 'POT':
-                def ret_val(t, param, rate, u):
-                    return u + scipy.stats.genpareto.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
-                parameters = scipy.stats.genpareto.fit(self.extremes[self.col].values - self.threshold)
-            else:
-                def ret_val(t, param, rate, u):
-                    return scipy.stats.genpareto.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
-                parameters = scipy.stats.genpareto.fit(self.extremes[self.col].values)
+            if self.method != 'POT':
+                raise ValueError('GPD distribution is applicable only with the POT method')
+            parameters = scipy.stats.genpareto.fit(self.extremes[self.col].values - self.threshold)
+            def ret_val(t, param, rate, u):
+                return u + scipy.stats.genpareto.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
+
         elif self.distribution == 'GEV':
             if self.method != 'BM':
                 raise ValueError('GEV distribution is applicable only with the BM method')
+            parameters = scipy.stats.genextreme.fit(self.extremes[self.col].values)
             def ret_val(t, param, rate, u):
                 return scipy.stats.genextreme.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
-            parameters = scipy.stats.genextreme.fit(self.extremes[self.col].values)
 
 
         # TODO =================================================================================
@@ -379,9 +381,10 @@ class EVA:
 
 
         # Return periods equally spaced on log scale from 0.1y to 1000y
-        rp = np.unique(np.append(np.logspace(-1, 3, num=30), [2, 5, 10, 25, 50, 100, 200, 500]))
-        rate = len(self.extremes) / self.N
-        rv = ret_val(rp, param=parameters, rate=rate, u=self.threshold)
+        rp = np.unique(np.append(np.logspace(0, 3, num=30), [2, 5, 10, 25, 50, 100, 200, 500]))
+        rp = np.unique(np.append(rp, self.extremes['T'].values))
+        rp = np.sort(rp)
+        rv = ret_val(rp, param=parameters, rate=self.rate, u=self.threshold)
         self.retvalsum = pd.DataFrame(data=rv, index=rp, columns=['Return Value'])
         self.retvalsum.index.name = 'Return Period'
 
@@ -389,45 +392,51 @@ class EVA:
             # Define Monte Carlo return values generator
             if self.distribution == 'GPD':
                 def montefit():
-                    _lex = scipy.stats.poisson.rvs(len(self.extremes))
+                    lex = scipy.stats.poisson.rvs(len(self.extremes))
+                    rate = lex / self.N
                     sample = scipy.stats.genpareto.rvs(
-                        c=parameters[0], loc=parameters[1], scale=parameters[2], size=_lex
+                        c=parameters[0], loc=parameters[1], scale=parameters[2], size=lex
                     )
-                    _rate = _lex / self.N
-                    _param = scipy.stats.genpareto.fit(sample, floc=parameters[1])
-                    return ret_val(rp, param=_param, rate=_rate, u=self.threshold)
+                    param = scipy.stats.genpareto.fit(sample, floc=parameters[1])
+                    return ret_val(rp, param=param, rate=rate, u=self.threshold)
             elif self.distribution == 'GEV':
                 def montefit():
-                    _lex = scipy.stats.poisson.rvs(len(self.extremes))
+                    lex = scipy.stats.poisson.rvs(len(self.extremes))
+                    rate = lex / self.N
                     sample = scipy.stats.genextreme.rvs(
-                        c=parameters[0], loc=parameters[1], scale=parameters[2], size=_lex
+                        c=parameters[0], loc=parameters[1], scale=parameters[2], size=lex
                     )
-                    _rate = _lex / self.N
-                    _param = scipy.stats.genextreme.fit(sample, floc=parameters[1])
-                    return ret_val(rp, param=_param, rate=_rate, u=self.threshold)
+                    param = scipy.stats.genextreme.fit(sample, floc=parameters[1])
+                    return ret_val(rp, param=param, rate=rate, u=self.threshold)
             else:
-                raise ValueError('Monte Carlo method not implemented for {} distribution yet'.format(self.distribution))
+                raise ValueError('Monte Carlo method not implemented for {} distribution yet'.
+                                 format(self.distribution))
 
             # Collect statistics using defined montecarlo
-            sims = 0
-            mrv = []
-            if trunc:
-                uplims = ret_val(k * rp, param=parameters, rate=rate, u=self.threshold)
-                while sims < k:
-                    x = montefit()
-                    if (x > uplims).sum() == 0:
-                        mrv.extend([x])
+            if method == 'montecarlo':
+                sims = 0
+                mrv = []
+                if trunc:
+                    uplims = ret_val(10**4 * rp, param=parameters, rate=self.rate, u=self.threshold)
+                    while sims < k:
+                        x = montefit()
+                        if sum(x > uplims) == 0:
+                            mrv.extend([x])
+                            sims += 1
+                else:
+                    while sims < k:
+                        mrv.extend([montefit()])
                         sims += 1
-            else:
-                while sims < k:
-                    mrv.extend([montefit()])
-                    sims += 1
+            else: #method == 'resample':
+                # TODO - implement resample method
+                raise NotImplementedError
 
             # Using normal distribution, get <confidence> confidence bounds
-            moments = [scipy.stats.norm.fit(x) for x in np.array(mrv).T]
+            filtered = [x[~np.isnan(x)] for x in np.array(mrv).T]
+            moments = [scipy.stats.norm.fit(x) for x in filtered]
             intervals = [scipy.stats.norm.interval(alpha=confidence, loc=x[0], scale=x[1]) for x in moments]
-            self.retvalsum['Lower'] = pd.Series(data=[x[0] for x in intervals], index=rp)
-            self.retvalsum['Upper'] = pd.Series(data=[x[1] for x in intervals], index=rp)
+            self.retvalsum['Lower'] = [x[0] for x in intervals]
+            self.retvalsum['Upper'] = [x[1] for x in intervals]
 
         self.retvalsum.dropna(inplace=True)
 
@@ -448,7 +457,7 @@ class EVA:
         """
 
         unit = kwargs.pop('unit', 'unit')
-        ylim = kwargs.pop('ylim', (0, int(self.retvalsum['Return Value'].values.max())))
+        ylim = kwargs.pop('ylim', [self.extremes[self.col].values.min(), self.extremes[self.col].values.max()])
         assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
         with plt.style.context('bmh'):
             plt.figure(figsize=(16, 8))
@@ -465,7 +474,7 @@ class EVA:
             plt.xlabel(r'Return Period [years]')
             plt.ylabel(r'Return Value [{0}]'.format(unit))
             plt.title(r'{0} {1} Return Values Plot'.format(name, self.distribution))
-            plt.xlim((0, self.retvalsum.index.values.max()))
+            plt.xlim((self.retvalsum.index.values.min(), self.retvalsum.index.values.max()))
             plt.ylim(ylim)
             plt.legend(loc=2)
             plt.grid(linestyle='--', which='minor')
