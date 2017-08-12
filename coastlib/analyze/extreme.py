@@ -361,6 +361,28 @@ class EVA:
             def ret_val(t, param, u):
                 return u + scipy.stats.weibull_min.ppf(1 - 1 / (self.rate * t), c=param[0], loc=param[1], scale=param[2])
 
+        elif self.distribution == 'Log-normal':
+            if self.method == 'POT':
+                parameters = scipy.stats.lognorm.fit(self.extremes[self.col].values - self.threshold)
+                def ret_val(t, param, u):
+                    return u + scipy.stats.lognorm.ppf(1 - 1 / (self.rate * t), s=param[0], loc=param[1], scale=param[2])
+            else:
+                parameters = scipy.stats.lognorm.fit(self.extremes[self.col].values)
+                def ret_val(t, param, u):
+                    return scipy.stats.lognorm.ppf(1 - 1 / (self.rate * t), s=param[0], loc=param[1], scale=param[2])
+
+        elif self.distribution == 'Pearson 3':
+            if self.method == 'POT':
+                parameters = scipy.stats.pearson3.fit(self.extremes[self.col].values - self.threshold)
+                def ret_val(t, param, u):
+                    return u + scipy.stats.pearson3.ppf(1 - 1 / (self.rate * t), skew=param[0], loc=param[1],
+                                                        scale=param[2])
+            else:
+                parameters = scipy.stats.pearson3.fit(self.extremes[self.col].values)
+                def ret_val(t, param, u):
+                    return scipy.stats.pearson3.ppf(1 - 1 / (self.rate * t), skew=param[0], loc=param[1],
+                                                        scale=param[2])
+
         # TODO =================================================================================
         # TODO - seems good, but test
         elif self.distribution == 'Gumbel':
@@ -370,14 +392,6 @@ class EVA:
                 return scipy.stats.gumbel_r.ppf(1 - 1 / (rate * t), loc=param[0], scale=param[1])
             parameters = scipy.stats.gumbel_r.fit(self.extremes[self.col].values)
 
-        elif self.distribution == 'Log-normal':
-            def ret_val(t, param, rate, u):
-                return u + scipy.stats.lognorm.ppf(1 - 1 / (rate * t), s=param[0], loc=param[1], scale=param[2])
-            parameters = scipy.stats.lognorm.fit(self.extremes[self.col].values - self.threshold)
-        elif self.distribution == 'Pearson 3':
-            def ret_val(t, param, rate, u):
-                return u + scipy.stats.pearson3.ppf(1 - 1 / (rate * t), skew=param[0], loc=param[1], scale=param[2])
-            parameters = scipy.stats.pearson3.fit(self.extremes[self.col].values - self.threshold)
         else:
             raise ValueError('Distribution type {} not recognized'.format(self.distribution))
         # TODO =================================================================================
@@ -416,6 +430,28 @@ class EVA:
                         c=parameters[0], loc=parameters[1], scale=parameters[2], size=lex
                     )
                     param = scipy.stats.weibull_min.fit(sample)
+                    return ret_val(rp, param=param, u=self.threshold)
+            elif self.distribution == 'Log-normal':
+                def montefit():
+                    if self.method == 'POT':
+                        lex = scipy.stats.poisson.rvs(len(self.extremes))
+                    else:
+                        lex = self.N
+                    sample = scipy.stats.lognorm.rvs(
+                        s=parameters[0], loc=parameters[1], scale=parameters[2], size=lex
+                    )
+                    param = scipy.stats.lognorm.fit(sample)
+                    return ret_val(rp, param=param, u=self.threshold)
+            elif self.distribution == 'Pearson 3':
+                def montefit():
+                    if self.method == 'POT':
+                        lex = scipy.stats.poisson.rvs(len(self.extremes))
+                    else:
+                        lex = self.N
+                    sample = scipy.stats.pearson3.rvs(
+                        skew=parameters[0], loc=parameters[1], scale=parameters[2], size=lex
+                    )
+                    param = scipy.stats.pearson3.fit(sample)
                     return ret_val(rp, param=param, u=self.threshold)
             else:
                 raise ValueError('Monte Carlo method not implemented for {} distribution yet'.
