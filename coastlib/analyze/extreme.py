@@ -344,16 +344,22 @@ class EVA:
             if self.method != 'POT':
                 raise ValueError('GPD distribution is applicable only with the POT method')
             parameters = scipy.stats.genpareto.fit(self.extremes[self.col].values - self.threshold)
-            def ret_val(t, param, rate, u):
-                return u + scipy.stats.genpareto.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
+            def ret_val(t, param, u):
+                return u + scipy.stats.genpareto.ppf(1 - 1 / (self.rate * t), c=param[0], loc=param[1], scale=param[2])
 
         elif self.distribution == 'GEV':
             if self.method != 'BM':
                 raise ValueError('GEV distribution is applicable only with the BM method')
             parameters = scipy.stats.genextreme.fit(self.extremes[self.col].values)
-            def ret_val(t, param, rate, u):
-                return scipy.stats.genextreme.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
+            def ret_val(t, param, u):
+                return scipy.stats.genextreme.ppf(1 - 1 / (self.rate * t), c=param[0], loc=param[1], scale=param[2])
 
+        elif self.distribution == 'Weibull':
+            if self.method != 'POT':
+                raise ValueError('GPD distribution is applicable only with the POT method')
+            parameters = scipy.stats.weibull_min.fit(self.extremes[self.col].values - self.threshold)
+            def ret_val(t, param, u):
+                return u + scipy.stats.weibull_min.ppf(1 - 1 / (self.rate * t), c=param[0], loc=param[1], scale=param[2])
 
         # TODO =================================================================================
         # TODO - seems good, but test
@@ -363,10 +369,7 @@ class EVA:
             def ret_val(t, param, rate, u):
                 return scipy.stats.gumbel_r.ppf(1 - 1 / (rate * t), loc=param[0], scale=param[1])
             parameters = scipy.stats.gumbel_r.fit(self.extremes[self.col].values)
-        elif self.distribution == 'Weibull':
-            def ret_val(t, param, rate, u):
-                return u + scipy.stats.weibull_min.ppf(1 - 1 / (rate * t), c=param[0], loc=param[1], scale=param[2])
-            parameters = scipy.stats.weibull_min.fit(self.extremes[self.col].values - self.threshold)
+
         elif self.distribution == 'Log-normal':
             def ret_val(t, param, rate, u):
                 return u + scipy.stats.lognorm.ppf(1 - 1 / (rate * t), s=param[0], loc=param[1], scale=param[2])
@@ -384,7 +387,7 @@ class EVA:
         rp = np.unique(np.append(np.logspace(0, 3, num=30), [2, 5, 10, 25, 50, 100, 200, 500]))
         rp = np.unique(np.append(rp, self.extremes['T'].values))
         rp = np.sort(rp)
-        rv = ret_val(rp, param=parameters, rate=self.rate, u=self.threshold)
+        rv = ret_val(rp, param=parameters, u=self.threshold)
         self.retvalsum = pd.DataFrame(data=rv, index=rp, columns=['Return Value'])
         self.retvalsum.index.name = 'Return Period'
 
@@ -393,21 +396,27 @@ class EVA:
             if self.distribution == 'GPD':
                 def montefit():
                     lex = scipy.stats.poisson.rvs(len(self.extremes))
-                    rate = lex / self.N
                     sample = scipy.stats.genpareto.rvs(
                         c=parameters[0], loc=parameters[1], scale=parameters[2], size=lex
                     )
-                    param = scipy.stats.genpareto.fit(sample, floc=parameters[1])
-                    return ret_val(rp, param=param, rate=rate, u=self.threshold)
+                    param = scipy.stats.genpareto.fit(sample)  # floc=parameters[1]
+                    return ret_val(rp, param=param, u=self.threshold)
             elif self.distribution == 'GEV':
                 def montefit():
-                    lex = scipy.stats.poisson.rvs(len(self.extremes))
-                    rate = lex / self.N
+                    lex= self.N
                     sample = scipy.stats.genextreme.rvs(
                         c=parameters[0], loc=parameters[1], scale=parameters[2], size=lex
                     )
-                    param = scipy.stats.genextreme.fit(sample, floc=parameters[1])
-                    return ret_val(rp, param=param, rate=rate, u=self.threshold)
+                    param = scipy.stats.genextreme.fit(sample)  # floc=parameters[1]
+                    return ret_val(rp, param=param, u=self.threshold)
+            elif self.distribution == 'Weibull':
+                def montefit():
+                    lex = scipy.stats.poisson.rvs(len(self.extremes))
+                    sample = scipy.stats.weibull_min.rvs(
+                        c=parameters[0], loc=parameters[1], scale=parameters[2], size=lex
+                    )
+                    param = scipy.stats.weibull_min.fit(sample)
+                    return ret_val(rp, param=param, u=self.threshold)
             else:
                 raise ValueError('Monte Carlo method not implemented for {} distribution yet'.
                                  format(self.distribution))
@@ -417,7 +426,7 @@ class EVA:
                 sims = 0
                 mrv = []
                 if trunc:
-                    uplims = ret_val(10**4 * rp, param=parameters, rate=self.rate, u=self.threshold)
+                    uplims = ret_val(10**4 * rp, param=parameters, u=self.threshold)
                     while sims < k:
                         x = montefit()
                         if sum(x > uplims) == 0:
@@ -427,16 +436,15 @@ class EVA:
                     while sims < k:
                         mrv.extend([montefit()])
                         sims += 1
+                # Using normal distribution, get <confidence> confidence bounds
+                filtered = [x[~np.isnan(x)] for x in np.array(mrv).T]
+                moments = [scipy.stats.norm.fit(x) for x in filtered]
+                intervals = [scipy.stats.norm.interval(alpha=confidence, loc=x[0], scale=x[1]) for x in moments]
+                self.retvalsum['Lower'] = [x[0] for x in intervals]
+                self.retvalsum['Upper'] = [x[1] for x in intervals]
             else: #method == 'resample':
                 # TODO - implement resample method
                 raise NotImplementedError
-
-            # Using normal distribution, get <confidence> confidence bounds
-            filtered = [x[~np.isnan(x)] for x in np.array(mrv).T]
-            moments = [scipy.stats.norm.fit(x) for x in filtered]
-            intervals = [scipy.stats.norm.interval(alpha=confidence, loc=x[0], scale=x[1]) for x in moments]
-            self.retvalsum['Lower'] = [x[0] for x in intervals]
-            self.retvalsum['Upper'] = [x[1] for x in intervals]
 
         self.retvalsum.dropna(inplace=True)
 
