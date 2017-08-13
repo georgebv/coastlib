@@ -37,7 +37,7 @@ def __get_theta(number_of_direction_bins, number_of_value_bins, center_on_north)
 
 def __get_radii(
         value_bin_boundaries, theta, values, directions,
-        number_of_value_bins, number_of_direction_bins
+        number_of_direction_bins
 ):
     """
     Calculates percentages of each absolute bin (by direction + by value). Used to get height of each bar.
@@ -51,38 +51,56 @@ def __get_radii(
     :return: 2D array with percentages of each absolute bin (aka widths of the bars)
     """
 
-    # Prepare a dataframe
-    data = pd.DataFrame(data=values, columns=['Val'])
-    data['Dir'] = directions
-    data.sort_values('Dir', inplace=True)
+    # Old slow algorithm
+    # # Prepare a dataframe
+    # data = pd.DataFrame(data=values, columns=['Val'])
+    # data['Dir'] = directions
+    # data.sort_values('Dir', inplace=True)
+    #
+    # # Generate direction bins
+    # angles = np.rad2deg(theta[0])
+    # dangle = 180 / number_of_direction_bins
+    # bins = [[np.round(angle - dangle, 3), np.round(angle + dangle, 3)] for angle in angles]
+    # if bins[0][0] < 0:
+    #     bins[0][0] += 360
+    # if bins[-1][1] == 360:
+    #     bins[-1][1] += 1
+    #
+    # radii = []
+    # for _bin in bins:
+    #     # Filter by angles
+    #     _data = data[(data['Dir'] >= _bin[0]) & (data['Dir'] < _bin[1])]
+    #     # Filter by values
+    #     value_bins = []
+    #     for j in range(number_of_value_bins):
+    #         value_bins.extend([
+    #             sum(
+    #                 (_data['Val'].values >= value_bin_boundaries[j]) &
+    #                 (_data['Val'].values < value_bin_boundaries[j+1])
+    #             ) / len(data)
+    #         ])
+    #     value_bins.extend([
+    #         sum(_data['Val'].values >= value_bin_boundaries[-1]) / len(data)
+    #     ])
+    #     radii.extend([value_bins])
+    # return np.array(radii).T * 100
 
-    # Generate direction bins
     angles = np.rad2deg(theta[0])
     dangle = 180 / number_of_direction_bins
-    bins = [[np.round(angle - dangle, 3), np.round(angle + dangle, 3)] for angle in angles]
-    if bins[0][0] < 0:
-        bins[0][0] += 360
-    if bins[-1][1] == 360:
-        bins[-1][1] += 1
+    d_bins = [(angle - dangle) for angle in angles] + [angles[-1] + dangle]
 
-    radii = []
-    for _bin in bins:
-        # Filter by angles
-        _data = data[(data['Dir'] >= _bin[0]) & (data['Dir'] < _bin[1])]
-        # Filter by values
-        value_bins = []
-        for j in range(number_of_value_bins):
-            value_bins.extend([
-                sum(
-                    (_data['Val'].values >= value_bin_boundaries[j]) &
-                    (_data['Val'].values < value_bin_boundaries[j+1])
-                ) / len(data)
-            ])
-        value_bins.extend([
-            sum(_data['Val'].values >= value_bin_boundaries[-1]) / len(data)
-        ])
-        radii.extend([value_bins])
-    return np.array(radii).T * 100
+    # Shifts all bins and directions for the case of <center_on_north>
+    if d_bins[0] < 0:
+        d_bins = [_bin + dangle for _bin in d_bins]
+        for i, direction in enumerate(directions):
+            if direction + dangle > 360:
+                directions[i] = direction + dangle - 360
+            else:
+                directions[i] = direction + dangle
+    v_bins = np.append(value_bin_boundaries, np.inf)
+    binned = np.histogram2d(values, directions, [v_bins, d_bins])
+
+    return binned[0] / len(values) * 100
 
 
 def __get_colors(number_of_value_bins, colormap):
@@ -162,8 +180,12 @@ def rose_plot(
     """
 
     calm_region_magnitude = kwargs.pop('calm_region', 0)
-    value_bins = kwargs.pop('value_bins', [np.percentile(values[values >= calm_region_magnitude], _p)
-                                           for _p in np.arange(0, 100, 10)])
+    value_bins = kwargs.pop(
+        'value_bins',
+        np.unique(
+            [np.percentile(values[values >= calm_region_magnitude], _p) for _p in np.arange(0, 100, 10)]
+        )
+    )
     center_on_north = kwargs.pop('center_on_north', False)
     notch = kwargs.pop('notch', 0.95)
     colormap = kwargs.pop('colormap', plt.get_cmap('jet'))
@@ -220,8 +242,7 @@ def rose_plot(
     # Get an array of radial coordinates
     radii = __get_radii(
         value_bin_boundaries=value_bins, theta=theta, values=values,
-        directions=directions, number_of_value_bins=number_of_value_bins,
-        number_of_direction_bins=direction_bins
+        directions=directions, number_of_direction_bins=direction_bins
     )
     error = radii.sum() + calms - 100
     if not np.isclose([error], [0]):

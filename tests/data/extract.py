@@ -18,6 +18,5 @@ data = data[data['Dir'] >= 0]
 
 bins = [np.percentile(data['Spd'], _p) for _p in np.arange(0, 100, 10)]
 coastlib.rose_plot(values=data['Spd'].values, directions=data['Dir'].values,
-                   direction_bins=16, calm_region=0,
+                   direction_bins=32, calm_region=2,
                    colormap=plt.get_cmap('jet'))
-
