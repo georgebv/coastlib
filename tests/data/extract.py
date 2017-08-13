@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 import numpy as np
-import datetime
 import matplotlib.pyplot as plt
 import coastlib
 
@@ -23,4 +22,4 @@ print(coastlib.joint(values_1=data['Spd'].values, values_2=data['Dir'].values, b
 bins = [np.percentile(data['Spd'], _p) for _p in np.arange(0, 100, 10)]
 coastlib.rose_plot(values=data['Spd'].values, directions=data['Dir'].values,
                    direction_bins=32, calm_region=2,
-                   colormap=plt.get_cmap('jet'))
+                   colormap=plt.get_cmap('jet'), save_path=r'C:\Users\georg\Desktop\1.png')
