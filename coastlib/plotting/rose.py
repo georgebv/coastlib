@@ -56,7 +56,7 @@ def __get_radii(
     data['Dir'] = directions
     data.sort_values('Dir', inplace=True)
 
-    # Filter by angles
+    # Generate direction bins
     angles = np.rad2deg(theta[0])
     dangle = 180 / number_of_direction_bins
     bins = [[np.round(angle - dangle, 3), np.round(angle + dangle, 3)] for angle in angles]
@@ -64,10 +64,11 @@ def __get_radii(
         bins[0][0] += 360
     if bins[-1][1] == 360:
         bins[-1][1] += 1
-    datas = [data[(data['Dir'] >= _bin[0]) & (data['Dir'] < _bin[1])] for _bin in bins]
 
     radii = []
-    for _data in datas:
+    for _bin in bins:
+        # Filter by angles
+        _data = data[(data['Dir'] >= _bin[0]) & (data['Dir'] < _bin[1])]
         # Filter by values
         value_bins = []
         for j in range(number_of_value_bins):

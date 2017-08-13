@@ -184,7 +184,7 @@ def associated_value(values_1, values_2, value, search_range, confidence=0.5, pl
     df = pd.DataFrame(data=values_1, columns=['v1'])
     df['v2'] = values_2
 
-    target = df[(df['v1'] >= value - search_range) & (df['v1'] <= value + search_range)]
+    target = df[(df['v1'] >= (value - search_range)) & (df['v1'] <= (value + search_range))]
     kde = statsmodels.nonparametric.kde.KDEUnivariate(target['v2'].values)
     kde.fit()
     fit = scipy.interpolate.interp1d(kde.cdf, kde.support, kind='slinear')
