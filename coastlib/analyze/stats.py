@@ -9,7 +9,7 @@ import scipy.stats
 import statsmodels.nonparametric.kde
 
 
-def joint(values_1, values_2, binsize_1=0.3, binsize_2=4, relative=False):
+def joint(values_1, values_2, binsize_1=0.3, binsize_2=4, bins=None, relative=False):
     """
     Generates a joint probability table of 2 variables
     Filtering data before and removing empty columns after is up to user
@@ -23,6 +23,8 @@ def joint(values_1, values_2, binsize_1=0.3, binsize_2=4, relative=False):
     ===============
     binsize_1, binsize_2 : float (default=0.3,4)
         Bin sizes for variables value_1 and value_2
+    bins : tuple of arrays (default=None) (bins_1, bins_2)
+        Boundaries of bins for <values_1> and <values_2>. If <bins> are provided, binsizes are ignored
     relative : bool (default=False)
         If True, returns relative probabilities (<=1)
 
@@ -38,42 +40,53 @@ def joint(values_1, values_2, binsize_1=0.3, binsize_2=4, relative=False):
         except Exception as _e:
             raise ValueError('{}\n'
                              'Input values should be 1D lists or arrays.'.format(_e))
+    if not bins:
+        if binsize_1 <=0 or binsize_2 <= 0:
+            raise ValueError('Bin sizes must be positive numbers')
 
-    if binsize_1 <=0 or binsize_2 <= 0:
-        raise ValueError('Bin sizes must be positive numbers')
+        if values_1.min() >= 0:
+            _b1min = values_1.min() - np.abs(values_1.min() % binsize_1)
+        else:
+            _b1min = values_1.min() + (binsize_1 - np.abs(values_1.min() % binsize_1)) - binsize_1
+        if values_1.max() >= 0:
+            _b1max = values_1.max() - np.abs(values_1.max() % binsize_1) + binsize_1
+        else:
+            _b1max = values_1.max() + (binsize_1 - np.abs(values_1.max() % binsize_1))
 
-    if values_1.min() >= 0:
-        _b1min = values_1.min() - np.abs(values_1.min() % binsize_1)
+        if values_2.min() >= 0:
+            _b2min = values_2.min() - np.abs(values_2.min() % binsize_2)
+        else:
+            _b2min = values_2.min() + (binsize_2 - np.abs(values_2.min() % binsize_2)) - binsize_2
+        if values_2.max() >= 0:
+            _b2max = values_2.max() - np.abs(values_2.max() % binsize_2) + binsize_2
+        else:
+            _b2max = values_2.max() + (binsize_2 - np.abs(values_2.max() % binsize_2))
+
+        bots_1 = np.arange(_b1min, _b1max + binsize_1, binsize_1) * 1.0
+        bots_2 = np.arange(_b2min, _b2max + binsize_2, binsize_2) * 1.0
+
+        index_1 = []
+        for bot in bots_1[0:-1]:
+            index_1.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_1)])
+
+        index_2 = []
+        for bot in bots_2[0:-1]:
+            index_2.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_2)])
+
+        bots_1[0], bots_1[-1] = -np.inf, np.inf
+        bots_2 = 1.0 * bots_2
+        bots_2[0], bots_2[-1] = -np.inf, np.inf
     else:
-        _b1min = values_1.min() + (binsize_1 - np.abs(values_1.min() % binsize_1)) - binsize_1
-    if values_1.max() >= 0:
-        _b1max = values_1.max() - np.abs(values_1.max() % binsize_1) + binsize_1
-    else:
-        _b1max = values_1.max() + (binsize_1 - np.abs(values_1.max() % binsize_1))
+        bots_1, bots_2 = bins[0], bins[1]
 
-    if values_2.min() >= 0:
-        _b2min = values_2.min() - np.abs(values_2.min() % binsize_2)
-    else:
-        _b2min = values_2.min() + (binsize_2 - np.abs(values_2.min() % binsize_2)) - binsize_2
-    if values_2.max() >= 0:
-        _b2max = values_2.max() - np.abs(values_2.max() % binsize_2) + binsize_2
-    else:
-        _b2max = values_2.max() + (binsize_2 - np.abs(values_2.max() % binsize_2))
+        index_1 = []
+        for bot in bots_1[0:-1]:
+            index_1.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_1)])
 
-    bots_1 = np.arange(_b1min, _b1max + binsize_1, binsize_1) * 1.0
-    bots_2 = np.arange(_b2min, _b2max + binsize_2, binsize_2) * 1.0
+        index_2 = []
+        for bot in bots_2[0:-1]:
+            index_2.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_2)])
 
-    index_1 = []
-    for bot in bots_1[0:-1]:
-        index_1.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_1)])
-
-    index_2 = []
-    for bot in bots_2[0:-1]:
-        index_2.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_2)])
-
-    bots_1[0], bots_1[-1] = -np.inf, np.inf
-    bots_2 = 1.0 * bots_2
-    bots_2[0], bots_2[-1] = -np.inf, np.inf
     table = np.histogram2d(values_1, values_2, [bots_1, bots_2], normed=False)
 
     if not np.isclose(len(values_1), table[0].sum()):
@@ -83,7 +96,6 @@ def joint(values_1, values_2, binsize_1=0.3, binsize_2=4, relative=False):
         table[0] /= len(values_1)
 
     return pd.DataFrame(data=table[0], index=index_1, columns=index_2)
-
 
 
 def montecarlo_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
