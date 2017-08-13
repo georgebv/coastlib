@@ -39,50 +39,51 @@ def joint(values_1, values_2, binsize_1=0.3, binsize_2=4, relative=False):
             raise ValueError('{}\n'
                              'Input values should be 1D lists or arrays.'.format(_e))
 
-    data = pd.DataFrame(data=values_1, columns=['v1'])
-    data['v2'] = values_2
+    if binsize_1 <=0 or binsize_2 <= 0:
+        raise ValueError('Bin sizes must be positive numbers')
 
-    def _round(_x):
-        return float(format(_x, '.5f'))
+    if values_1.min() >= 0:
+        _b1min = values_1.min() - np.abs(values_1.min() % binsize_1)
+    else:
+        _b1min = values_1.min() + (binsize_1 - np.abs(values_1.min() % binsize_1)) - binsize_1
+    if values_1.max() >= 0:
+        _b1max = values_1.max() - np.abs(values_1.max() % binsize_1) + binsize_1
+    else:
+        _b1max = values_1.max() + (binsize_1 - np.abs(values_1.max() % binsize_1))
 
-    _b1min = _round(values_1.min() - values_1.min() % binsize_1)
-    _b1max = _round(values_1.max() - values_1.max() % binsize_1 + binsize_1)
+    if values_2.min() >= 0:
+        _b2min = values_2.min() - np.abs(values_2.min() % binsize_2)
+    else:
+        _b2min = values_2.min() + (binsize_2 - np.abs(values_2.min() % binsize_2)) - binsize_2
+    if values_2.max() >= 0:
+        _b2max = values_2.max() - np.abs(values_2.max() % binsize_2) + binsize_2
+    else:
+        _b2max = values_2.max() + (binsize_2 - np.abs(values_2.max() % binsize_2))
 
-    _b2min = _round(values_2.min() - values_2.min() % binsize_2)
-    _b2max = _round(values_2.max() - values_2.max() % binsize_2 + binsize_2)
+    bots_1 = np.arange(_b1min, _b1max + binsize_1, binsize_1) * 1.0
+    bots_2 = np.arange(_b2min, _b2max + binsize_2, binsize_2) * 1.0
 
-    bots_1 = np.arange(_b1min - binsize_1, _b1max + binsize_1, binsize_1)
-    bots_2 = np.arange(_b2min - binsize_2, _b2max + binsize_2, binsize_2)
-
-    index_1 = ['(-inf ; {0:.2f}]'.format(bots_1[1])]
-    for bot in bots_1[1:-1]:
+    index_1 = []
+    for bot in bots_1[0:-1]:
         index_1.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_1)])
-    index_1.extend(['[{0:.2f} ; inf)'.format(bots_1[-1])])
 
-    index_2 = ['(-inf ; {0:.2f}]'.format(bots_2[1])]
-    for bot in bots_2[1:-1]:
+    index_2 = []
+    for bot in bots_2[0:-1]:
         index_2.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_2)])
-    index_2.extend(['[{0:.2f} ; inf)'.format(bots_2[-1])])
 
-    bins = [[_round(bot), _round(bot + binsize_1)] for bot in bots_1]
-    datas = [data[(data['v1'] >= bin[0]) & (data['v1'] < bin[1])] for bin in bins]
+    bots_1[0], bots_1[-1] = -np.inf, np.inf
+    bots_2 = 1.0 * bots_2
+    bots_2[0], bots_2[-1] = -np.inf, np.inf
+    table = np.histogram2d(values_1, values_2, [bots_1, bots_2], normed=False)
 
-    table = np.zeros(shape=(len(index_1), len(index_2)))
-    for i, _data in enumerate(datas):
-        for j, bot_2 in enumerate(bots_2):
-            top_2 = bot_2 + binsize_2
-            table[i][j] = sum(
-                (_data['v2'] >= bot_2) &
-                (_data['v2'] < top_2)
-            )
-
-    if not np.isclose(len(values_1), table.sum()):
-        warnings.warn('THE RESULT IS WRONG. Missing {} values.'.format(len(values_1) - table.sum()))
+    if not np.isclose(len(values_1), table[0].sum()):
+        warnings.warn('THE RESULT IS WRONG. Missing {} values.'.format(len(values_1) - table[0].sum()))
 
     if relative:
-        table /= len(data)
+        table[0] /= len(values_1)
 
-    return pd.DataFrame(data=table, index=index_1, columns=index_2)
+    return pd.DataFrame(data=table[0], index=index_1, columns=index_2)
+
 
 
 def montecarlo_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
