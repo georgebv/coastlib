@@ -50,40 +50,6 @@ def __get_radii(
     :return: 2D array with percentages of each absolute bin (aka widths of the bars)
     """
 
-    # Old slow algorithm
-    # # Prepare a dataframe
-    # data = pd.DataFrame(data=values, columns=['Val'])
-    # data['Dir'] = directions
-    # data.sort_values('Dir', inplace=True)
-    #
-    # # Generate direction bins
-    # angles = np.rad2deg(theta[0])
-    # dangle = 180 / number_of_direction_bins
-    # bins = [[np.round(angle - dangle, 3), np.round(angle + dangle, 3)] for angle in angles]
-    # if bins[0][0] < 0:
-    #     bins[0][0] += 360
-    # if bins[-1][1] == 360:
-    #     bins[-1][1] += 1
-    #
-    # radii = []
-    # for _bin in bins:
-    #     # Filter by angles
-    #     _data = data[(data['Dir'] >= _bin[0]) & (data['Dir'] < _bin[1])]
-    #     # Filter by values
-    #     value_bins = []
-    #     for j in range(number_of_value_bins):
-    #         value_bins.extend([
-    #             sum(
-    #                 (_data['Val'].values >= value_bin_boundaries[j]) &
-    #                 (_data['Val'].values < value_bin_boundaries[j+1])
-    #             ) / len(data)
-    #         ])
-    #     value_bins.extend([
-    #         sum(_data['Val'].values >= value_bin_boundaries[-1]) / len(data)
-    #     ])
-    #     radii.extend([value_bins])
-    # return np.array(radii).T * 100
-
     angles = np.rad2deg(theta[0])
     dangle = 180 / number_of_direction_bins
     d_bins = [(angle - dangle) for angle in angles] + [angles[-1] + dangle]
@@ -151,7 +117,7 @@ def rose_plot(
         unless <calm_region> is specified
     direction_bins : int (default=16)
         number of direction bins (results in a bin size 360/<direction_bins>)
-    calm_region : float (default=0)
+    calm_region : float (default=-np.inf)
         threshold below which values are dicarded (i.e. noise)
     center_on_north : bool (default=False)
         if True, shifts direction bins so that they start from North (0 degrees)
@@ -178,7 +144,7 @@ def rose_plot(
     ======
     """
 
-    calm_region_magnitude = kwargs.pop('calm_region', 0)
+    calm_region_magnitude = kwargs.pop('calm_region', -np.inf)
     value_bins = kwargs.pop(
         'value_bins',
         np.unique(
@@ -290,7 +256,7 @@ def rose_plot(
     )
 
     # Generate bar labels for legend
-    if calm_region_magnitude:
+    if calm_region_magnitude != -np.inf:
         bar_labels = ['{0:.2f} ≤ {1} < {2:.2f}'.format(calm_region_magnitude, value_name, value_bins[1])]
     else:
         bar_labels = ['{0} < {1:.2f}'.format(value_name, value_bins[1])]
@@ -309,7 +275,7 @@ def rose_plot(
 
     # Add legend and title
     ax.set_title(label=fig_title, y=1.08, size='xx-large')
-    if calm_region_magnitude != 0:
+    if calm_region_magnitude != -np.inf:
         # change color to see calms extent
         ax.bar(0, calms, 2*np.pi, 0, color='white', alpha=0.3,
                label='{0:.2f}% Calms ({1:.2f})'.format(calms, calm_region_magnitude))
