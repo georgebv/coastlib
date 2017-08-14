@@ -9,7 +9,7 @@ import scipy.stats
 import statsmodels.nonparametric.kde
 
 
-def joint(values_1, values_2, binsize_1=0.3, binsize_2=4, bins=None, relative=False):
+def joint_table(values_1, values_2, binsize_1=0.3, binsize_2=4, bins=None, relative=False):
     """
     Generates a joint probability table of 2 variables
     Filtering data before and removing empty columns after is up to user
@@ -98,7 +98,7 @@ def joint(values_1, values_2, binsize_1=0.3, binsize_2=4, bins=None, relative=Fa
     return pd.DataFrame(data=table[0], index=index_1, columns=index_2)
 
 
-def montecarlo_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
+def confidence_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
     '''
     Fits function <function> to the <x,y> locus of points and evaluates the fit for a new set of values <x_new>.
     Returns <lower ci, fit, upper ci> using <how> method for a confidence interval <confidence>.
@@ -114,10 +114,10 @@ def montecarlo_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
     ===============
     confidence : float (default=95)
     sims : int (default=1000)
-    sample : float (default=0.4)
+    resample_ratio : float (default=0.4)
     poisson : bool (default=True)
     how : str (default='kde')
-        'montecarlo', 'kde'
+        'resample', 'kde'
     bounds : 2-tuple of array-like (default=(-np.inf, np.inf) - equivalent to no bounds)
         Bounds in the form of (lower, upper) where lower and upper are lists of bounds for each of the
         independent variables in <function>. If float, then all variables have this bound.
@@ -128,20 +128,23 @@ def montecarlo_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
         a tuple with (y_new fitted to <x_new>, lower bound for <confidence>, upper bound for <confidence>)
     '''
 
-    sample = kwargs.pop('sample', 0.4)
+    resample_ratio = kwargs.pop('resample_ratio', 0.4)
     poisson = kwargs.pop('poisson', True)
     how = kwargs.pop('how', 'kde')
     bounds = kwargs.pop('bounds', (-np.inf, np.inf))
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
+    # Initial fit
     popt, pcov = scipy.optimize.curve_fit(function, x, y, bounds=bounds)
+
+    # Confidence interval
     popt_s = []
-    if how == 'montecarlo':
+    if how == 'resample':
         for i in range(sims):
-            idx = np.random.choice(np.arange(len(x)), int(len(x) * sample), replace=False)
+            idx = np.random.choice(np.arange(len(x)), int(len(x) * resample_ratio), replace=False)
             x_s, y_s = x[idx], y[idx]
             popt_l, pcov_l = scipy.optimize.curve_fit(function, x_s, y_s, bounds=bounds)
-            popt_s.extend([popt_l])
+            popt_s.append(popt_l)
     elif how == 'kde':
         values = np.vstack([x, y])
         kernel = scipy.stats.gaussian_kde(values)
@@ -154,7 +157,7 @@ def montecarlo_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
                 kde_sample = kernel.resample(len(x))
             x_s, y_s = kde_sample[0], kde_sample[1]
             popt_l, pcov_l = scipy.optimize.curve_fit(function, x_s, y_s, bounds=bounds)
-            popt_s.extend([popt_l])
+            popt_s.append(popt_l)
     else:
         raise ValueError('Method {} not recognized.'.format(how))
 

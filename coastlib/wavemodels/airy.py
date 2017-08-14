@@ -15,7 +15,8 @@ def solve_dispersion_relation(t, h, g=scipy.constants.g):
 
     Parameters
     ----------
-
+    g : float
+        Gravity constant (m/s^2)
     t : float
         Wave period (sec) for which the dispersion relation is solved.
     h : float
@@ -27,11 +28,11 @@ def solve_dispersion_relation(t, h, g=scipy.constants.g):
         Estimated wavelength (m) for parameters entered.
     """
 
-    def disprel(k):
-        return (2 * np.pi / t) ** 2 - g * k * np.tanh(k * h)
+    def disprel(var):
+        return (2 * np.pi / t) ** 2 - g * var * np.tanh(var * h)
 
-    def disprel_prime1(k):
-        return (-g) * (np.tanh(k * h) + k * h * (1 - np.tanh(k * h) ** 2))
+    def disprel_prime1(var):
+        return (-g) * (np.tanh(var * h) + var * h * (1 - np.tanh(var * h) ** 2))
 
     l0 = g * (t ** 2) / (2 * np.pi)
     k = scipy.optimize.newton(disprel, l0 / 2, fprime=disprel_prime1)
@@ -92,6 +93,13 @@ class AiryWave:
         self.rho = rho
         self.__test_wave__()
 
+    def __repr__(self):
+        print('AiryWave class object')
+        print('=' * 29)
+        _report = str(self.report()).split('\n')
+        _report = ['Parameter               Value', ' '] + _report[1:]
+        return '\n'.join(_report)
+
     def __test_wave__(self):
         if self.wave_height / self.L > 1 / 7:
             warnings.warn('WARNING: Critical steepness of 1/7 has been exceeded', UserWarning)
@@ -106,7 +114,7 @@ class AiryWave:
             depth = self.depth
         return pd.DataFrame(
             data={
-                'value': [
+                'Value': [
                     round(self.L, 2),
                     round(self.wave_height, 2),
                     round(self.wave_period, 2),
