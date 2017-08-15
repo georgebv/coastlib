@@ -60,6 +60,28 @@ class EVA:
             missing = [year for year in years_all if year not in years]
             warnings.warn('\n\nData is not continuous!\nMissing years {}'.format(missing))
 
+    def __repr__(self):
+        try:
+            lev = len(self.extremes)
+        except:
+            lev = 'not extracted'
+
+        try:
+            dis = self.distribution
+        except:
+            dis = 'not assigned'
+
+        try:
+            em = self.method
+        except:
+            em = 'not assigned'
+
+        return 'EVA(col={col})\n' \
+               'Number of years -> {yr}\n' \
+               'Number of extreme events -> {lev}\n' \
+               'Extraction method -> {em}\n' \
+               'Distribution used -> {dis}'.format(col=self.col, yr=self.N, lev=lev, dis=dis, em=em)
+
     def get_extremes(self, method='POT', **kwargs):
         """
         Extracts extreme values and places them in <self.extremes>
