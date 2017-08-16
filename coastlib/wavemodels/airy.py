@@ -228,7 +228,7 @@ class AiryWave:
                 self.pd = None
         self.__test_wave__()
 
-    def wavebreak(self, precision=0.01):
+    def wavebreak(self, precision=0.01, echo=True):
         """
         Propagates the wave until it breaks (*depth* = 1.28*wave_height* breaking condition).
         Updates wave parameters at the moment of breaking.
@@ -245,9 +245,10 @@ class AiryWave:
             crt1 = b.depth - b.wave_height * 1.28
             crt2 = kr * ks - b.wave_height / self.wave_height
             if crt1 < 0 and crt2 < 0:
-                print('Solution reached with:'
-                      '    <depth> - <wave height> * 1.28 = {0:.2f}'
-                      '    <kr> * <ks> - <wave height 0> / <wave height 1> = {1:.2f}'.format(crt1, crt2))
+                if echo:
+                    print('Solution reached with:'
+                          '    <depth> - <wave height> * 1.28 = {0:.2f}'
+                          '    <kr> * <ks> - <wave height 0> / <wave height 1> = {1:.2f}'.format(crt1, crt2))
                 depth += precision
                 break
         self.propagate(depth)
