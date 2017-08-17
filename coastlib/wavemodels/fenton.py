@@ -158,18 +158,20 @@ class FentonWave:
 
     def __repr__(self):
 
-        if self.wave_height == 'dimensionless':
+        if isinstance(self.wave_height, str):
             print('FentonWave class object. Dimensionless mode')
-            print('='*58)
         else:
             print('FentonWave class object. Dimensional mode')
-            print('='*58)
-        _report = str(self.report(echo=False)).split('\n')
+        print('='*58)
+        _report = str(self.report()).split('\n')
         _report[0] = _report[1][:9] + _report[0][9:]
         _report[1] = ' '
         return '\n'.join(_report)
 
     def __write_inputs(self):
+        """
+        Generates *.dat input files for the Fourier.exe program
+        """
 
         with open(os.path.join(self._path, 'Data.dat'), 'w') as f:
             f.write(_fdata(**self.data))
@@ -179,6 +181,9 @@ class FentonWave:
             f.write(_fpoints(**self.points))
 
     def __execute_fourier(self):
+        """
+        Executes Fourier.exe for inputs written by <self.__write_inputs()>
+        """
 
         self.log = []  # Fourier.exe logs (stdout)
         curdir = os.getcwd()
@@ -197,10 +202,22 @@ class FentonWave:
         os.chdir(curdir)
 
     def __parse(self):
+        """
+        Parses non-dimensional *.res outputs of the Fourier.exe program
+        """
 
-        # Read and store Soluion.res
+        # Parse Soluion.res
         with open(os.path.join(self._path, 'Solution.res'), 'r') as f:
-            self.solution = f.readlines()
+            rows, values = [], []
+            for i, line in enumerate(f):
+                if 14 <= i < 33:
+                    s_line = line.split('\t')
+                    rows.append(s_line[0])
+                    values.append([float(s_line[1]), float(s_line[2])])
+            self.solution = pd.DataFrame(data=values, index=rows, columns=pd.MultiIndex.from_tuples([
+                ('Solution non-dimensionalised by', 'g & wavenumber'),
+                ('Solution non-dimensionalised by', 'g & mean depth')
+            ]))
 
         # Parse Surface.res
         with open(os.path.join(self._path, 'Surface.res'), 'r') as f:
@@ -230,33 +247,20 @@ class FentonWave:
                         _field.append([float(number) for number in line.split('\t')])
         self.flowfield = pd.DataFrame(data=fields, columns=[
             'Y (d)', 'u (sqrt(gd))', 'v (sqrt(gd))', 'dphi/dt (gd)', 'du/dt (g)', 'dv/dt (g)', 'du/dx (sqrt(g/d))',
-            'du/dy (sqrt(gd))', 'Bernoully check (gd)'
+            'du/dy (sqrt(g/d))', 'Bernoully check (gd)'
         ])
         self.flowfield['X (d)'] = xd
         self.flowfield['Phase (deg)'] = phase
 
-    def __parse_solution(self, echo=False):
+    def __dimensionalize(self):
+        """
+        If the program was given dimensional data, updates attributes and dimensionalizes output data
+        """
 
-        # Echo summary
-        if echo:
-            print(''.join(self.solution[:10]))
+        if not isinstance(self.depth, str):
 
-        # Parameters
-        rows, values = [], []
-        for line in self.solution[14:33]:
-            s_line = line.split('\t')
-            rows.append(s_line[0])
-            values.append([float(s_line[1]), float(s_line[2])])
-        return pd.DataFrame(data=values, index=rows, columns=pd.MultiIndex.from_tuples([
-            ('Solution non-dimensionalised by', 'g & wavenumber'),
-            ('Solution non-dimensionalised by', 'g & mean depth')
-            ]))
-
-    def __update_variables(self):
-
-        # Update variables
-        if self.depth != 'dimensionless':
-            summary = [row[1] for row in self.__parse_solution(echo=False).values]
+            # Dimensionalize solution
+            summary = [row[1] for row in self.solution.values]
             self.depth *= summary[0]
             self.wave_length = summary[1] * self.depth
             self.wave_height = summary[2] * self.depth
@@ -277,6 +281,25 @@ class FentonWave:
             self.radiation_stress = summary[17] * (self._rho * self._g * self.depth ** 2)
             self.wave_power = summary[18] * (self._rho * self._g ** (3/2) * self.depth ** (5/2))
 
+            # Dimensionalize surface
+            self.surface['X (m)'] = self.surface['X (d)'].values * self.depth
+            self.surface['eta (m)'] = self.surface['eta (d)'].values * self.depth
+
+            # Dimensionalize flowfield
+            self.flowfield['Y (m)'] = self.flowfield['Y (d)'] * self.depth
+            self.flowfield['u (m/s)'] = self.flowfield['u (sqrt(gd))'] * np.sqrt(self._g * self.depth)
+            self.flowfield['v (m/s)'] = self.flowfield['v (sqrt(gd))'] * np.sqrt(self._g * self.depth)
+            self.flowfield['dphi/dt (m^2/s^2)'] = self.flowfield['dphi/dt (gd)'] * self._g * self.depth
+            self.flowfield['du/dt (m/s^2)'] = self.flowfield['du/dt (g)'] * self._g
+            self.flowfield['dv/dt (m/s^2)'] = self.flowfield['dv/dt (g)'] * self._g
+            self.flowfield['du/dx (1/s)'] = self.flowfield['du/dx (sqrt(g/d))']\
+                                                      * np.sqrt(self._g / self.depth)
+            self.flowfield['du/dy (1/s)'] = self.flowfield['du/dy (sqrt(g/d))']\
+                                                      * np.sqrt(self._g / self.depth)
+            self.flowfield['Bernoully check (m^2/s^2)'] = self.flowfield['Bernoully check (gd)']\
+                                                          * self._g * self.depth
+            self.flowfield['X (m)'] = self.flowfield['X (d)'].values * self.depth
+
     def __run(self):
 
         # Make sure work folder exists
@@ -293,13 +316,14 @@ class FentonWave:
                 self.__write_inputs()
                 self.__execute_fourier()
                 self.__parse()
+                self.__dimensionalize()
                 sucess = True
                 break
             except FileNotFoundError:
                 raise RuntimeError('Fourier.exe was not executed or output files were removed by another application'
                                    '\nCould be caused by permission or antivirus related issues')
             except Exception as _e:
-                print('Got {0}. Failure after {1} iterations. Repeating'.format(_e, iteration + 1))
+                print('Got\n    {0}.\n Failure after {1} iterations. Repeating'.format(_e, iteration + 1))
 
         if not sucess:
             try:
@@ -309,22 +333,19 @@ class FentonWave:
                       '\n    {}'.format(_e))
             raise RuntimeError(
                 'No result was achieved after {0} iterations.\n'
-                'Check input for correctness. Read warnings with echoed exception'.format(self._max_iterations)
+                'Check input for correctness. Read warnings with echoed exception\n'
+                'Try running Fourier.exe manually in the generated folder'
+                ' to see the error'.format(self._max_iterations)
             )
 
         # Clean up
         if self._path.endswith('fenton_temp'):
             shutil.rmtree(self._path)
-        self.__update_variables()
 
-    def report(self, echo=True, nround=2):
+    def report(self, nround=2):
 
-        # Echo summary
-        if echo:
-            print(''.join(self.solution[:10]))
-
-        # Parameters
         if not isinstance(self.wave_height, str):
+            # Echo dimensionalized parameters
             frame = pd.DataFrame(
                 data=[
                     'm',        # d - depth
@@ -397,57 +418,107 @@ class FentonWave:
             return frame.round(nround)
         else:
             # Echo dimensionless parameters if wave defined through dictionary
-            return self.__parse_solution(echo=False)
+            return self.solution
 
     def plot(self, what='ua', savepath=None, scale=1, reduction=0, profiles=4):
 
         try:
-            what = {
-                'u'    : 'u (sqrt(gd))',
-                'du/dt': 'du/dt (g)',
-                'ua'   : 'du/dt (g)',
-                'v'    : 'v (sqrt(gd))',
-                'dv/dt': 'dv/dt (g)',
-                'va'   : 'dv/dt (g)',
-                'ux'   : 'du/dx (sqrt(g/d))',
-                'uy'   : 'du/dy (sqrt(gd))',
-                'phi'  : 'dphi/dt (gd)'
-            }.pop(what)
+            if not isinstance(self.wave_height, str):
+                what = {
+                    'u'    : 'u (m/s)',
+                    'du/dt': 'du/dt (m/s^2)',
+                    'ua'   : 'du/dt (m/s^2)',
+                    'v'    : 'v (m/s)',
+                    'dv/dt': 'dv/dt (m/s^2)',
+                    'va'   : 'dv/dt (m/s^2)',
+                    'ux'   : 'du/dx (1/s)',
+                    'uy'   : 'du/dy (1/s)',
+                    'phi'  : 'dphi/dt (m^2/s^2)'
+                }.pop(what)
+            else:
+                what = {
+                    'u'    : 'u (sqrt(gd))',
+                    'du/dt': 'du/dt (g)',
+                    'ua'   : 'du/dt (g)',
+                    'v'    : 'v (sqrt(gd))',
+                    'dv/dt': 'dv/dt (g)',
+                    'va'   : 'dv/dt (g)',
+                    'ux'   : 'du/dx (sqrt(g/d))',
+                    'uy'   : 'du/dy (sqrt(g/d))',
+                    'phi'  : 'dphi/dt (gd)'
+                }.pop(what)
         except:
             raise ValueError('Unrecognized value passed in what={}'.format(what))
 
         with plt.style.context('bmh'):
-            plt.figure()
-            plt.plot(self.surface['X (d)'].values, self.surface['eta (d)'].values, lw=2, color='royalblue')
-            plt.ylim([-0.1, 1.1])
-            plt.xlim([self.surface['X (d)'].values.min()*1.1, self.surface['X (d)'].values.max()*1.1])
-            plt.plot([self.surface['X (d)'].values.min(), self.surface['X (d)'].values.max()],
-                     [0, 0], color='saddlebrown', lw=2, ls='--')
+            if isinstance(self.wave_height, str):
+                plt.figure()
+                plt.plot(self.surface['X (d)'].values, self.surface['eta (d)'].values, lw=2, color='royalblue')
+                plt.ylim([-0.1, 1.1])
+                plt.xlim([self.surface['X (d)'].values.min()*1.1, self.surface['X (d)'].values.max()*1.1])
+                plt.plot([self.surface['X (d)'].values.min(), self.surface['X (d)'].values.max()],
+                         [0, 0], color='saddlebrown', lw=2, ls='--')
+                x_flow = np.unique(self.flowfield['X (d)'].values)  # List of phases
+                plt.title(r'{} plot'.format(what))
+                plt.xlabel('Phase (depths)')
+                plt.ylabel('Surface elevation relative to seabed (depths)')
 
-            x_flow = np.unique(self.flowfield['X (d)'].values)  # List of phases
+                for i in np.arange(0, len(x_flow), int(np.round(len(x_flow)/profiles))):
+                    flow_loc = self.flowfield[self.flowfield['X (d)'] == x_flow[i]]
+                    plt.plot(
+                        [x_flow[i], x_flow[i]],
+                        [flow_loc['Y (d)'].values.min(), flow_loc['Y (d)'].values.max()],
+                        color='k', lw=1
+                    )  # vertical line
+                    plt.plot(
+                        [x_flow[i], x_flow[i] + (flow_loc[what].values[0] * scale - reduction)],
+                        [flow_loc['Y (d)'].values.min(), flow_loc['Y (d)'].values.min()],
+                        color='orangered', lw=1
+                    )  # horizontal line bottom
+                    plt.plot(
+                        [x_flow[i], x_flow[i] + (flow_loc[what].values[-1] * scale - reduction)],
+                        [flow_loc['Y (d)'].values.max(), flow_loc['Y (d)'].values.max()],
+                        color='orangered', lw=1
+                    )  # horizontal line top
+                    plt.plot(
+                        flow_loc[what].values * scale + x_flow[i] - reduction,
+                        flow_loc['Y (d)'].values,
+                        color='orangered', lw=1
+                    )  # profile
+            else:
+                plt.figure()
+                plt.plot(self.surface['X (m)'].values, self.surface['eta (m)'].values, lw=2, color='royalblue')
+                plt.ylim([-0.1 * self.depth, 1.1 * self.depth])
+                plt.xlim([self.surface['X (m)'].values.min() * 1.1, self.surface['X (m)'].values.max() * 1.1])
+                plt.plot([self.surface['X (m)'].values.min(), self.surface['X (m)'].values.max()],
+                         [0, 0], color='saddlebrown', lw=2, ls='--')
+                x_flow = np.unique(self.flowfield['X (m)'].values)  # List of phases
+                plt.title(r'{} plot'.format(what))
+                plt.xlabel('Phase (m)')
+                plt.ylabel('Surface elevation relative to seabed (m)')
 
-            for i in np.arange(0, len(x_flow), int(np.round(len(x_flow)/profiles))):
-                flow_loc = self.flowfield[self.flowfield['X (d)'] == x_flow[i]]
-                plt.plot(
-                    [x_flow[i], x_flow[i]],
-                    [flow_loc['Y (d)'].values.min(), flow_loc['Y (d)'].values.max()],
-                    color='k', lw=1
-                )  # vertical line
-                plt.plot(
-                    [x_flow[i], x_flow[i] + (flow_loc[what].values[0] * scale - reduction)],
-                    [flow_loc['Y (d)'].values.min(), flow_loc['Y (d)'].values.min()],
-                    color='orangered', lw=1
-                )  # horizontal line bottom
-                plt.plot(
-                    [x_flow[i], x_flow[i] + (flow_loc[what].values[-1] * scale - reduction)],
-                    [flow_loc['Y (d)'].values.max(), flow_loc['Y (d)'].values.max()],
-                    color='orangered', lw=1
-                )  # horizontal line top
-                plt.plot(
-                    flow_loc[what].values * scale + x_flow[i] - reduction,
-                    flow_loc['Y (d)'].values,
-                    color='orangered', lw=1
-                )  # profile
+                for i in np.arange(0, len(x_flow), int(np.round(len(x_flow) / profiles))):
+                    flow_loc = self.flowfield[self.flowfield['X (m)'] == x_flow[i]]
+                    plt.plot(
+                        [x_flow[i], x_flow[i]],
+                        [flow_loc['Y (m)'].values.min(), flow_loc['Y (m)'].values.max()],
+                        color='k', lw=1
+                    )  # vertical line
+                    plt.plot(
+                        [x_flow[i], x_flow[i] + (flow_loc[what].values[0] * scale - reduction)],
+                        [flow_loc['Y (m)'].values.min(), flow_loc['Y (m)'].values.min()],
+                        color='orangered', lw=1
+                    )  # horizontal line bottom
+                    plt.plot(
+                        [x_flow[i], x_flow[i] + (flow_loc[what].values[-1] * scale - reduction)],
+                        [flow_loc['Y (m)'].values.max(), flow_loc['Y (m)'].values.max()],
+                        color='orangered', lw=1
+                    )  # horizontal line top
+                    plt.plot(
+                        flow_loc[what].values * scale + x_flow[i] - reduction,
+                        flow_loc['Y (m)'].values,
+                        color='orangered', lw=1
+                    )  # profile
             plt.show()
             if savepath:
                 plt.savefig(savepath, dpi=300, bbox_inches='tight')
@@ -507,3 +578,9 @@ class FentonWave:
             raise ValueError('Only dimensional waves can be propagated')
 
         self.__run()
+
+
+if __name__ == '__main__':
+    wave = FentonWave(wave_height=2, wave_period=6, depth=20, current_velocity=0.5)
+    wave.plot()
+    wave.report()
