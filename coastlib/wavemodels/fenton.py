@@ -162,11 +162,11 @@ class FentonWave:
             _prefix = 'FentonWave class object. Dimensionless mode'
         else:
             _prefix = 'FentonWave class object. Dimensional mode'
-        print('\n'.join([_prefix, '='*58]))
+        _prefix = [_prefix, '='*58]
         _report = str(self.solution.round(2)).split('\n')
         _report[0] = _report[1][:9] + _report[0][9:]
         _report[1] = ' '
-        return '\n'.join(_report)
+        return '\n'.join(_prefix + _report)
 
     def __str__(self):
         _report = str(self.solution.round(2)).split('\n')
