@@ -492,7 +492,7 @@ class FentonWave:
             else:
                 plt.figure()
                 plt.plot(self.surface['X (m)'].values, self.surface['eta (m)'].values, lw=2, color='royalblue')
-                plt.ylim([-0.1 * self.depth, 1.1 * self.depth])
+                plt.ylim([-0.1 * self.depth, 1.1 * self.surface['eta (m)'].values.max()])
                 plt.xlim([self.surface['X (m)'].values.min() * 1.1, self.surface['X (m)'].values.max() * 1.1])
                 plt.plot([self.surface['X (m)'].values.min(), self.surface['X (m)'].values.max()],
                          [0, 0], color='saddlebrown', lw=2, ls='--')

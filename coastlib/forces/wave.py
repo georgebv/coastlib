@@ -27,42 +27,56 @@ class Morrison:
         self.wave_height = wave_height  # up to user to provide the 1.8Hs value
         self.wave_period = wave_period
         self.depth = depth
+        points = kwargs.pop('points', dict(m=100, ua=100, vert=100))
         self.current_velocity = kwargs.pop('current_velocity', 0)
         self._rho = kwargs.pop('rho', 1025)
         self._g = kwargs.pop('g', scipy.constants.g)
         self.fenton_wave = FentonWave(
-            wave_heigh=wave_height, wave_period=wave_period, depth=depth,
+            wave_height=wave_height, wave_period=wave_period, depth=depth,
             current_criterion=1, current_velocity=self.current_velocity,
-            rho=self._rho, g=self._g, points=dict(m=100, ua=100, vert=1000)
-        )  # 1000 points per vertical profile for extra accuracy
+            rho=self._rho, g=self._g, points=points
+        )
         self.type = kwargs.pop('element_type', 'vertical cylinder')
 
         # Parse phases
         self._x = np.unique(self.fenton_wave.flowfield['X (m)'].values)
 
         if self.type == 'vertical cylinder':
+
             # Parse type-specific inputs
             self.cylinder_diameter = kwargs.pop('cylinder_diameter', None)
             self.cylinder_top = kwargs.pop('cylinder_top', None)  # Relative to seabed
-            self.cylinder_bottom = kwargs.pop('cylinder bottom', None)  # Relative to seabed
+            self.cylinder_bottom = kwargs.pop('cylinder_bottom', None)  # Relative to seabed
             self.drag_coefficient = kwargs.pop('drag_coefficient', 1.2)
             self.inertia_coefficient = kwargs.pop('inertia_coefficient', 2)
+            assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
             # Calculate wave force on the cylinder and store results
             self.__vertical_cylinder()
+
         elif self.type == 'sloped cylinder':
+
             # Parse type-specific inputs
             self.cylinder_diameter = kwargs.pop('cylinder_diameter', None)
             self.cylinder_top = kwargs.pop('cylinder_top', None)  # Relative to seabed
-            self.cylinder_bottom = kwargs.pop('cylinder bottom', None)  # Relative to seabed
+            self.cylinder_bottom = kwargs.pop('cylinder_bottom', None)  # Relative to seabed
             self.drag_coefficient = kwargs.pop('drag_coefficient', 1.2)
             self.inertia_coefficient = kwargs.pop('inertia_coefficient', 2)
-            self.slope = kwargs.pop('slope', 3)  # Slope V:H
-            # TODO - inclined cylinder
-            pass
+            self.slope = kwargs.pop('slope', None)  # Slope V:H
+            if not self.slope:
+                raise ValueError('<slope> is a mandatory parameter for sloped cylinder')
+            assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+            # Calculate wave force on the sloped cylinder
+            self.__sloped_cyliner()
         else:
             raise ValueError('Type {} is not supported'.format(self.type))
 
-        assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+    def __repr__(self):
+        return 'Morrison(wave_height={wh:.2f}, wave_period={wp:.2f}, depth={dep:.2f}, ' \
+               'current_velocity={cv:.2f}, type={tp})'.format(
+            wh=self.wave_height, wp=self.wave_period, dep=self.depth, cv=self.current_velocity, tp=self.type
+        )
 
     def __vertical_cylinder(self):
         forces, moments, centroids = [], [], []
@@ -76,8 +90,8 @@ class Morrison:
             dz = flowfield['Y (m)'].values[1:] - flowfield['Y (m)'].values[:-1]
             # average <u> for each slice
             u = (flowfield['u (m/s)'].values[1:] + flowfield['u (m/s)'].values[:-1]) / 2
-            # average <ua> for each slice
-            ua = (flowfield['ua (m/s)'].values[1:] + flowfield['ua (m/s)'].values[:-1]) / 2
+            # average <du/dt> for each slice
+            ua = (flowfield['du/dt (m/s^2)'].values[1:] + flowfield['du/dt (m/s^2)'].values[:-1]) / 2
             # center coordinates for each slice (from seabed to slice center)
             y = (flowfield['Y (m)'].values[1:] + flowfield['Y (m)'].values[:-1]) / 2
 
@@ -87,18 +101,60 @@ class Morrison:
                 face_area=self.cylinder_diameter*dz, rho=self._rho
                 ) +\
                 inertia_force(
-                    acceleration=ua, volume=np.pi*self.cylinder_diameter*dz,
+                    acceleration=ua, volume=(np.pi / 4) * (self.cylinder_diameter ** 2) * dz,
                     inertia_coefficient=self.inertia_coefficient, rho=self._rho
                 )
-            forces.extend([sum(force)])
             moment = force * y
-            moments.extend([sum(moment)])
-            centroids.extend(([sum(moment) / sum(force)]))
+            forces.append(sum(force))
+            moments.append(sum(moment))
+            centroids.append(sum(moment) / sum(force))
         self.force = pd.DataFrame(data=self._x, columns=['X (m)'])
         self.force['F (N)'] = forces
         self.force['M (N-m)'] = moments
-        self.force['Centroid (m from seabed)'] = centroids
+        self.force['Centroid (m, from seabed)'] = centroids
 
+    def __sloped_cyliner(self):
+        forces, moments, centroids, moments_x, centroids_x = [], [], [], [], []
+        for i, x in enumerate(self._x):
+            flowfield = self.fenton_wave.flowfield[
+                (self.fenton_wave.flowfield['X (m)'] == x) &
+                (self.fenton_wave.flowfield['Y (m)'] >= self.cylinder_bottom) &
+                (self.fenton_wave.flowfield['Y (m)'] <= self.cylinder_top)
+            ]
+            # integration slice heights
+            dz = flowfield['Y (m)'].values[1:] - flowfield['Y (m)'].values[:-1]
+            dz = np.sqrt(((dz / self.slope) ** 2 + dz ** 2))
+            # average <u> for each slice
+            u = (flowfield['u (m/s)'].values[1:] + flowfield['u (m/s)'].values[:-1]) / 2
+            # average <du/dt> for each slice
+            ua = (flowfield['du/dt (m/s^2)'].values[1:] + flowfield['du/dt (m/s^2)'].values[:-1]) / 2
+            # center coordinates for each slice (from seabed to slice center)
+            y = (flowfield['Y (m)'].values[1:] + flowfield['Y (m)'].values[:-1]) / 2
+            _x = y / self.slope
+
+            # Wave force
+            force = drag_force(
+                velocity=u, drag_coefficient=self.drag_coefficient,
+                face_area=self.cylinder_diameter*dz, rho=self._rho
+                ) +\
+                inertia_force(
+                    acceleration=ua, volume=(np.pi / 4) * (self.cylinder_diameter ** 2) * dz,
+                    inertia_coefficient=self.inertia_coefficient, rho=self._rho
+                )
+            moment = force * y
+            moment_x = force * _x
+
+            forces.append(sum(force))
+            moments.append(sum(moment))
+            centroids.append(sum(moment) / sum(force))
+            moments_x.append(sum(moment_x))
+            centroids_x.append(sum(moment_x) / sum(force))
+        self.force = pd.DataFrame(data=self._x, columns=['X (m)'])
+        self.force['F (N)'] = forces
+        self.force['M (N-m)'] = moments
+        self.force['Centroid (m, from seabed)'] = centroids
+        self.force['M horizontal (N-m)'] = moments_x
+        self.force['Centroid horizontal (m, from seabed end)'] = centroids_x
 
 # TODO - below are not implemented
 
@@ -304,3 +360,9 @@ def goda_2000(H13, T13, h, hc, **kwargs):
     #     ]
     # )
     # return output
+
+
+if __name__ == '__main__':
+    mload = Morrison(wave_height=2, wave_period=8, depth=10, current_velocity=0, rho=1028,
+                     element_type='vertical cylinder', cylinder_diameter=0.4, cylinder_top=20,
+                     cylinder_bottom=0, drag_coefficient=1.2, inertia_coefficient=2)
