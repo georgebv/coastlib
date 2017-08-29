@@ -93,9 +93,10 @@ def joint_table(values_1, values_2, binsize_1=0.3, binsize_2=4, bins=None, relat
         warnings.warn('THE RESULT IS WRONG. Missing {} values.'.format(len(values_1) - table[0].sum()))
 
     if relative:
-        table[0] /= len(values_1)
+        return pd.DataFrame(data=table[0] / len(values_1), index=index_1, columns=index_2)
+    else:
+        return pd.DataFrame(data=table[0], index=index_1, columns=index_2)
 
-    return pd.DataFrame(data=table[0], index=index_1, columns=index_2)
 
 
 def confidence_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
