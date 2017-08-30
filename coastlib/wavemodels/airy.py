@@ -160,22 +160,22 @@ class AiryWave:
         self.S = self.a * np.sin(self.w * t - self.k * x)
         if self.depth == 'deep':
             self.pd = self.rho * scipy.constants.g * self.a * np.exp(self.k * z) \
-                      * np.sin(self.w * t - self.k * x)
+                * np.sin(self.w * t - self.k * x)
             self.ua = (self.w ** 2) * self.a * np.exp(self.k * z) * np.cos(self.w * t - self.k * x)
             self.u = self.w * self.a * np.exp(self.k * z) * np.sin(self.w * t - self.k * x)
             self.va = -(self.w ** 2) * self.a * np.exp(self.k * z) * np.sin(self.w * t - self.k * x)
             self.v = self.w * self.a * np.exp(self.k * z) * np.cos(self.w * t - self.k * x)
         elif isinstance(self.depth, float) or isinstance(self.depth, int):
             self.pd = self.rho * scipy.constants.g * self.a * np.cosh(self.k * (z + self.depth)) \
-                      * np.sin(self.w * t - self.k * x) / np.cosh(self.k * self.depth)
+                * np.sin(self.w * t - self.k * x) / np.cosh(self.k * self.depth)
             self.ua = (self.w ** 2) * self.a * np.cosh(self.k * (z + self.depth)) \
-                      * np.cos(self.w * t - self.k * x) / np.sinh(self.k * self.depth)
+                * np.cos(self.w * t - self.k * x) / np.sinh(self.k * self.depth)
             self.u = self.w * self.a * np.cosh(self.k * (z + self.depth)) * np.sin(self.w * t - self.k * x) \
-                     / np.sinh(self.k * self.depth)
+                / np.sinh(self.k * self.depth)
             self.va = -(self.w ** 2) * self.a * np.sinh(self.k * (z + self.depth)) \
-                      * np.sin(self.w * t - self.k * x) / np.sinh(self.k * self.depth)
+                * np.sin(self.w * t - self.k * x) / np.sinh(self.k * self.depth)
             self.v = self.w * self.a * np.sinh(self.k * (z + self.depth)) * np.cos(self.w * t - self.k * x) \
-                     / np.sinh(self.k * self.depth)
+                / np.sinh(self.k * self.depth)
 
     def propagate(self, ndepth):
         """

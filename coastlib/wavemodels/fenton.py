@@ -1,7 +1,6 @@
 import os
 import shutil
 import subprocess
-import typing
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -103,51 +102,51 @@ class FentonWave:
 
     def __init__(self, **kwargs):
 
-        self._path: str = kwargs.pop('path', os.path.join(os.environ['TEMP'], 'fenton_temp'))
-        self._g: typing.Union[float, int] = kwargs.pop('g', scipy.constants.g)
-        self._rho: typing.Union[float, int] = kwargs.pop('rho', 1025)
-        self._max_iterations: int = kwargs.pop('max_iterations', 3)
-        self.run_title: str = kwargs.pop('run_title', 'Wave')
+        self._path = kwargs.pop('path', os.path.join(os.environ['TEMP'], 'fenton_temp'))
+        self._g = kwargs.pop('g', scipy.constants.g)
+        self._rho = kwargs.pop('rho', 1025)
+        self._max_iterations = kwargs.pop('max_iterations', 3)
+        self.run_title = kwargs.pop('run_title', 'Wave')
 
-        self.wave_height: typing.Union[str, float] = kwargs.pop('wave_height', 'dimensionless')
-        self.wave_period: typing.Union[str, float] = kwargs.pop('wave_period', 'dimensionless')
-        self.depth: typing.Union[str, float] = kwargs.pop('depth', 'dimensionless')
-        self.measure_of_wave_length: str = kwargs.pop('measure_of_wave_length', 'Period')
-        self.current_criterion: int = kwargs.pop('current_criterion', 1)  #
-        self.current_velocity: typing.Union[float, int] = kwargs.pop('current_velocity', 0)
-        self.fourier_components: int = kwargs.pop('fourier_components', 20)
-        self.height_steps: int = kwargs.pop('height_steps', 10)
-        self.convergence: dict = kwargs.pop(
+        self.wave_height = kwargs.pop('wave_height', 'dimensionless')
+        self.wave_period = kwargs.pop('wave_period', 'dimensionless')
+        self.depth = kwargs.pop('depth', 'dimensionless')
+        self.measure_of_wave_length = kwargs.pop('measure_of_wave_length', 'Period')
+        self.current_criterion = kwargs.pop('current_criterion', 1)  #
+        self.current_velocity = kwargs.pop('current_velocity', 0)
+        self.fourier_components = kwargs.pop('fourier_components', 20)
+        self.height_steps = kwargs.pop('height_steps', 10)
+        self.convergence = kwargs.pop(
             'convergence',
             {
                 'maximum_number_of_iterations': 40,
-                'criterion_for_convergence'   : '1.e-4'
+                'criterion_for_convergence': '1.e-4'
             }  # recommended convergence criteria
         )
-        self.points: dict = kwargs.pop(
+        self.points = kwargs.pop(
             'points',
             {
-                'm'   : 10,
-                'ua'  : 10,
+                'm': 10,
+                'ua': 10,
                 'vert': 10
             }  # 100 points per length/height by default
         )
         try:
             # Dimensional mode
-            self.data: dict = {
-                'title'               : self.run_title,
-                'h_to_d'              : self.wave_height / self.depth,
-                'measure'             : self.measure_of_wave_length,
+            self.data = {
+                'title': self.run_title,
+                'h_to_d': self.wave_height / self.depth,
+                'measure': self.measure_of_wave_length,
                 'value_of_that_length': self.wave_period * np.sqrt(self._g / self.depth),
-                'current_criterion'   : self.current_criterion,
-                'current_magnitude'   : self.current_velocity / np.sqrt(self._g * self.depth),
-                'n'                   : self.fourier_components,
-                'height_steps'        : self.height_steps,
+                'current_criterion': self.current_criterion,
+                'current_magnitude': self.current_velocity / np.sqrt(self._g * self.depth),
+                'n': self.fourier_components,
+                'height_steps': self.height_steps,
             }
         except TypeError:
             try:
                 # Dimensionless mode
-                self.data: dict = kwargs.pop('data')
+                self.data = kwargs.pop('data')
             except KeyError:
                 assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
                 raise ValueError('Incorrect inputs. Either dimensionless <data> dictionary or '
@@ -162,7 +161,7 @@ class FentonWave:
             _prefix = 'FentonWave class object. Dimensionless mode'
         else:
             _prefix = 'FentonWave class object. Dimensional mode'
-        _prefix = [_prefix, '='*58]
+        _prefix = [_prefix, '=' * 58]
         _report = str(self.solution.round(2)).split('\n')
         _report[0] = _report[1][:9] + _report[0][9:]
         _report[1] = ' '
@@ -191,7 +190,7 @@ class FentonWave:
         Executes Fourier.exe for inputs written by <self.__write_inputs()>
         """
 
-        self.log = []  # Fourier.exe logs (stdout)
+        _log = []  # Fourier.exe logs (stdout)
         curdir = os.getcwd()
         os.chdir(path=self._path)
         p = subprocess.Popen('Fourier', bufsize=1, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -200,11 +199,11 @@ class FentonWave:
             try:
                 line = line.decode()
                 if len(line) > 0:
-                    self.log.append(line)
+                    _log.append(line)
             except AttributeError:
                 pass
-        self.log.extend(['\n=== "Fourier.exe" process finished with an exit code ({}) ==='.format(p.poll())])
-        self.log = ''.join(self.log)
+        _log.extend(['\n=== "Fourier.exe" process finished with an exit code ({}) ==='.format(p.poll())])
+        self.log = ''.join(_log)
         os.chdir(curdir)
 
     def __parse(self):
@@ -285,7 +284,7 @@ class FentonWave:
             self.potential_energy = summary[15] * (self._rho * self._g * self.depth ** 2)
             self.mean_square_of_bed_velocity = summary[16] * (self._g * self.depth)
             self.radiation_stress = summary[17] * (self._rho * self._g * self.depth ** 2)
-            self.wave_power = summary[18] * (self._rho * self._g ** (3/2) * self.depth ** (5/2))
+            self.wave_power = summary[18] * (self._rho * self._g ** (3 / 2) * self.depth ** (5 / 2))
             self.solution = pd.DataFrame(
                 data=[
                     'm',  # d - depth
@@ -369,12 +368,12 @@ class FentonWave:
             self.flowfield['dphi/dt (m^2/s^2)'] = self.flowfield['dphi/dt (gd)'] * self._g * self.depth
             self.flowfield['du/dt (m/s^2)'] = self.flowfield['du/dt (g)'] * self._g
             self.flowfield['dv/dt (m/s^2)'] = self.flowfield['dv/dt (g)'] * self._g
-            self.flowfield['du/dx (1/s)'] = self.flowfield['du/dx (sqrt(g/d))']\
-                                                      * np.sqrt(self._g / self.depth)
-            self.flowfield['du/dy (1/s)'] = self.flowfield['du/dy (sqrt(g/d))']\
-                                                      * np.sqrt(self._g / self.depth)
-            self.flowfield['Bernoully check (m^2/s^2)'] = self.flowfield['Bernoully check (gd)']\
-                                                          * self._g * self.depth
+            self.flowfield['du/dx (1/s)'] = self.flowfield['du/dx (sqrt(g/d))'] \
+                * np.sqrt(self._g / self.depth)
+            self.flowfield['du/dy (1/s)'] = self.flowfield['du/dy (sqrt(g/d))'] \
+                * np.sqrt(self._g / self.depth)
+            self.flowfield['Bernoully check (m^2/s^2)'] = self.flowfield['Bernoully check (gd)'] \
+                * self._g * self.depth
             self.flowfield['X (m)'] = self.flowfield['X (d)'].values * self.depth
             for _col in [
                 'Y (d)', 'u (sqrt(gd))', 'v (sqrt(gd))', 'dphi/dt (gd)', 'du/dt (g)', 'dv/dt (g)',
@@ -429,27 +428,27 @@ class FentonWave:
         try:
             if not isinstance(self.wave_height, str):
                 what = {
-                    'u'    : 'u (m/s)',
+                    'u': 'u (m/s)',
                     'du/dt': 'du/dt (m/s^2)',
-                    'ua'   : 'du/dt (m/s^2)',
-                    'v'    : 'v (m/s)',
+                    'ua': 'du/dt (m/s^2)',
+                    'v': 'v (m/s)',
                     'dv/dt': 'dv/dt (m/s^2)',
-                    'va'   : 'dv/dt (m/s^2)',
-                    'ux'   : 'du/dx (1/s)',
-                    'uy'   : 'du/dy (1/s)',
-                    'phi'  : 'dphi/dt (m^2/s^2)'
+                    'va': 'dv/dt (m/s^2)',
+                    'ux': 'du/dx (1/s)',
+                    'uy': 'du/dy (1/s)',
+                    'phi': 'dphi/dt (m^2/s^2)'
                 }.pop(what)
             else:
                 what = {
-                    'u'    : 'u (sqrt(gd))',
+                    'u': 'u (sqrt(gd))',
                     'du/dt': 'du/dt (g)',
-                    'ua'   : 'du/dt (g)',
-                    'v'    : 'v (sqrt(gd))',
+                    'ua': 'du/dt (g)',
+                    'v': 'v (sqrt(gd))',
                     'dv/dt': 'dv/dt (g)',
-                    'va'   : 'dv/dt (g)',
-                    'ux'   : 'du/dx (sqrt(g/d))',
-                    'uy'   : 'du/dy (sqrt(g/d))',
-                    'phi'  : 'dphi/dt (gd)'
+                    'va': 'dv/dt (g)',
+                    'ux': 'du/dx (sqrt(g/d))',
+                    'uy': 'du/dy (sqrt(g/d))',
+                    'phi': 'dphi/dt (gd)'
                 }.pop(what)
         except:
             raise ValueError('Unrecognized value passed in what={}'.format(what))
@@ -459,7 +458,7 @@ class FentonWave:
                 plt.figure()
                 plt.plot(self.surface['X (d)'].values, self.surface['eta (d)'].values, lw=2, color='royalblue')
                 plt.ylim([-0.1, 1.1])
-                plt.xlim([self.surface['X (d)'].values.min()*1.1, self.surface['X (d)'].values.max()*1.1])
+                plt.xlim([self.surface['X (d)'].values.min() * 1.1, self.surface['X (d)'].values.max() * 1.1])
                 plt.plot([self.surface['X (d)'].values.min(), self.surface['X (d)'].values.max()],
                          [0, 0], color='saddlebrown', lw=2, ls='--')
                 x_flow = np.unique(self.flowfield['X (d)'].values)  # List of phases
@@ -467,7 +466,7 @@ class FentonWave:
                 plt.xlabel('Phase (depths)')
                 plt.ylabel('Surface elevation relative to seabed (depths)')
 
-                for i in np.arange(0, len(x_flow), int(np.round(len(x_flow)/profiles))):
+                for i in np.arange(0, len(x_flow), int(np.round(len(x_flow) / profiles))):
                     flow_loc = self.flowfield[self.flowfield['X (d)'] == x_flow[i]]
                     plt.plot(
                         [x_flow[i], x_flow[i]],
@@ -531,57 +530,57 @@ class FentonWave:
 
         # TODO - implement for dimensionless waves (doesn't work with parsed solution)
         raise NotImplementedError
-        # Check if wave is dimensional
-        if isinstance(self.wave_height, str):
-            raise ValueError('Implemented only for dimensional waves')
-
-        # Rerun the solver until highest possible wave is resolved
-        while True:
-            # Set wave height to heighest for this depth
-            if format(self.wave_height / self.depth, '.3f') == self.solution[4].split(' ')[-4]:
-                break
-            self.wave_height = float(self.solution[4].split(' ')[-4]) * self.depth
-
-            try:
-                # Dimensional mode
-                self.data = {
-                    'title'               : self.run_title,
-                    'h_to_d'              : self.wave_height / self.depth,
-                    'measure'             : self.measure_of_wave_length,
-                    'value_of_that_length': self.wave_period * np.sqrt(self._g / self.depth),
-                    'current_criterion'   : self.current_criterion,
-                    'current_magnitude'   : self.current_velocity,
-                    'n'                   : self.fourier_components,
-                    'height_steps'        : self.height_steps,
-                }
-            except TypeError:
-                raise ValueError('Implemented only for dimensional waves')
-
-            self.__run()
+        # # Check if wave is dimensional
+        # if isinstance(self.wave_height, str):
+        #     raise ValueError('Implemented only for dimensional waves')
+        #
+        # # Rerun the solver until highest possible wave is resolved
+        # while True:
+        #     # Set wave height to heighest for this depth
+        #     if format(self.wave_height / self.depth, '.3f') == self.solution[4].split(' ')[-4]:
+        #         break
+        #     self.wave_height = float(self.solution[4].split(' ')[-4]) * self.depth
+        #
+        #     try:
+        #         # Dimensional mode
+        #         self.data = {
+        #             'title': self.run_title,
+        #             'h_to_d': self.wave_height / self.depth,
+        #             'measure': self.measure_of_wave_length,
+        #             'value_of_that_length': self.wave_period * np.sqrt(self._g / self.depth),
+        #             'current_criterion': self.current_criterion,
+        #             'current_magnitude': self.current_velocity,
+        #             'n': self.fourier_components,
+        #             'height_steps': self.height_steps,
+        #         }
+        #     except TypeError:
+        #         raise ValueError('Implemented only for dimensional waves')
+        #
+        #     self.__run()
 
     def propagate(self, new_depth):
 
         # TODO - not ready to be used (use Airy theory)
         # TODO - include shoalind and refraction, check if new wave is valid (realistic)
         raise NotImplementedError
-        self.depth = new_depth
-
-        try:
-            # Dimensional mode
-            self.data = {
-                'title'               : self.run_title,
-                'h_to_d'              : self.wave_height / self.depth,
-                'measure'             : self.measure_of_wave_length,
-                'value_of_that_length': self.wave_period * np.sqrt(self._g / self.depth),
-                'current_criterion'   : self.current_criterion,
-                'current_magnitude'   : self.current_velocity,
-                'n'                   : self.fourier_components,
-                'height_steps'        : self.height_steps,
-            }
-        except TypeError:
-            raise ValueError('Only dimensional waves can be propagated')
-
-        self.__run()
+        # self.depth = new_depth
+        #
+        # try:
+        #     # Dimensional mode
+        #     self.data = {
+        #         'title': self.run_title,
+        #         'h_to_d': self.wave_height / self.depth,
+        #         'measure': self.measure_of_wave_length,
+        #         'value_of_that_length': self.wave_period * np.sqrt(self._g / self.depth),
+        #         'current_criterion': self.current_criterion,
+        #         'current_magnitude': self.current_velocity,
+        #         'n': self.fourier_components,
+        #         'height_steps': self.height_steps,
+        #     }
+        # except TypeError:
+        #     raise ValueError('Only dimensional waves can be propagated')
+        #
+        # self.__run()
 
 
 if __name__ == '__main__':

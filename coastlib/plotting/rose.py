@@ -45,7 +45,6 @@ def __get_radii(
     :param theta:
     :param values:
     :param directions:
-    :param number_of_value_bins:
     :param number_of_direction_bins:
     :return: 2D array with percentages of each absolute bin (aka widths of the bars)
     """

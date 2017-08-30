@@ -74,9 +74,11 @@ class Morrison:
 
     def __repr__(self):
         return 'Morrison(wave_height={wh:.2f}, wave_period={wp:.2f}, depth={dep:.2f}, ' \
-               'current_velocity={cv:.2f}, type={tp})'.format(
-            wh=self.wave_height, wp=self.wave_period, dep=self.depth, cv=self.current_velocity, tp=self.type
-        )
+               'current_velocity={cv:.2f}, type={tp})'.format(wh=self.wave_height,
+                                                              wp=self.wave_period,
+                                                              dep=self.depth,
+                                                              cv=self.current_velocity,
+                                                              tp=self.type)
 
     def __vertical_cylinder(self):
         forces, moments, centroids = [], [], []
@@ -85,7 +87,7 @@ class Morrison:
                 (self.fenton_wave.flowfield['X (m)'] == x) &
                 (self.fenton_wave.flowfield['Y (m)'] >= self.cylinder_bottom) &
                 (self.fenton_wave.flowfield['Y (m)'] <= self.cylinder_top)
-            ]
+                ]
             # integration slice heights
             dz = flowfield['Y (m)'].values[1:] - flowfield['Y (m)'].values[:-1]
             # average <u> for each slice
@@ -98,8 +100,8 @@ class Morrison:
             # Wave force
             force = drag_force(
                 velocity=u, drag_coefficient=self.drag_coefficient,
-                face_area=self.cylinder_diameter*dz, rho=self._rho
-                ) +\
+                face_area=self.cylinder_diameter * dz, rho=self._rho
+            ) + \
                 inertia_force(
                     acceleration=ua, volume=(np.pi / 4) * (self.cylinder_diameter ** 2) * dz,
                     inertia_coefficient=self.inertia_coefficient, rho=self._rho
@@ -120,7 +122,7 @@ class Morrison:
                 (self.fenton_wave.flowfield['X (m)'] == x) &
                 (self.fenton_wave.flowfield['Y (m)'] >= self.cylinder_bottom) &
                 (self.fenton_wave.flowfield['Y (m)'] <= self.cylinder_top)
-            ]
+                ]
             # integration slice heights
             dz = flowfield['Y (m)'].values[1:] - flowfield['Y (m)'].values[:-1]
             dz = np.sqrt(((dz / self.slope) ** 2 + dz ** 2))
@@ -135,8 +137,8 @@ class Morrison:
             # Wave force
             force = drag_force(
                 velocity=u, drag_coefficient=self.drag_coefficient,
-                face_area=self.cylinder_diameter*dz, rho=self._rho
-                ) +\
+                face_area=self.cylinder_diameter * dz, rho=self._rho
+            ) + \
                 inertia_force(
                     acceleration=ua, volume=(np.pi / 4) * (self.cylinder_diameter ** 2) * dz,
                     inertia_coefficient=self.inertia_coefficient, rho=self._rho
@@ -220,7 +222,7 @@ def goda_1974(wave_height, wave_period, depth, freeboard, wall_height, angle=0, 
     # pressure components
     eta_star = 0.75 * (1 + np.cos(np.deg2rad(angle))) * l_1 * wave_height
     p1 = 0.5 * (1 + np.cos(np.deg2rad(angle))) * \
-         (l_1 * a_1 + l_2 * a_star * np.cos(np.deg2rad(angle)) ** 2) * sea_water_density * g * wave_height
+        (l_1 * a_1 + l_2 * a_star * np.cos(np.deg2rad(angle)) ** 2) * sea_water_density * g * wave_height
     if eta_star > freeboard:
         p2 = (1 - freeboard / eta_star) * p1
     else:
@@ -304,8 +306,8 @@ def goda_2000(wave_height, wave_period, depth, freeboard, **kwargs):
     a_3 = 1 - (wall_height / depth_toe) * (1 - (1 / np.cosh(2 * np.pi * depth_toe / wave.wave_length)))
 
     # pressure components
-    p1 = 0.5 * (1 + np.cos(np.deg2rad(angle))) *\
-         (a_1 + a_2 * (np.cos(np.deg2rad(angle)) ** 2)) * sea_water_density * g * wave_height
+    p1 = 0.5 * (1 + np.cos(np.deg2rad(angle))) * \
+        (a_1 + a_2 * (np.cos(np.deg2rad(angle)) ** 2)) * sea_water_density * g * wave_height
     p2 = p1 / np.cosh(2 * np.pi * depth_toe / wave.wave_length)
     p3 = a_3 * p1
     if eta_star > freeboard:
@@ -316,14 +318,15 @@ def goda_2000(wave_height, wave_period, depth, freeboard, **kwargs):
     pu = 0.5 * (1 + np.cos(np.deg2rad(angle))) * a_1 * a_3 * sea_water_density * g * wave_height
 
     # total load. moment, and centroid
-    P = 0.5 * (p1 + p3) * wall_height + 0.5 * (p1 + p4) * hc_star
-    Mp = (1 / 6) * (2 * p1 + p3) * (wall_height ** 2) + 0.5 * (p1 + p4) * wall_height * hc_star +\
-         (1 / 6) * (p1 + 2 * p4) * (hc_star ** 2)
-    P_centroid = Mp / P
+    p = 0.5 * (p1 + p3) * wall_height + 0.5 * (p1 + p4) * hc_star
+    mp = (1 / 6) * (2 * p1 + p3) * (wall_height ** 2) + 0.5 * (p1 + p4) * wall_height * hc_star + \
+        (1 / 6) * (p1 + 2 * p4) * (hc_star ** 2)
+    p_centroid = mp / p
     return pd.DataFrame(
         data=[
-            round(P, 3),
-            round(P_centroid, 3),
+            round(p, 3),
+            round(mp, 3),
+            round(p_centroid, 3),
             round(hc_star, 3),
             round(p1, 3),
             round(p2, 3),
@@ -334,9 +337,10 @@ def goda_2000(wave_height, wave_period, depth, freeboard, **kwargs):
             round(a_2, 3),
             round(a_3, 3),
             round(eta_star, 3),
-            ],
+        ],
         index=[
             'Total wave load [N/m]',
+            'Total wave force moment at seabed [N-m]'
             'Load centroid [m]',
             'hc_star [m]',
             'p1 [Pa]',
@@ -348,11 +352,11 @@ def goda_2000(wave_height, wave_period, depth, freeboard, **kwargs):
             'a_2',
             'a_3',
             'Wave reach [m]',
-            ],
+        ],
         columns=[
             'Value'
-            ]
-        )
+        ]
+    )
 
 
 if __name__ == '__main__':

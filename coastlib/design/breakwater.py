@@ -48,9 +48,9 @@ def d_angremond(freeboard, wave_height, crest_width, wave_period, tana):
     s_op = 2 * np.pi * wave_height / (scipy.constants.g * wave_period ** 2)
     e_op = tana / s_op ** 0.5
     kt_small = -0.4 * freeboard / wave_height \
-               + 0.64 * (crest_width / wave_height) ** (-0.31) * (1 - np.exp(-0.5 * e_op))
+        + 0.64 * (crest_width / wave_height) ** (-0.31) * (1 - np.exp(-0.5 * e_op))
     kt_large = -0.35 * freeboard / wave_height \
-               + 0.51 * (crest_width / wave_height) ** (-0.65) * (1 - np.exp(-0.41 * e_op))
+        + 0.51 * (crest_width / wave_height) ** (-0.65) * (1 - np.exp(-0.41 * e_op))
     scale = crest_width / wave_height
 
     if scale < 8:
@@ -72,8 +72,8 @@ def hudson(wave_height, alpha, rock_density, kd=4, **kwargs):
     """
     Solves Hudson equation for median rock diameter. Checks stability (Ns < 2)
 
-    Parameters
-    ----------
+    Mandatory inputs
+    ================
     wave_height : float
         Significant wave height at structure's toe (m) (CEM formulation suggests using a 1.27 factor for Hs)
     alpha : float
@@ -89,7 +89,7 @@ def hudson(wave_height, alpha, rock_density, kd=4, **kwargs):
         CIRIA (default) - The Rock Manual (p.565, eq.5.135) - the more in-depth formulation by Van der Meer
 
     Returns
-    -------
+    =======
     Dn50 : float
         Nominal median diameter of armour blocks (m)
     """
