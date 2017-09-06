@@ -61,6 +61,7 @@ class EVA:
             warnings.warn('\n\nData is not continuous!\nMissing years {}'.format(missing))
 
     def __repr__(self):
+
         try:
             lev = len(self.extremes)
         except:
