@@ -135,7 +135,7 @@ def rose_plot(
     unit_name : str (default=None)
         name of the <values> unit for the plot
     save_path : str (default=None)
-        if save path is give, saves figure to this path (e.g. "C:\path\to\file\image.png")
+        if save path is given, saves figure to this path (e.g. "C:\path\to\file\image.png")
     min_ticks : int (default=4)
         minimum number of frequency radii (increase if not enough)
 

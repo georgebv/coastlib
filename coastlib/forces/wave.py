@@ -3,6 +3,7 @@ import pandas as pd
 import scipy.constants
 
 from coastlib.wavemodels.fenton import FentonWave
+from coastlib.wavemodels.airy import AiryWave
 
 
 def drag_force(velocity, drag_coefficient, face_area, rho=1025):
@@ -27,19 +28,35 @@ class Morrison:
         self.wave_height = wave_height  # up to user to provide the 1.8Hs value
         self.wave_period = wave_period
         self.depth = depth
+
+        self.theory = kwargs.pop('theory', 'Fenton')
         points = kwargs.pop('points', dict(m=100, ua=100, vert=100))
+        convergence = kwargs.pop('convergence', dict(
+            maximum_number_of_iterations=40,
+            criterion_for_convergence='1.e-4'
+        ))
+        fourier_components = kwargs.pop('fourier_components', 20)
         self.current_velocity = kwargs.pop('current_velocity', 0)
         self._rho = kwargs.pop('rho', 1025)
         self._g = kwargs.pop('g', scipy.constants.g)
-        self.fenton_wave = FentonWave(
-            wave_height=wave_height, wave_period=wave_period, depth=depth,
-            current_criterion=1, current_velocity=self.current_velocity,
-            rho=self._rho, g=self._g, points=points
-        )
+        if self.theory == 'Fenton':
+            self.fenton_wave = FentonWave(
+                wave_height=wave_height, wave_period=wave_period, depth=depth,
+                current_criterion=1, current_velocity=self.current_velocity,
+                rho=self._rho, g=self._g, points=points, convergence=convergence,
+                fourier_components=fourier_components
+            )
+        elif self.theory == 'Airy':
+            self.airy_wave = AiryWave(
+                wave_height=wave_height, wave_period=wave_period, depth=depth
+            )
+        else:
+            raise ValueError(f'Theory {self.theory} not recognized')
         self.type = kwargs.pop('element_type', 'vertical cylinder')
 
         # Parse phases
-        self._x = np.unique(self.fenton_wave.flowfield['X (m)'].values)
+        if self.theory == 'Fenton':
+            self._x = np.unique(self.fenton_wave.flowfield['X (m)'].values)
 
         if self.type == 'vertical cylinder':
 
@@ -81,39 +98,92 @@ class Morrison:
                                                               tp=self.type)
 
     def __vertical_cylinder(self):
-        forces, moments, centroids = [], [], []
-        for i, x in enumerate(self._x):
-            flowfield = self.fenton_wave.flowfield[
-                (self.fenton_wave.flowfield['X (m)'] == x) &
-                (self.fenton_wave.flowfield['Y (m)'] >= self.cylinder_bottom) &
-                (self.fenton_wave.flowfield['Y (m)'] <= self.cylinder_top)
-                ]
-            # integration slice heights
-            dz = flowfield['Y (m)'].values[1:] - flowfield['Y (m)'].values[:-1]
-            # average <u> for each slice
-            u = (flowfield['u (m/s)'].values[1:] + flowfield['u (m/s)'].values[:-1]) / 2
-            # average <du/dt> for each slice
-            ua = (flowfield['du/dt (m/s^2)'].values[1:] + flowfield['du/dt (m/s^2)'].values[:-1]) / 2
-            # center coordinates for each slice (from seabed to slice center)
-            y = (flowfield['Y (m)'].values[1:] + flowfield['Y (m)'].values[:-1]) / 2
+        if self.theory == 'Fenton':
+            forces, moments, centroids = [], [], []
+            for i, x in enumerate(self._x):
+                flowfield = self.fenton_wave.flowfield[
+                    (self.fenton_wave.flowfield['X (m)'] == x) &
+                    (self.fenton_wave.flowfield['Y (m)'] >= self.cylinder_bottom) &
+                    (self.fenton_wave.flowfield['Y (m)'] <= self.cylinder_top)
+                    ]
+                if len(flowfield) > 1:
+                    # integration slice heights
+                    dz = flowfield['Y (m)'].values[1:] - flowfield['Y (m)'].values[:-1]
+                    # average <u> for each slice
+                    u = (flowfield['u (m/s)'].values[1:] + flowfield['u (m/s)'].values[:-1]) / 2
+                    # average <du/dt> for each slice
+                    ua = (flowfield['du/dt (m/s^2)'].values[1:] + flowfield['du/dt (m/s^2)'].values[:-1]) / 2
+                    # center coordinates for each slice (from seabed to slice center)
+                    y = (flowfield['Y (m)'].values[1:] + flowfield['Y (m)'].values[:-1]) / 2
+                elif len(flowfield) == 1:
+                    # integration slice heights
+                    dz = np.mean((self.fenton_wave.flowfield['Y (m)'].values[1:] -
+                    self.fenton_wave.flowfield['Y (m)'].values[:-1]) / 2)
+                    # average <u> for each slice
+                    u = flowfield['u (m/s)'].values
+                    # average <du/dt> for each slice
+                    ua = flowfield['du/dt (m/s^2)'].values
+                    # center coordinates for each slice (from seabed to slice center)
+                    y = flowfield['Y (m)'].values
+                else:
+                    dz, u, ua, y = np.nan, np.nan, np.nan, np.nan
 
-            # Wave force
-            force = drag_force(
-                velocity=u, drag_coefficient=self.drag_coefficient,
-                face_area=self.cylinder_diameter * dz, rho=self._rho
-            ) + \
-                inertia_force(
-                    acceleration=ua, volume=(np.pi / 4) * (self.cylinder_diameter ** 2) * dz,
-                    inertia_coefficient=self.inertia_coefficient, rho=self._rho
-                )
-            moment = force * y
-            forces.append(sum(force))
-            moments.append(sum(moment))
-            centroids.append(sum(moment) / sum(force))
-        self.force = pd.DataFrame(data=self._x, columns=['X (m)'])
-        self.force['F (N)'] = forces
-        self.force['M (N-m)'] = moments
-        self.force['Centroid (m, from seabed)'] = centroids
+                # Wave force
+                force = drag_force(
+                    velocity=u, drag_coefficient=self.drag_coefficient,
+                    face_area=self.cylinder_diameter * dz, rho=self._rho
+                ) + \
+                    inertia_force(
+                        acceleration=ua, volume=(np.pi / 4) * (self.cylinder_diameter ** 2) * dz,
+                        inertia_coefficient=self.inertia_coefficient, rho=self._rho
+                    )
+                moment = force * y
+                forces.append(sum(force))
+                moments.append(sum(moment))
+                centroids.append(sum(moment) / sum(force))
+
+            self.force = pd.DataFrame(data=self._x, columns=['X (m)'])
+            self.force['F (N)'] = forces
+            self.force['M (N-m)'] = moments
+            self.force['Centroid (m, from seabed)'] = centroids
+
+        elif self.theory == 'Airy':
+            forces, moments, centroids = [], [], []
+            for x in np.arange(0, self.airy_wave.L+.1, .1):
+                u, ua, y = [], [], []
+                self.airy_wave.dynprop(x=x, z=0, t=0)
+                eta = self.airy_wave.S
+                for z in np.arange(self.cylinder_bottom-self.depth, min(eta+.1, self.cylinder_top-self.depth+.1), .1):
+                    if z <= 0:
+                        self.airy_wave.dynprop(t=0, x=x, z=z)
+                        u.append(self.airy_wave.u + self.current_velocity)
+                        ua.append(self.airy_wave.ua)
+                        y.append(self.airy_wave.depth + z)
+                    else:
+                        u.append(u[-1])
+                        ua.append(ua[-1])
+                        y.append(self.airy_wave.depth + z)
+                u = np.array(u)
+                ua = np.array(ua)
+                y = np.array(y)
+                dz = 0.1
+                force = drag_force(
+                    velocity=u, drag_coefficient=self.drag_coefficient,
+                    face_area=self.cylinder_diameter * dz, rho=self._rho
+                ) + \
+                        inertia_force(
+                            acceleration=ua, volume=(np.pi / 4) * (self.cylinder_diameter ** 2) * dz,
+                            inertia_coefficient=self.inertia_coefficient, rho=self._rho
+                        )
+                moment = force * y
+                forces.append(sum(force))
+                moments.append(sum(moment))
+                centroids.append(sum(moment) / sum(force))
+
+            self.force = pd.DataFrame(data=np.arange(0, self.airy_wave.L+.1, .1), columns=['X (m)'])
+            self.force['F (N)'] = forces
+            self.force['M (N-m)'] = moments
+            self.force['Centroid (m, from seabed)'] = centroids
 
     def __sloped_cyliner(self):
         forces, moments, centroids, moments_x, centroids_x = [], [], [], [], []
@@ -157,6 +227,87 @@ class Morrison:
         self.force['Centroid (m, from seabed)'] = centroids
         self.force['M horizontal (N-m)'] = moments_x
         self.force['Centroid horizontal (m, from seabed end)'] = centroids_x
+
+
+def mcconnell(wave_height, wave_period, depth, clearance,
+              deck_width, deck_length, current_velocity=0, theory='Airy', case=2):
+    # TODO : QC
+    coefficients = pd.DataFrame(
+        data=np.array([
+            [0.82, 0.84, 0.71, -0.54, -0.35, -0.12, -0.8],
+            [0.61, 0.66, 0.71, 0.91, 1.12, 0.85, 0.34]
+        ]).T,
+        columns=[
+            'a',
+            'b'
+        ],
+        index=[
+            'Upward vertical forces (seaward beam and deck)',
+            'Upward vertical forces (internal beam only)',
+            'Upward vertical forces (internal deck, two- and three-dimensional effects)',
+            'Downward vertical forces (seaward beam and deck)',
+            'Downward vertical forces (internal beam only)',
+            'Downward vertical forces (internal deck, two-dimensional effects)',
+            'Downward vertical forces (internal deck, three-dimensional effects)',
+        ]
+    )
+
+    cs = pd.DataFrame(
+        data=np.array([
+            [1.5, 1.4, 2.2, 1.6, 1.8, 2.1, 1.4],
+            [0.5, 0.5, 0.1, 0.4, 0.5, np.nan, 0.65]
+        ]).T,
+        columns=[
+            'C upper',
+            'C lower'
+        ],
+        index=[
+            'Upward vertical forces (seaward beam and deck)',
+            'Upward vertical forces (internal beam only)',
+            'Upward vertical forces (internal deck, two- and three-dimensional effects)',
+            'Downward vertical forces (seaward beam and deck)',
+            'Downward vertical forces (internal beam only)',
+            'Downward vertical forces (internal deck, two-dimensional effects)',
+            'Downward vertical forces (internal deck, three-dimensional effects)',
+        ]
+    )
+
+    def F_vqs(a, b, eta_max, cl, Hs, C, bw, bl, rho=1025, g=scipy.constants.g):
+        # p1 = (eta_max - (bh + cl)) * rho * g
+        p2 = (eta_max - cl) * rho * g
+        f_star_v = bw * bl * p2
+        return f_star_v * a * C / ((eta_max - cl) / Hs) ** b, np.sign(a * C / ((eta_max - cl) / Hs) ** b)
+
+    cases = cs.index
+    coefficient = coefficients[coefficients.index == cases[case]].values[0]
+
+    if theory == 'Airy':
+        wave = AiryWave(wave_height=wave_height, wave_period=wave_period, depth=depth)
+        eta_max = wave_height / 2
+    elif theory == 'Fenton':
+        wave = FentonWave(
+            wave_height=wave_height, wave_period=wave_period, depth=depth,
+            current_criterion=1, current_velocity=current_velocity,
+        )
+        eta_max = wave.surface['eta (m)'].values.max() - depth
+    else:
+        raise ValueError(f'Theory {theory} not recognized')
+
+    force = [
+        F_vqs(
+            a=coefficient[0], b=coefficient[1], eta_max=eta_max, cl=clearance,
+            Hs=wave_height, C=1, bw=deck_width, bl=deck_length
+        ),
+        F_vqs(
+            a=coefficient[0], b=coefficient[1], eta_max=eta_max, cl=clearance,
+            Hs=wave_height, C=cs[cs.index == cases[case]].values[0][1], bw=deck_width, bl=deck_length
+        ),
+        F_vqs(
+            a=coefficient[0], b=coefficient[1], eta_max=eta_max, cl=clearance,
+            Hs=wave_height, C=cs[cs.index == cases[case]].values[0][0], bw=deck_width, bl=deck_length
+        )
+        ]
+    return force
 
 
 def goda_1974(wave_height, wave_period, depth, freeboard, wall_height, angle=0, **kwargs):

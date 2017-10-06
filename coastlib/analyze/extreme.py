@@ -24,7 +24,7 @@ class EVA:
         eve.retvalsum and eve.extremes will have all the data necessary for a report
     """
 
-    def __init__(self, df, col=None):
+    def __init__(self, df, col=None, discontinuous=False):
         """
         Mandatory inputs
         ================
@@ -56,9 +56,12 @@ class EVA:
         years = np.unique(self.data.index.year)
         years_all = np.arange(years.min(), years.max()+1, 1)
         self.N = len(years)
+        if discontinuous:
+            self.N = len(years_all)
         if self.N != len(years_all):
             missing = [year for year in years_all if year not in years]
-            warnings.warn('\n\nData is not continuous!\nMissing years {}'.format(missing))
+            warnings.warn('\n\nData is not continuous!\nMissing years {}\n'
+                          'Set dicontinuous=True to assume there are no peaks in missing years'.format(missing))
 
     def __repr__(self):
 
@@ -606,7 +609,7 @@ class EVA:
                 plt.show()
             else:
                 plt.savefig(save_path + '\{0} {1} Return Values Plot.png'.format(name, self.distribution),
-                            bbox_inches='tight', dpi=600)
+                            bbox_inches='tight', dpi=300)
                 plt.close()
 
     def dens_fit_plot(self, distribution='GPD'):

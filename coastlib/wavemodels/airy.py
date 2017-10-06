@@ -91,6 +91,18 @@ class AiryWave:
         self.w = 2 * np.pi / wave_period
         self.a = wave_height / 2
         self.rho = rho
+
+        self.z = None
+        self.x = None
+        self.t = None
+        self.S = None
+        self.z = None
+        self.u = None
+        self.v = None
+        self.ua = None
+        self.va = None
+        self.pd = None
+
         self.__test_wave__()
 
     def __repr__(self):
@@ -200,6 +212,8 @@ class AiryWave:
         # Refraction
         ac = (nl / self.L) * np.sin(np.deg2rad(self.angle))
         a = np.rad2deg(np.arcsin(ac))
+        if (self.angle > 0 and a < 0) or (self.angle < 0 and a > 0):
+            a *= -1  # preserves angle of approach sign
         kr = np.sqrt(np.cos(np.deg2rad(self.angle)) / np.cos(np.deg2rad(a)))
         if ndepth - self.wave_height * (ks * kr) * 1.28 < 0:
             warnings.warn('WARNING : The wave was propagated beyond breaking point', UserWarning)
