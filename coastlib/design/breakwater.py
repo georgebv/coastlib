@@ -116,8 +116,83 @@ def hudson(wave_height, alpha, rock_density, kd=4, **kwargs):
     return dn50
 
 
-# TODO - below are not implemented
+def runup(wave_height, wave_period, slope, **kwargs):
+    # TODO : update using new Eurotop 2016
+    """
+    Calculates run-up height.
+    Find 2% run-up height for <type> structure using the EurOtop (2007) manual methods.
 
+    Mandatory inputs
+    ================
+    wave_height : float
+        Significant wave height at structure toe (m) .
+    wave_period : float
+        Peak wave period (s).
+    slope : float
+        Structure slope.
+    Yf : float (optional)
+        Roughness factor (1 for concrete), p.88 EurOtop manual (2007).
+    B : float (optional)
+        Wave attack angle (deg).
+    rB : float (optional)
+        Berm width (m), 0 for no berm.
+    Lb : float (optional)
+        Characteristic berm length (m), refer to p.95 EurOtop (2007).
+    rdb : float (optional)
+        Difference between SWL and berm elevation (m), refer to p.96 EurOtop (2007).
+    strtype : string (optional)
+        Structure type: 'sap' for simple armored slope (default);
+    dmethod : string (optional)
+        Design method: 'det' for deterministic design (default), more conservative; 'prob' for probabilistic design.
+
+    Returns
+    =======
+    ru : float
+        Estimated 2% runup (m) for parameters entered.
+    """
+
+    B = kwargs.pop('B', 0)
+    Yf = kwargs.pop('Yf', 1)
+    rB = kwargs.pop('rB', 0)
+    Lb = kwargs.pop('Lb', 1)
+    rdb = kwargs.pop('rdb', 0)
+    strtype = kwargs.pop('strtype', 'sap')
+    dmethod = kwargs.pop('dmethod', 'det')
+    g = kwargs.pop('g', scipy.constants.g)
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+    Lm10 = g * (wave_period ** 2) / (2 * np.pi)  # Deep water wave length
+    Sm10 = wave_height / Lm10  # Wave steepness
+    Em10 = np.tan(slope) / Sm10 ** 0.5  # Breaker type
+    rB /= Lb
+    Yb = 1 - rB * (1 - rdb)  # Berm factor (1 for no berm)
+
+    if B < 80:
+        YB = 1 - 0.0022 * B
+    else:
+        YB = 0.824
+
+    if Em10 > 10:
+        Yfsurg = 1
+    else:
+        Yfsurg = Yf + (Em10 - 1.8) * (1 - Yf) / 8.2
+
+    if strtype is 'sap':
+        if dmethod is 'det':
+            ru = wave_height * 1 * Yb * Yfsurg * YB * (4.3 - 1.6 / (Em10 ** 0.5))
+            ru = min(ru, wave_height * 2.11)  # Maximum for permeable core
+            return ru
+        elif dmethod is 'prob':
+            ru = wave_height * 1 * Yb * Yfsurg * YB * (4 - 1.5 / (Em10 ** 0.5))
+            ru = min(ru, wave_height * 1.97)  # Maximum for permeable core
+            return ru
+        else:
+            raise ValueError('ERROR: Design method not recognized')
+    else:
+        raise ValueError('ERROR: Structure type not recognized')
+
+
+# TODO - below are not implemented
 
 
 def van_der_meer(Hs, h, Tp, alpha, rock_density, **kwargs):
@@ -346,78 +421,6 @@ def d50w50(unit: float, mode: str='d50 to w50') -> float:
     return fit(unit)
 
 
-def runup(Hm0, Tp, slp, **kwargs):
-    """
-    Calculates run-up height.
-    Find 2% run-up height for <type> structure using the EurOtop (2007) manual methods.
-
-    Parameters
-    ----------
-    Hm0 : float
-        Significant wave height at structure toe (m) .
-    Tp : float
-        Peak wave period (s).
-    slp : float
-        Structure slope.
-    Yf : float (optional)
-        Roughness factor (1 for concrete), p.88 EurOtop manual (2007).
-    B : float (optional)
-        Wave attack angle (deg).
-    rB : float (optional)
-        Berm width (m), 0 for no berm.
-    Lb : float (optional)
-        Characteristic berm length (m), refer to p.95 EurOtop (2007).
-    rdb : float (optional)
-        Difference between SWL and berm elevation (m), refer to p.96 EurOtop (2007).
-    strtype : string (optional)
-        Structure type: 'sap' for simple armored slope (default);
-    dmethod : string (optional)
-        Design method: 'det' for deterministic design (default), more conservative; 'prob' for probabilistic design.
-
-    Returns
-    -------
-    ru : float
-        Estimated 2% runup (m) for parameters entered.
-    """
-
-    B = kwargs.pop('B', 0)
-    Yf = kwargs.pop('Yf', 1)
-    rB = kwargs.pop('rB', 0)
-    Lb = kwargs.pop('Lb', 1)
-    rdb = kwargs.pop('rdb', 0)
-    strtype = kwargs.pop('strtype', 'sap')
-    dmethod = kwargs.pop('dmethod', 'det')
-    g = kwargs.pop('g', scipy.constants.g)
-    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
-
-    Lm10 = g * (Tp ** 2) / (2 * math.pi)  # Deep water wave length
-    Sm10 = Hm0 / Lm10  # Wave steepness
-    Em10 = math.tan(slp) / Sm10 ** 0.5  # Breaker type
-    rB /= Lb
-    Yb = 1 - rB * (1 - rdb)  # Berm factor (1 for no berm)
-
-    if B < 80:
-        YB = 1 - 0.0022 * B
-    else:
-        YB = 0.824
-    if Em10 > 10:
-        Yfsurg = 1
-    else:
-        Yfsurg = Yf + (Em10 - 1.8) * (1 - Yf) / 8.2
-
-    if strtype is 'sap':
-        if dmethod is 'det':
-            ru = Hm0 * 1 * Yb * Yfsurg * YB * (4.3 - 1.6 / (Em10 ** 0.5))
-            ru = min(ru, Hm0 * 2.11)  # Maximum for permeable core
-            return ru
-        elif dmethod is 'prob':
-            ru = Hm0 * 1 * Yb * Yfsurg * YB * (4 - 1.5 / (Em10 ** 0.5))
-            ru = min(ru, Hm0 * 1.97)  # Maximum for permeable core
-            return ru
-        else:
-            raise ValueError('ERROR: Design method not recognized')
-    else:
-        raise ValueError('ERROR: Structure type not recognized')
 
 
 def overtopping(Hm0, Rc, **kwargs):

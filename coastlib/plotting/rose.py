@@ -1,5 +1,3 @@
-import warnings
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -210,7 +208,7 @@ def rose_plot(
     )
     error = radii.sum() + calms - 100
     if not np.isclose([error], [0]):
-        warnings.warn('Warning: cumulative error of {:.5f}%'.format(error))
+        print(f'Warning: cumulative error of {error:.5f}%')
 
     # Get an array of radial coordinates of bar bottoms
     bottoms = __get_bottoms(radii=radii, percentage_of_calms=calms)

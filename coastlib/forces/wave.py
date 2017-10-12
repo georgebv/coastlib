@@ -21,6 +21,7 @@ def inertia_force(acceleration, volume, inertia_coefficient, rho=1025):
 
 class Morrison:
     # https://en.wikipedia.org/wiki/Morison_equation
+    # TODO : QC, too messy
 
     def __init__(self, wave_height, wave_period, depth, **kwargs):
 

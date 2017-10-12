@@ -1,5 +1,4 @@
 import copy
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -114,13 +113,13 @@ class AiryWave:
 
     def __test_wave__(self):
         if self.wave_height / self.L > 1 / 7:
-            warnings.warn('WARNING: Critical steepness of 1/7 has been exceeded', UserWarning)
-        if isinstance(self.depth, float) or isinstance(self.depth, int):
+            print('WARNING: Critical steepness of 1/7 has been exceeded')
+        if not isinstance(self.depth, str):
             if self.depth / self.wave_height <= 1.28:
-                warnings.warn('WARNING: Depth limited breaking is occurring', UserWarning)
+                print('WARNING: Depth limited breaking is occurring')
 
     def report(self):
-        if isinstance(self.depth, float) or isinstance(self.depth, int):
+        if not isinstance(self.depth, str):
             depth = round(self.depth, 2)
         else:
             depth = self.depth
@@ -212,11 +211,11 @@ class AiryWave:
         # Refraction
         ac = (nl / self.L) * np.sin(np.deg2rad(self.angle))
         a = np.rad2deg(np.arcsin(ac))
-        if (self.angle > 0 and a < 0) or (self.angle < 0 and a > 0):
+        if (self.angle > 0 > a) or (self.angle < 0 < a):
             a *= -1  # preserves angle of approach sign
         kr = np.sqrt(np.cos(np.deg2rad(self.angle)) / np.cos(np.deg2rad(a)))
         if ndepth - self.wave_height * (ks * kr) * 1.28 < 0:
-            warnings.warn('WARNING : The wave was propagated beyond breaking point', UserWarning)
+            print('WARNING : The wave was propagated beyond breaking point')
         self.angle = a
         self.wave_height *= (ks * kr)
         self.c = nc

@@ -1,5 +1,3 @@
-import warnings
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -90,7 +88,7 @@ def joint_table(values_1, values_2, binsize_1=0.3, binsize_2=4, bins=None, relat
     table = np.histogram2d(values_1, values_2, [bots_1, bots_2], normed=False)
 
     if not np.isclose(len(values_1), table[0].sum()):
-        warnings.warn('THE RESULT IS WRONG. Missing {} values.'.format(len(values_1) - table[0].sum()))
+        print(f'THE RESULT IS WRONG. Missing {len(values_1) - table[0].sum()} values.')
 
     if relative:
         return pd.DataFrame(data=table[0] / len(values_1), index=index_1, columns=index_2)
@@ -172,6 +170,7 @@ def confidence_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
 
 
 def associated_value(values_1, values_2, value, search_range, plot_cdf=False):
+    # TODO : QC
     """
     Calculates a statistically associated value for a series of 2 correllated values (joint probability)
 
