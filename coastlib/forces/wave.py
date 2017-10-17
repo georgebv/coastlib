@@ -21,43 +21,44 @@ def inertia_force(acceleration, volume, inertia_coefficient, rho=1025):
 
 class Morrison:
     # https://en.wikipedia.org/wiki/Morison_equation
-    # TODO : QC, too messy
 
     def __init__(self, wave_height, wave_period, depth, **kwargs):
 
         # Parse general inputs
+        self.theory = kwargs.pop('theory', 'Fenton')
         self.wave_height = wave_height  # up to user to provide the 1.8Hs value
         self.wave_period = wave_period
         self.depth = depth
-
-        self.theory = kwargs.pop('theory', 'Fenton')
-        points = kwargs.pop('points', dict(m=100, ua=100, vert=100))
-        convergence = kwargs.pop('convergence', dict(
-            maximum_number_of_iterations=40,
-            criterion_for_convergence='1.e-4'
-        ))
-        fourier_components = kwargs.pop('fourier_components', 20)
         self.current_velocity = kwargs.pop('current_velocity', 0)
         self._rho = kwargs.pop('rho', 1025)
         self._g = kwargs.pop('g', scipy.constants.g)
+        self.type = kwargs.pop('element_type', 'vertical cylinder')
+
         if self.theory == 'Fenton':
+            fourier_components = kwargs.pop('fourier_components', 20)
+            points = kwargs.pop('points', dict(m=100, ua=100, vert=100))
+            convergence = kwargs.pop('convergence', dict(
+                maximum_number_of_iterations=40,
+                criterion_for_convergence='1.e-4'
+            ))
             self.fenton_wave = FentonWave(
                 wave_height=wave_height, wave_period=wave_period, depth=depth,
                 current_criterion=1, current_velocity=self.current_velocity,
                 rho=self._rho, g=self._g, points=points, convergence=convergence,
                 fourier_components=fourier_components
             )
+            self._x = np.unique(self.fenton_wave.flowfield['X (m)'].values)
+
         elif self.theory == 'Airy':
             self.airy_wave = AiryWave(
-                wave_height=wave_height, wave_period=wave_period, depth=depth
+                wave_height=wave_height, wave_period=wave_period, depth=depth, rho=self._rho
             )
+            self._dz = kwargs.pop('dz', 0.05)
+            self._dx = kwargs.pop('dx', 0.05)
+            self._x = np.arange(0, self.airy_wave.L+self._dx, self._dx)
+
         else:
             raise ValueError(f'Theory {self.theory} not recognized')
-        self.type = kwargs.pop('element_type', 'vertical cylinder')
-
-        # Parse phases
-        if self.theory == 'Fenton':
-            self._x = np.unique(self.fenton_wave.flowfield['X (m)'].values)
 
         if self.type == 'vertical cylinder':
 
@@ -87,6 +88,7 @@ class Morrison:
 
             # Calculate wave force on the sloped cylinder
             self.__sloped_cyliner()
+
         else:
             raise ValueError('Type {} is not supported'.format(self.type))
 
@@ -99,6 +101,7 @@ class Morrison:
                                                               tp=self.type)
 
     def __vertical_cylinder(self):
+
         if self.theory == 'Fenton':
             forces, moments, centroids = [], [], []
             for i, x in enumerate(self._x):
@@ -150,30 +153,33 @@ class Morrison:
 
         elif self.theory == 'Airy':
             forces, moments, centroids = [], [], []
-            for x in np.arange(0, self.airy_wave.L+.1, .1):
+            for i, x in enumerate(self._x):
                 u, ua, y = [], [], []
-                self.airy_wave.dynprop(x=x, z=0, t=0)
+                self.airy_wave.dynprop(z=0, t=0, x=x)
                 eta = self.airy_wave.S
-                for z in np.arange(self.cylinder_bottom-self.depth, min(eta+.1, self.cylinder_top-self.depth+.1), .1):
+
+                z_range = np.arange(
+                    self.cylinder_bottom-self.depth,  # cylinder bottom relative to SWL
+                    min(eta+self._dz, self.cylinder_top-self.depth+self._dz),  # min of wave crest and cylinder top relative to SWL
+                    self._dz
+                )
+                for z in z_range:
                     if z <= 0:
-                        self.airy_wave.dynprop(t=0, x=x, z=z)
-                        u.append(self.airy_wave.u + self.current_velocity)
-                        ua.append(self.airy_wave.ua)
-                        y.append(self.airy_wave.depth + z)
+                        self.airy_wave.dynprop(z=z, t=0, x=x)
                     else:
-                        u.append(u[-1])
-                        ua.append(ua[-1])
-                        y.append(self.airy_wave.depth + z)
+                        self.airy_wave.dynprop(z=0, t=0, x=x)
+                    u.append(self.airy_wave.u + self.current_velocity)
+                    ua.append(self.airy_wave.ua)
+                    y.append(self.airy_wave.depth + z)
                 u = np.array(u)
                 ua = np.array(ua)
                 y = np.array(y)
-                dz = 0.1
                 force = drag_force(
                     velocity=u, drag_coefficient=self.drag_coefficient,
-                    face_area=self.cylinder_diameter * dz, rho=self._rho
+                    face_area=self.cylinder_diameter * self._dz, rho=self._rho
                 ) + \
                         inertia_force(
-                            acceleration=ua, volume=(np.pi / 4) * (self.cylinder_diameter ** 2) * dz,
+                            acceleration=ua, volume=(np.pi / 4) * (self.cylinder_diameter ** 2) * self._dz,
                             inertia_coefficient=self.inertia_coefficient, rho=self._rho
                         )
                 moment = force * y
@@ -181,12 +187,13 @@ class Morrison:
                 moments.append(sum(moment))
                 centroids.append(sum(moment) / sum(force))
 
-            self.force = pd.DataFrame(data=np.arange(0, self.airy_wave.L+.1, .1), columns=['X (m)'])
+            self.force = pd.DataFrame(data=self._x, columns=['X (m)'])
             self.force['F (N)'] = forces
             self.force['M (N-m)'] = moments
             self.force['Centroid (m, from seabed)'] = centroids
 
     def __sloped_cyliner(self):
+        # TODO : Airy not implemented
         forces, moments, centroids, moments_x, centroids_x = [], [], [], [], []
         for i, x in enumerate(self._x):
             flowfield = self.fenton_wave.flowfield[
@@ -231,7 +238,7 @@ class Morrison:
 
 
 def mcconnell(wave_height, wave_period, depth, clearance,
-              deck_width, deck_length, current_velocity=0, theory='Airy', case=2):
+              deck_width, deck_length, current_velocity=0, theory='Airy', case=2, **kwargs):
     # TODO : QC
     coefficients = pd.DataFrame(
         data=np.array([
@@ -286,9 +293,10 @@ def mcconnell(wave_height, wave_period, depth, clearance,
         wave = AiryWave(wave_height=wave_height, wave_period=wave_period, depth=depth)
         eta_max = wave_height / 2
     elif theory == 'Fenton':
+        fourier_components = kwargs.pop('fourier_components', 20)
         wave = FentonWave(
             wave_height=wave_height, wave_period=wave_period, depth=depth,
-            current_criterion=1, current_velocity=current_velocity,
+            current_criterion=1, current_velocity=current_velocity, fourier_components=fourier_components
         )
         eta_max = wave.surface['eta (m)'].values.max() - depth
     else:
