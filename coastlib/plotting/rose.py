@@ -49,7 +49,7 @@ def __get_radii(
 
     angles = np.rad2deg(theta[0])
     dangle = 180 / number_of_direction_bins
-    d_bins = [(angle - dangle) for angle in angles] + [angles[-1] + dangle]
+    d_bins = np.round(np.append(angles - dangle, angles[-1] + dangle), 10)
 
     # Shifts all bins and directions for the case of <center_on_north>
     if d_bins[0] < 0:
