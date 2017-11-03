@@ -169,8 +169,7 @@ def confidence_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
     return np.array(y_new), np.array(lower), np.array(upper)
 
 
-def associated_value(values_1, values_2, value, search_range, plot_cdf=False):
-    # TODO : QC
+def associated_value(values_1, values_2, value, search_range, plot=True, echo=True):
     """
     Calculates a statistically associated value for a series of 2 correllated values (joint probability)
 
@@ -186,14 +185,10 @@ def associated_value(values_1, values_2, value, search_range, plot_cdf=False):
 
     Optional inputs
     ===============
-    confidence : float (default=0.5)
-        Confidence for associated value - shows probability of non-exceedance (default 0.5 - median value)
-    plot_cdf : bool (default=False)
-        If True - display a CDF plot of <values_2> in range <value> ± <search_range>
 
     Output
     ======
-     : float
+    _ : float
         a value from <values_2> associated with <value> from <values_1>
     """
 
@@ -203,39 +198,23 @@ def associated_value(values_1, values_2, value, search_range, plot_cdf=False):
     pdf_hist = np.histogram(target, normed=True)
     empirical_support = [(pdf_hist[1][i] + pdf_hist[1][i+1])/2 for i in range(len(pdf_hist[1])-1)]
     empirical_pdf = pdf_hist[0]
-    empirical_cdf = np.cumsum(np.histogram(target)[0] / len(target))
 
     kernel = statsmodels.nonparametric.kde.KDEUnivariate(target.astype(np.float))
     kernel.fit()
-    support = np.linspace(empirical_support[0], empirical_support[-1], 100)
-    mask = (kernel.support >= support[0]) & (kernel.support <= support[-1])
+    mask = (kernel.support >= empirical_support[0]) & (kernel.support <= empirical_support[-1])
     kernel_support = kernel.support[mask]
-    kernel_cdf = kernel.cdf[mask]
+    kernel_pdf = kernel.evaluate(kernel_support)
 
-    with plt.style.context('bmh'):
-        plt.hist(target, normed=True, alpha=0.6, rwidth=0.9, color='royalblue')
-        plt.plot(support, kernel.evaluate(support), color='orangered', lw=2)
-        plt.plot(empirical_support, empirical_pdf, color='k', lw=2, ls='--')
+    if plot:
+        with plt.style.context('bmh'):
+            plt.hist(target, normed=True, alpha=0.6, rwidth=0.9, color='royalblue', label='Historgram')
+            plt.plot(kernel_support, kernel_pdf, color='orangered', lw=2, label='Gaussian Kernel PDF')
+            plt.plot(empirical_support, empirical_pdf, color='k', lw=2, ls='--', label='Empirical PDF')
+            plt.legend()
 
-    with plt.style.context('bmh'):
-        plt.hist(target, normed=True, alpha=0.6, rwidth=0.9, color='royalblue', cumulative=True)
-        plt.plot(kernel_support, kernel_cdf, color='orangered', lw=2)
-        plt.plot(empirical_support, empirical_cdf, drawstyle='steps-post', color='k', lw=2, ls='--')
+    av = kernel_support[kernel.evaluate(kernel_support).argmax()]
 
-    print('Associated value ->', kernel_support[kernel.evaluate(kernel_support).argmax()])
+    if echo:
+        print(f'Associated value -> {av:.2f}')
 
-    # if plot_cdf:
-    #     with plt.style.context('bmh'):
-    #         plt.plot(kde.support, kde.cdf, lw=1, color='orangered')
-    #         plt.title('CDF of value_1 for value_2 in range [{low} - {top}]'.
-    #                   format(low=round(value - search_range, 2), top=round(value + search_range, 2)))
-    #         plt.ylabel('CDF')
-    #         plt.xlabel('value_2')
-    #         plt.annotate(
-    #             r'{perc}% Associated value {0}={1}'.format('value_1', np.round(fit(confidence).tolist(), 2),
-    #                                                        perc=confidence * 100),
-    #             xy=(float(fit(confidence)), confidence),
-    #             xytext=(float(fit(0.5)) + search_range, 0.5),
-    #             arrowprops=dict(facecolor='k', shrink=0.01)
-    #         )
-    return kernel_support[kernel.evaluate(kernel_support).argmax()]
+    return av
