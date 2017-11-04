@@ -1,64 +1,27 @@
-###############################################################################
-# $Id: s57_kml_extract_soundg.py 2017-06-27 Dave Liske <dave@micuisine.com>
-#
-# Purpose: Extract SOUNDGings from an S-57 dataset, and write them to
-# KML format, creating one feature for each sounding, and
-# adding the latitudes, longitudes and depths as attributes
-# for easier use.
-# Authors: Frank Warmerdam, 2003 version, warmerdam@pobox.com
-# Dave Liske, 2017 version, dave@micuisine.com
-#
-###############################################################################
-# Copyright (c) 2003, Frank Warmerdam <warmerdam@pobox.com>
-# Additional Copyright (c) 2017, Dave Liske <dave@micuisine.com>
-#
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included
-# in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-# OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-###############################################################################-
+import sys
+import os.path
+import osgeo.osr as osr
 
 try:
     from osgeo import ogr
 except ImportError:
     import ogr
 
-import sys
-import os.path
-import osgeo.osr as osr
-
-
-###############################################################################-
 # Argument processing
-
 if len(sys.argv) != 2:
     print('')
-    print('Usage: s57_kml_extract_soundg.py ')
+    print('Usage: "s57.py enc_chart.000"')
     sys.exit(1)
 
 s57filename = sys.argv[1]
+s57filename = r'C:\Users\georg\Desktop\ENC_ROOT\US5CN13M\US5CN13M.000'
 
-# Specify the target KML file in the same directory
+# Specify the target cCSV file in the same directory
 filename, file_extension = os.path.splitext(s57filename)
-kmlfilename = filename
-kmlfilename += ".kml"
+csvfilename = filename
+csvfilename += '.csv'
 
-#############################################################################-
-# Open the S57 file, and find the SOUNDG layer.
-
+# Open the S57 file, and find the SOUNDG layer
 ds = ogr.Open(s57filename)
 
 try:
@@ -68,29 +31,26 @@ except AttributeError:
     print('Error: SOUNDG layer or source S-57 file not found.')
     sys.exit(1)
 
-#############################################################################-
-# Create the output KML file.
+# Create the output CSV file
+csv_driver = ogr.GetDriverByName('CSV')
+csv_ds = csv_driver.CreateDataSource(csvfilename)
 
-kml_driver = ogr.GetDriverByName('KML')
-kml_ds = kml_driver.CreateDataSource(kmlfilename)
-
-# Import CSR WGS84
+# Import CSR WGS84 (EPSG 4326)
 srs = osr.SpatialReference()
 srs.ImportFromEPSG(4326)
 
 # Specify the new SOUNDG layer
-kml_layer = kml_ds.CreateLayer('kml_soundg', srs, geom_type=ogr.wkbPoint25D)
+csv_layer = csv_ds.CreateLayer('csv_soundg', srs, geom_type=ogr.wkbPoint25D)
 
 src_defn = src_soundg.GetLayerDefn()
 field_count = src_defn.GetFieldCount()
 
 # Display progress message
 print('')
-print(kmlfilename, "created ...")
+print(csvfilename, "created ...")
 
-#############################################################################-
 # Copy the SOUNDG schema, duplicating the current fields, and create the LAT,
-#	LONG and DEPTH fields for the extracted Point and calculated data
+# LONG and DEPTH fields for the extracted Point and calculated data
 
 out_mapping = []
 for fld_index in range(field_count):
@@ -99,87 +59,85 @@ for fld_index in range(field_count):
     fd = ogr.FieldDefn(src_fd.GetName(), src_fd.GetType())
     fd.SetWidth(src_fd.GetWidth())
     fd.SetPrecision(src_fd.GetPrecision())
-    if kml_layer.CreateField(fd) != 0:
+    if csv_layer.CreateField(fd) != 0:
         out_mapping.append(-1)
     else:
-        out_mapping.append(kml_layer.GetLayerDefn().GetFieldCount() - 1)
+        out_mapping.append(csv_layer.GetLayerDefn().GetFieldCount() - 1)
 
 fd = ogr.FieldDefn('LAT', ogr.OFTReal)
 fd.SetWidth(12)
 fd.SetPrecision(7)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 fd = ogr.FieldDefn('LATD', ogr.OFTReal)
 fd.SetWidth(12)
 fd.SetPrecision(7)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 fd = ogr.FieldDefn('LATM', ogr.OFTReal)
 fd.SetWidth(12)
 fd.SetPrecision(7)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 fd = ogr.FieldDefn('LATS', ogr.OFTReal)
 fd.SetWidth(12)
 fd.SetPrecision(7)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 fd = ogr.FieldDefn('LATH', ogr.OFTString)
 fd.SetWidth(12)
 fd.SetPrecision(7)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 fd = ogr.FieldDefn('LATDMS', ogr.OFTString)
 fd.SetWidth(12)
 fd.SetPrecision(7)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 fd = ogr.FieldDefn('LONG', ogr.OFTReal)
 fd.SetWidth(12)
 fd.SetPrecision(7)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 fd = ogr.FieldDefn('LONGD', ogr.OFTReal)
 fd.SetWidth(12)
 fd.SetPrecision(7)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 fd = ogr.FieldDefn('LONGM', ogr.OFTReal)
 fd.SetWidth(12)
 fd.SetPrecision(7)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 fd = ogr.FieldDefn('LONGS', ogr.OFTReal)
 fd.SetWidth(12)
 fd.SetPrecision(7)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 fd = ogr.FieldDefn('LONGH', ogr.OFTString)
 fd.SetWidth(12)
 fd.SetPrecision(7)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 fd = ogr.FieldDefn('LONGDMS', ogr.OFTString)
 fd.SetWidth(12)
 fd.SetPrecision(7)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 fd = ogr.FieldDefn('DEPTHM', ogr.OFTReal)
 fd.SetWidth(12)
 fd.SetPrecision(0)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 fd = ogr.FieldDefn('DEPTHF', ogr.OFTReal)
 fd.SetWidth(12)
 fd.SetPrecision(0)
-kml_layer.CreateField(fd)
+csv_layer.CreateField(fd)
 
 # Display progress message
 print("SOUNDG layer created ...")
 
-#############################################################################
 #  Process the data for the new fields
-
 feat = src_soundg.GetNextFeature()
 
 # The degree symbol needs to be defined for use
@@ -197,7 +155,7 @@ while feat is not None:
         pnt = multi_geom.GetGeometryRef(iPnt)
 
         # Get the layer definition from the KML file
-        feat1 = ogr.Feature(feature_def=kml_layer.GetLayerDefn())
+        feat1 = ogr.Feature(feature_def=csv_layer.GetLayerDefn())
 
         for fld_index in range(field_count):
             feat1.SetField(out_mapping[fld_index], feat.GetField(fld_index))
@@ -286,7 +244,7 @@ while feat is not None:
 
         # Create the feature
         feat1.SetGeometry(pnt)
-        kml_layer.CreateFeature(feat1)
+        csv_layer.CreateFeature(feat1)
         feat1.Destroy()
 
         iCount += 1
@@ -300,5 +258,14 @@ while feat is not None:
 
 print(iCount, "features extracted")
 
-kml_ds.Destroy()
+csv_ds.Destroy()
 ds.Destroy()
+
+
+# Georgii's modification
+import pandas as pd
+data = pd.read_csv(csvfilename, header=0, index_col=None)
+n_data = pd.DataFrame(data=data['LAT'].values, columns=['LAT'])
+n_data['LONG'] = data['LONG'].values
+n_data['DEPTH FT'] = data['DEPTHF'].values * -1
+n_data.to_csv(csvfilename.split('.')[0] + '.xyz', index=None)
