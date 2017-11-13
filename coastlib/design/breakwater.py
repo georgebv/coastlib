@@ -418,7 +418,7 @@ def d50w50(unit: float, mode: str='d50 to w50') -> float:
         fit = scipy.interpolate.interp1d(weights, dimensions, kind='cubic')
     else:
         raise ValueError('Mode not recognized. Use \'w50 to d50\' or \'d50 to w50\'')
-    return fit(unit)
+    return float(fit(unit))
 
 
 
