@@ -52,8 +52,9 @@ class EVA:
         else:
             self.col = df.columns[0]
 
-        # Calculate number of years in data
+        # Calculate acuatl number of years in data
         years = np.unique(self.data.index.year)
+        # Get a list of years between min and max years from the series
         years_all = np.arange(years.min(), years.max()+1, 1)
         self.N = len(years)
         if discontinuous:
@@ -61,7 +62,10 @@ class EVA:
         if self.N != len(years_all):
             missing = [year for year in years_all if year not in years]
             warnings.warn('\n\nData is not continuous!\nMissing years {}\n'
-                          'Set dicontinuous=True to assume there are no peaks in missing years'.format(missing))
+                          'Set <dicontinuous=True> to account for all years, '
+                          'assuming there were NO peaks in the missing years.\n'
+                          'Without this option turned on, extreme events might be\n'
+                          'significantly overestimated (conservative results)'.format(missing))
 
     def __repr__(self):
 
@@ -81,10 +85,11 @@ class EVA:
             em = 'not assigned'
 
         return 'EVA(col={col})\n' \
-               'Number of years -> {yr}\n' \
+               '\n' \
+               '         Number of years -> {yr}\n' \
                'Number of extreme events -> {lev}\n' \
-               'Extraction method -> {em}\n' \
-               'Distribution used -> {dis}'.format(col=self.col, yr=self.N, lev=lev, dis=dis, em=em)
+               '       Extraction method -> {em}\n' \
+               '       Distribution used -> {dis}'.format(col=self.col, yr=self.N, lev=lev, dis=dis, em=em)
 
     def get_extremes(self, method='POT', **kwargs):
         """
@@ -100,7 +105,7 @@ class EVA:
 
         dmethod : str (default='naive')
             Declustering method. 'naive' method linearly declusters the series (POT method only)
-        u : float (default=10)
+        threshold : float (default=10)
             Threshold value (POT method only)
         r : float (default=24)
             Minimum independent event distance (hours) (POT method only)
@@ -110,56 +115,59 @@ class EVA:
         """
 
         self.method = method
-        if method == 'POT':
 
+        if method == 'POT':
             decluster = kwargs.pop('decluster', True)
             dmethod = kwargs.pop('dmethod', 'naive')
             try:
-                u = kwargs.pop('u')
+                self.threshold = kwargs.pop('threshold')
             except KeyError:
-                raise ValueError('Threshold <u> is required for the POT method')
-            r = kwargs.pop('r', 24)
+                raise ValueError('<threshold> is required for the POT method')
+            r = datetime.timedelta(hours=kwargs.pop('r', 24))
             assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-            self.threshold = u
-            self.extremes: pd.DataFrame = self.data[self.data[self.col] > u]
+            self.extremes = self.data[self.data[self.col] > self.threshold]
             if decluster:
-                r = datetime.timedelta(hours=r)
                 if dmethod == 'naive':
+                    # Set first peak to 0th element of the raw peaks-over-threshold array
+                    # This 0th element is assumed to be a local maxima
                     indexes, values = [self.extremes.index[0]], [self.extremes[self.col][0]]
-                    for index, value in zip(self.extremes.index, self.extremes[self.col]):
+                    for i, index, value in zip(
+                            range(len(self.extremes.index)),
+                            self.extremes.index,
+                            self.extremes[self.col]
+                    ):
+                        # Check for time condition
                         if index - indexes[-1] >= r:
-                            indexes.extend([index])
-                            values.extend([value])
+                            # Check for the new peak being a local maxima
+                            # = accounts for flat peaks
+                            if self.extremes[self.col].values[i-1] <= value >= self.extremes[self.col].values[i+1]:
+                                indexes.append(index)
+                                values.append(value)
+                        # If its in the same cluster (failed time condition),
+                        # check if its larger than current peak for this cluster
                         elif value > values[-1]:
-                            indexes[-1] = index
-                            values[-1] = value
+                            # Check for the new peak being a local maxima
+                            # = accounts for flat peaks
+                            if self.extremes[self.col].values[i-1] <= value >= self.extremes[self.col].values[i+1]:
+                                indexes[-1] = index
+                                values[-1] = value
                 else:
                     raise ValueError('Method {} is not yet implemented'.format(dmethod))
                 self.extremes = pd.DataFrame(data=values, index=indexes, columns=[self.col])
 
         elif method == 'BM':
+            indexes, values = [self.data.index[0]], [self.data[self.col][0]]
+            for index, value in zip(self.data.index, self.data[self.col]):
+                if index.year == indexes[-1].year:
+                    if value > values[-1]:
+                        indexes[-1] = index
+                        values[-1] = value
+                else:
+                    indexes.extend([index])
+                    values.extend([value])
+            self.extremes = pd.DataFrame(data=values, index=indexes, columns=[self.col])
 
-            block = kwargs.pop('block', 'Y')
-            assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
-
-            if block == 'Y':
-                indexes, values = [self.data.index[0]], [self.data[self.col][0]]
-                for index, value in zip(self.data.index, self.data[self.col]):
-                    if index.year == indexes[-1].year:
-                        if value > values[-1]:
-                            indexes[-1] = index
-                            values[-1] = value
-                    else:
-                        indexes.extend([index])
-                        values.extend([value])
-                self.extremes = pd.DataFrame(data=values, index=indexes, columns=[self.col])
-            elif block == 'M':
-                raise NotImplementedError('Not yet implemented')
-            elif block == 'W':
-                raise NotImplementedError('Not yet implemented')
-            else:
-                raise ValueError('Unrecognized block size {}'.format(block))
         else:
             raise ValueError('Unrecognized extremes parsing method {}. Use POT or BM methods.'.format(method))
 
@@ -168,7 +176,7 @@ class EVA:
         self.rate = len(self.extremes) / self.N  # extreme events per year
         cdf = np.arange(1, len(self.extremes) + 1) / (len(self.extremes) + 1)  # m/N+1 (rank/total+1)
         icdf = 1 - cdf  # inverse cdf (probability of exceedance)
-        self.extremes['T'] = 1 / (icdf * self.rate)
+        self.extremes['T'] = 1 / (icdf * self.rate)  # annual probability to return period
         self.extremes.sort_index(inplace=True)
 
     def pot_residuals(self, u, decluster=True, r=24, save_path=None, dmethod='naive', name='_DATA_SOURCE_'):
@@ -361,6 +369,7 @@ class EVA:
         """
 
         self.distribution = distribution
+
         if self.method == 'BM':
             self.threshold = None
 
@@ -382,7 +391,7 @@ class EVA:
 
         elif self.distribution == 'Weibull':
             if self.method != 'POT':
-                raise ValueError('GPD distribution is applicable only with the POT method')
+                raise ValueError('Weibull distribution is applicable only with the POT method')
             parameters = scipy.stats.weibull_min.fit(self.extremes[self.col].values - self.threshold)
             def ret_val(t, param, u):
                 return u + scipy.stats.weibull_min.ppf(1 - 1 / (self.rate * t), c=param[0], loc=param[1], scale=param[2])
@@ -414,13 +423,13 @@ class EVA:
         elif self.distribution == 'Gumbel':
             if self.method != 'BM':
                 raise ValueError('Gumbel distribution is applicable only with the BM method')
+            parameters = scipy.stats.gumbel_r.fit(self.extremes[self.col].values)
             def ret_val(t, param, rate, u):
                 return scipy.stats.gumbel_r.ppf(1 - 1 / (rate * t), loc=param[0], scale=param[1])
-            parameters = scipy.stats.gumbel_r.fit(self.extremes[self.col].values)
+
         else:
             raise ValueError('Distribution type {} not recognized'.format(self.distribution))
         # TODO =================================================================================
-
 
         # Return periods equally spaced on log scale from 0.1y to 1000y
         rp = np.unique(np.append(np.logspace(0, 3, num=30), [2, 5, 10, 25, 50, 100, 200, 500]))
