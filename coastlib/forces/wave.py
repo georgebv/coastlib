@@ -523,3 +523,4 @@ if __name__ == '__main__':
     mload = Morrison(wave_height=2, wave_period=8, depth=10, current_velocity=0, rho=1028,
                      element_type='vertical cylinder', cylinder_diameter=0.4, cylinder_top=20,
                      cylinder_bottom=0, drag_coefficient=1.2, inertia_coefficient=2)
+    print(mload)
