@@ -11,6 +11,9 @@ class Vector():
         self.mag = kwargs.pop('mag', None)
         self.dir = kwargs.pop('dir', None)
 
+        if self.dir > 360 or self.dir < 0:
+            raise IOError('direction outside the [0;360] range')
+
         if (not (self.mag is None) or not (self.dir is None)) and (not (self.u is None) or not (self.v is None)):
             raise IOError('mixed vector definition is not allowed')
 
@@ -22,10 +25,12 @@ class Vector():
 
         assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-        if self.mag:
+        if self.u is None:
             self.__magdir2uv()
-        else:
+        elif self.mag is None:
             self.__uv2magdir()
+        else:
+            raise RuntimeError('unexpected error')
 
         if self.mag != 0:
             self.i = self.u / self.mag
@@ -38,16 +43,15 @@ class Vector():
                f'Magnitude    -> {self.mag}\n' \
                f'Direction to -> {self.dir}\n' \
                f'U-component  -> {self.u}\n' \
-               f'V-component  -> {self.v}\n' \
-               f'Qadrant      -> {self.quadrant}'
+               f'V-component  -> {self.v}'
 
     def __add__(self, other):
         assert type(other).__name__ == 'Vector', 'type "Vector" expected, got "{}" instead'.format(type(other).__name__)
-        return Vector(u=self.u+other.u, v=self.v+other.v)
+        return Vector(u=self.u + other.u, v=self.v + other.v)
 
     def __sub__(self, other):
         assert type(other).__name__ == 'Vector', 'type "Vector" expected, got "{}" instead'.format(type(other).__name__)
-        return Vector(u=self.u-other.u, v=self.v-other.v)
+        return Vector(u=self.u - other.u, v=self.v - other.v)
 
     def __mul__(self, other):
         # Dot product
@@ -81,6 +85,9 @@ class Vector():
         elif 270 <= self.dir <= 360:
             self.u = -self.mag * np.cos(np.deg2rad(self.dir - 270))
             self.v = self.mag * np.sin(np.deg2rad(self.dir - 270))
+        else:
+            self.u, self.v = np.nan, np.nan
+
 
 def angle(v1, v2):
     # Returns the smaller angle between two vectors [0;180]
