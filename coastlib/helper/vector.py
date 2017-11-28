@@ -11,8 +11,9 @@ class Vector():
         self.mag = kwargs.pop('mag', None)
         self.dir = kwargs.pop('dir', None)
 
-        if self.dir > 360 or self.dir < 0:
-            raise IOError('direction outside the [0;360] range')
+        if not (self.dir is None):
+            if self.dir > 360 or self.dir < 0:
+                raise IOError('direction outside the [0;360] range')
 
         if (not (self.mag is None) or not (self.dir is None)) and (not (self.u is None) or not (self.v is None)):
             raise IOError('mixed vector definition is not allowed')
