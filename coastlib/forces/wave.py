@@ -21,6 +21,31 @@ def inertia_force(acceleration, volume, inertia_coefficient, rho=1025):
 
 class Morrison:
     # https://en.wikipedia.org/wiki/Morison_equation
+    """
+    Implementation of Morrison formula
+
+    Mandatory inputs
+    ================
+    wave_height : float
+        wave height [m]
+    wave_period : float
+        wave period [s]
+    depth : float
+        depth [m]
+
+    Optional inputs
+    ===============
+    current_velocity : float (default=0)
+        Eulerian current velocity in m/s
+    g : float (default=scipy.constants.g) ~9.81
+        gravity acceleration in m/s^2
+    rho : float (default=1025)
+        water density in kg/m^3
+
+    Methods
+    =======
+
+    """
 
     def __init__(self, wave_height, wave_period, depth, **kwargs):
 
@@ -142,9 +167,9 @@ class Morrison:
                         inertia_coefficient=self.inertia_coefficient, rho=self._rho
                     )
                 moment = force * y
-                forces.append(sum(force))
-                moments.append(sum(moment))
-                centroids.append(sum(moment) / sum(force))
+                forces.append(np.sum(force))
+                moments.append(np.sum(moment))
+                centroids.append(np.sum(moment) / np.sum(force))
 
             self.force = pd.DataFrame(data=self._x, columns=['X (m)'])
             self.force['F (N)'] = forces
@@ -183,9 +208,9 @@ class Morrison:
                             inertia_coefficient=self.inertia_coefficient, rho=self._rho
                         )
                 moment = force * y
-                forces.append(sum(force))
-                moments.append(sum(moment))
-                centroids.append(sum(moment) / sum(force))
+                forces.append(np.sum(force))
+                moments.append(np.sum(moment))
+                centroids.append(np.sum(moment) / np.sum(force))
 
             self.force = pd.DataFrame(data=self._x, columns=['X (m)'])
             self.force['F (N)'] = forces
@@ -224,11 +249,11 @@ class Morrison:
             moment = force * y
             moment_x = force * _x
 
-            forces.append(sum(force))
-            moments.append(sum(moment))
-            centroids.append(sum(moment) / sum(force))
-            moments_x.append(sum(moment_x))
-            centroids_x.append(sum(moment_x) / sum(force))
+            forces.append(np.sum(force))
+            moments.append(np.sum(moment))
+            centroids.append(np.sum(moment) / np.sum(force))
+            moments_x.append(np.sum(moment_x))
+            centroids_x.append(np.sum(moment_x) / np.sum(force))
         self.force = pd.DataFrame(data=self._x, columns=['X (m)'])
         self.force['F (N)'] = forces
         self.force['M (N-m)'] = moments
