@@ -78,12 +78,12 @@ def joint_table(values_1, values_2, binsize_1=0.3, binsize_2=4, bins=None, relat
         bots_1, bots_2 = bins[0], bins[1]
 
         index_1 = []
-        for bot in bots_1[0:-1]:
-            index_1.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_1)])
+        for i, bot in enumerate(bots_1[0:-1]):
+            index_1.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bots_1[i+1])])
 
         index_2 = []
-        for bot in bots_2[0:-1]:
-            index_2.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bot + binsize_2)])
+        for i, bot in enumerate(bots_2[0:-1]):
+            index_2.extend(['[{0:.2f} ; {1:.2f})'.format(bot, bots_2[i+1])])
 
     table = np.histogram2d(values_1, values_2, [bots_1, bots_2], normed=False)
 

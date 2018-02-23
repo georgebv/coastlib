@@ -259,32 +259,21 @@ class EVA:
         # square root method
         k = int(np.sqrt(len(self.data)))
         u = u_start
-        if decluster:
-            self.get_extremes(method='POT', u=u, r=r, decluster=True, dmethod=dmethod)
-            while len(self.extremes) > k:
-                u += u_step
-                self.get_extremes(method='POT', u=u, r=r, decluster=True, dmethod=dmethod)
-        else:
-            self.get_extremes(method='POT', u=u, r=r, decluster=False)
-            while len(self.extremes) > k:
-                u += u_step
-                self.get_extremes(method='POT', u=u, r=r, decluster=False)
+        self.get_extremes(method='POT', threshold=u, r=r, decluster=decluster, dmethod=dmethod)
+        while len(self.extremes) > k:
+            u += u_step
+            self.get_extremes(method='POT', threshold=u, r=r, decluster=decluster, dmethod=dmethod)
         tres.extend([u])
 
         # log method
         k = int((len(self.data) ** (2 / 3)) / np.log(np.log(len(self.data))))
         u = u_start
-        if decluster:
-            self.get_extremes(method='POT', u=u, r=r, decluster=True, dmethod=dmethod)
-            while len(self.extremes) > k:
-                u += u_step
-                self.get_extremes(method='POT', u=u, r=r, decluster=True, dmethod=dmethod)
-        else:
-            self.get_extremes(method='POT', u=u, r=r, decluster=False)
-            while len(self.extremes) > k:
-                u += u_step
-                self.get_extremes(method='POT', u=u, r=r, decluster=False)
+        self.get_extremes(method='POT', threshold=u, r=r, decluster=decluster, dmethod=dmethod)
+        while len(self.extremes) > k:
+            u += u_step
+            self.get_extremes(method='POT', threshold=u, r=r, decluster=decluster, dmethod=dmethod)
         tres.extend([u])
+
         return pd.DataFrame(data=tres, index=['90% Quantile', 'Squre Root Rule', 'Logarithm Rule'],
                             columns=['Threshold'])
 
@@ -309,18 +298,11 @@ class EVA:
             u = u[u <= self.data[self.col].max()]
         fits = []
         if distribution == 'GPD':
-            if decluster:
-                for tres in u:
-                    self.get_extremes(method='POT', u=tres, r=r, decluster=True, dmethod=dmethod)
-                    extremes_local = self.extremes[self.col].values - tres
-                    fit = scipy.stats.genpareto.fit(extremes_local)
-                    fits.extend([fit])
-            else:
-                for tres in u:
-                    self.get_extremes(method='POT', u=tres, r=r, decluster=False)
-                    extremes_local = self.extremes[self.col].values - tres
-                    fit = scipy.stats.genpareto.fit(extremes_local)
-                    fits.extend([fit])
+			for tres in u:
+				self.get_extremes(method='POT', u=tres, r=r, decluster=decluster, dmethod=dmethod)
+				extremes_local = self.extremes[self.col].values - tres
+				fit = scipy.stats.genpareto.fit(extremes_local)
+				fits.extend([fit])
             shapes = [x[0] for x in fits]
             scales = [x[2] for x in fits]
             # scales_mod = [scales[i] - shapes[i] * u[i] for i in range(len(u))]
@@ -432,7 +414,7 @@ class EVA:
         # TODO =================================================================================
 
         # Return periods equally spaced on log scale from 0.1y to 1000y
-        rp = np.unique(np.append(np.logspace(0, 3, num=30), [2, 5, 10, 25, 50, 100, 200, 500]))
+        rp = np.unique(np.append(np.logspace(0, 3, num=30), [1/12, 2, 5, 10, 25, 50, 100, 200, 500]))
         rp = np.unique(np.append(rp, self.extremes['T'].values))
         rp = np.sort(rp)
         rv = ret_val(rp, param=parameters, u=self.threshold)

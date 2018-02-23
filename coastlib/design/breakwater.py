@@ -105,7 +105,7 @@ def hudson(wave_height, alpha, rock_density, kd=4, **kwargs):
         dn50 = wave_height / (delta * 0.7 * (kd / np.tan(alpha)) ** (1 / 3) * sd ** 0.15)
         ns = wave_height / (delta * dn50)
     elif formulation == 'CEM':
-        dn50 = wave_height / (delta * (kd / np.tan(alpha)) ** (1 / 3))
+        dn50 = wave_height / (delta * (kd / np.tan(alpha)) ** (1 / 3) / 1.27)
         ns = wave_height / (delta * dn50)
     else:
         raise ValueError('Formulation {0} not recognized. Use CIRIA or CEM.'.format(formulation))
@@ -225,7 +225,8 @@ def van_der_meer(Hs, h, Tp, alpha, rock_density, **kwargs):
     Tm = kwargs.pop('Tm', 0.8 * Tp)
     P = kwargs.pop('P', 0.4)
     Sd = kwargs.pop('Sd', 2)
-    N = kwargs.pop('N', 7500)
+    N = kwargs.pop('N', min(7500, int(np.ceil(3*3600/Tm))))
+    echo = kwargs.pop('echo', True)
     sea_water_density = kwargs.pop('sea_water_density', 1030)
     assert isinstance(N, int), 'Number of waves should be a natural number'
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
@@ -234,32 +235,38 @@ def van_der_meer(Hs, h, Tp, alpha, rock_density, **kwargs):
     delta = rock_density / sea_water_density - 1
     H_2p = 1.4 * Hs
     if h < 3 * Hs:
-        print('Shallow water')
+        if echo:
+            print('Shallow water')
         c_pl = 8.4
         c_s = 1.3
         xi_cr = ((c_pl / c_s) * (P ** 0.31) * np.sqrt(np.tan(alpha))) ** (1 / (P + 0.5))
         xi_s10 = np.tan(alpha) / np.sqrt(2 * np.pi * Hs / (scipy.constants.g * Tm ** 2))
         if xi_s10 < xi_cr:
-            print('Plunging conditions')
+            if echo:
+                print('Plunging conditions')
             right = c_pl * (P ** 0.18) * ((Sd / np.sqrt(N)) ** 0.2) * (Hs / H_2p) * (xi_s10 ** (-0.5))
             return Hs / (delta * right)
         else:
-            print('Surging conditions')
+            if echo:
+                print('Surging conditions')
             right = c_s * (P ** (-0.13)) * ((Sd / np.sqrt(N)) ** 0.2) * (Hs / H_2p) * np.sqrt(1 / np.tan(alpha)) \
                     * (xi_s10 ** (-0.5))
             return Hs / (delta * right)
     else:
-        print('Deep water')
+        if echo:
+            print('Deep water')
         c_pl = 6.2
         c_s = 1.0
         xi_cr = ((c_pl / c_s) * (P ** 0.31) * np.sqrt(np.tan(alpha))) ** (1 / (P + 0.5))
         xi_m = np.tan(alpha) / np.sqrt(2 * np.pi * Hs / (scipy.constants.g * Tm ** 2))
         if xi_m < xi_cr:
-            print('Plunging conditions')
+            if echo:
+                print('Plunging conditions')
             right = c_pl * (P ** 0.18) * ((Sd / np.sqrt(N)) ** 0.2) * (xi_m ** (-0.5))
             return Hs / (delta * right)
         else:
-            print('Surging conditions')
+            if echo:
+                print('Surging conditions')
             right = c_s * (P ** (-0.13)) * ((Sd / np.sqrt(N)) ** 0.2) * np.sqrt(1 / np.tan(alpha)) * (xi_m ** P)
             return Hs / (delta * right)
 
@@ -380,7 +387,7 @@ def Vidal(Hs, rock_density, Rc, **kwargs):
     else:
         if Rc / max(roots) < -2.01 or Rc / max(roots) > 2.41\
                 or Hs / (delta * max(roots)) < 1.1 or Hs / (delta * max(roots)) > 3.7:
-            warnings.warn('Parameters beyond the range of validity!')
+            print('Parameters beyond the range of validity!')
             return np.nan
         else:
             return max(roots)
