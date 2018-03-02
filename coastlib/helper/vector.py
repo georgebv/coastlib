@@ -11,6 +11,8 @@ class Vector():
         self.mag = kwargs.pop('mag', None)
         self.dir = kwargs.pop('dir', None)
 
+        self.rotation = 0  # counterclockwise axes transform angle https://en.wikipedia.org/wiki/Rotation_of_axes
+
         if not (self.dir is None):
             if self.dir > 360 or self.dir < 0:
                 raise IOError('direction outside the [0;360] range')
@@ -47,16 +49,21 @@ class Vector():
                f'V-component  -> {self.v}'
 
     def __add__(self, other):
-        assert type(other).__name__ == 'Vector', 'type "Vector" expected, got "{}" instead'.format(type(other).__name__)
+        # Add vectors
+        assert type(other).__name__ == 'Vector',\
+            'type "Vector" expected, got "{}" instead'.format(type(other).__name__)
         return Vector(u=self.u + other.u, v=self.v + other.v)
 
     def __sub__(self, other):
-        assert type(other).__name__ == 'Vector', 'type "Vector" expected, got "{}" instead'.format(type(other).__name__)
+        # Subtract vectors
+        assert type(other).__name__ == 'Vector',\
+            'type "Vector" expected, got "{}" instead'.format(type(other).__name__)
         return Vector(u=self.u - other.u, v=self.v - other.v)
 
     def __mul__(self, other):
         # Dot product
-        assert type(other).__name__ == 'Vector', 'type "Vector" expected, got "{}" instead'.format(type(other).__name__)
+        assert type(other).__name__ == 'Vector',\
+            'type "Vector" expected, got "{}" instead'.format(type(other).__name__)
         return np.sum(self.u * other.u + self.v * other.v)
 
     def __uv2magdir(self):
@@ -89,6 +96,18 @@ class Vector():
         else:
             self.u, self.v = np.nan, np.nan
 
+    def rotate_axes(self, eta):
+
+        if self.rotation == 0:
+            self.rotation = eta
+        else:
+            self.rotation += eta
+
+        if eta != 0:
+            _u = self.u * np.cos(np.deg2rad(eta)) + self.v * np.sin(np.deg2rad(eta))
+            _v = -self.u * np.sin(np.deg2rad(eta)) + self.v * np.cos(np.deg2rad(eta))
+            self.u, self.v = _u, _v
+            self.__uv2magdir()
 
 def angle(v1, v2):
     # Returns the smaller angle between two vectors [0;180]
