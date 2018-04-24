@@ -3,6 +3,7 @@ import warnings
 import numpy as np
 import scipy.constants
 import scipy.interpolate
+import scipy.stats
 
 
 def seabrook_hall(wave_height, ds, crest_width, wave_length, stone_size):
@@ -28,7 +29,7 @@ def seabrook_hall(wave_height, ds, crest_width, wave_length, stone_size):
     if 0 <= condition_1 <= 7.08 and 0 <= condition_2 <= 2.14:
         return kt
     else:
-        warnings.warn('Parameters beyond the validity levels. Returned <nan>')
+        print('Parameters beyond the validity levels. Returned <nan>')
         return np.nan
 
 
@@ -111,8 +112,10 @@ def hudson(wave_height, alpha, rock_density, kd=4, **kwargs):
         raise ValueError('Formulation {0} not recognized. Use CIRIA or CEM.'.format(formulation))
 
     if ns > 2:
-        warnings.warn('Armour is not stable with the stability number Ns={0}, Dn50={1} m'.
-                      format(round(ns, 2), round(dn50, 2)))
+       print(
+           'Armor is not stable with the stability number Ns={0}, Dn50={1} m'.
+           format(round(ns, 2), round(dn50, 2))
+       )
     return dn50
 
 
@@ -450,7 +453,7 @@ def overtopping(Hm0, Rc, **kwargs):
     dmethod : string (optional)
         Design method: 'det' for deterministic design (default), more conservative; 'prob' for probabilistic design.
     manual : string (optional)
-        Manual to be used (2016 the default).
+        Manual to be used (2016 the default, 2007 is the old one).
     confidence : float (optional)
         Confidence level for overtopping in the manual=2016 formulation.
     bound : str (optional)
@@ -479,10 +482,10 @@ def overtopping(Hm0, Rc, **kwargs):
 
         if strtype is 'sap':
             if dmethod is 'det':
-                q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * math.exp(-2.3 * Rc / (Hm0 * Yf * YB))
+                q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * np.exp(-2.3 * Rc / (Hm0 * Yf * YB))
                 return q
             elif dmethod is 'prob':
-                q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * math.exp(-2.6 * Rc / (Hm0 * Yf * YB))
+                q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * np.exp(-2.6 * Rc / (Hm0 * Yf * YB))
                 return q
             else:
                 raise ValueError('ERROR: Design method not recognized')
@@ -508,7 +511,7 @@ def overtopping(Hm0, Rc, **kwargs):
             raise ValueError('ERROR: Unrecognized bound value')
 
         if strtype is 'sap':
-            return ((g * (Hm0 ** 3)) ** 0.5) * coeff_009 * math.exp(-(coeff_15 * Rc / (Hm0 * Yf * YB)) ** (1.3))
+            return ((g * (Hm0 ** 3)) ** 0.5) * coeff_009 * np.exp(-(coeff_15 * Rc / (Hm0 * Yf * YB)) ** (1.3))
         else:
             raise ValueError('ERROR: Structure type not recognized')
     else:

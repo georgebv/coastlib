@@ -33,13 +33,13 @@ class Vector():
         elif self.mag is None:
             self.__uv2magdir()
         else:
-            raise RuntimeError('unexpected error')
+            raise RuntimeError('unexpected error 36')
 
         if self.mag != 0:
             self.i = self.u / self.mag
             self.j = self.v / self.mag
         else:
-            self.i = self.j = np.nan
+            raise RuntimeError('unexpected error 42')
 
     def __repr__(self):
         return f'Vector\n' \

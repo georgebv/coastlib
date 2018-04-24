@@ -263,7 +263,7 @@ class Morrison:
 
 
 def mcconnell(wave_height, wave_period, depth, clearance,
-              deck_width, deck_length, current_velocity=0, theory='Airy', case=2, **kwargs):
+              deck_width, deck_length, current_velocity=0, theory='Fenton', case=2, **kwargs):
     # TODO : QC
     coefficients = pd.DataFrame(
         data=np.array([
@@ -315,7 +315,7 @@ def mcconnell(wave_height, wave_period, depth, clearance,
     coefficient = coefficients[coefficients.index == cases[case]].values[0]
 
     if theory == 'Airy':
-        wave = AiryWave(wave_height=wave_height, wave_period=wave_period, depth=depth)
+        # wave = AiryWave(wave_height=wave_height, wave_period=wave_period, depth=depth)
         eta_max = wave_height / 2
     elif theory == 'Fenton':
         fourier_components = kwargs.pop('fourier_components', 20)
@@ -502,7 +502,7 @@ def goda_2000(wave_height, wave_period, depth, freeboard, **kwargs):
     hc_star = min(eta_star, freeboard)
     pu = 0.5 * (1 + np.cos(np.deg2rad(angle))) * a_1 * a_3 * sea_water_density * g * wave_height
 
-    # total load. moment, and centroid
+    # total load, moment, and centroid
     p = 0.5 * (p1 + p3) * wall_height + 0.5 * (p1 + p4) * hc_star
     mp = (1 / 6) * (2 * p1 + p3) * (wall_height ** 2) + 0.5 * (p1 + p4) * wall_height * hc_star + \
         (1 / 6) * (p1 + 2 * p4) * (hc_star ** 2)
