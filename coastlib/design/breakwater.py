@@ -119,8 +119,82 @@ def hudson(wave_height, alpha, rock_density, kd=4, **kwargs):
     return dn50
 
 
+def overtopping(Hm0, Rc, **kwargs):
+    """
+    Calculates mean overtopping discharge.
+    Find mean overtopping discharge for <strtype> structure using the EurOtop (2007) and (2016) manual methods.
+
+    Parameters
+    ----------
+    Hm0 : float
+        Significant wave height at structure toe (m).
+    Rc : float
+        Freeboard, distance from structure crest to SWL (m).
+    Yf : float (optional)
+        Roughness factor (1 for concrete), p.88 EurOtop manual (2007).
+    B : float (optional)
+        Wave attack angle (deg).
+    strtype : string (optional)
+        Structure type: 'sap' for simple armored slope (default);
+    dmethod : string (optional)
+        Design method: 'det' for deterministic design (default), more conservative; 'prob' for probabilistic design.
+    manual : string (optional)
+        Manual to be used (2016 the default)
+    Ystar : float
+        Wave wall or promenade effect (EutOtop 2016, p.134) (default=1)
+
+    Returns
+    -------
+    q : float
+        Estimated mean overtopping discharge (m^3/s/m) for parameters entered.
+    """
+    B = kwargs.pop('B', 0)
+    Yf = kwargs.pop('Yf', 1)
+    strtype = kwargs.pop('strtype', 'sap')
+    dmethod = kwargs.pop('dmethod', 'det')
+    manual = kwargs.pop('manual', 2016)
+    Ystar = kwargs.pop('Ystar', 1)
+    g = kwargs.pop('g', scipy.constants.g)
+    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+    if manual == 2007:
+        if B < 80:
+            YB = 1 - 0.0033 * B
+        else:
+            YB = 0.736
+
+        if strtype is 'sap':
+            if dmethod is 'det':
+                q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * np.exp(-2.3 * Rc / (Hm0 * Yf * YB))
+                return q
+            elif dmethod is 'prob':
+                q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * np.exp(-2.6 * Rc / (Hm0 * Yf * YB))
+                return q
+            else:
+                raise ValueError('ERROR: Design method not recognized')
+        else:
+            raise ValueError('ERROR: Structure type not recognized')
+    elif manual == 2016:
+        # EurOtop 2016, p.110, eq.5.13
+
+        if Rc / Hm0 <= 0:
+            print('Input parameters beyond the application area of Rc/Hm0>0')
+
+        if np.abs(B) < 80:
+            YB = 1 - 0.0033 * np.abs(B)
+        else:
+            YB = 0.736
+
+        if strtype is 'sap':
+            return np.sqrt(g * Hm0 ** 3) * 0.1035 * np.exp(-(1.35 * Rc / (Hm0 * Yf * YB * Ystar)) ** 1.3)
+        else:
+            raise ValueError('ERROR: Structure type not recognized')
+    else:
+        raise ValueError('ERROR: Manual not recognized')
+
+
+
 def runup(wave_height, wave_period, slope, **kwargs):
-    # TODO : update using new Eurotop 2016
     """
     Calculates run-up height.
     Find 2% run-up height for <type> structure using the EurOtop (2007) manual methods.
@@ -132,7 +206,9 @@ def runup(wave_height, wave_period, slope, **kwargs):
     wave_period : float
         Peak wave period (s).
     slope : float
-        Structure slope.
+        Structure slope V:H
+    manual : string
+        Manual version (2007 or 2016)
     Yf : float (optional)
         Roughness factor (1 for concrete), p.88 EurOtop manual (2007).
     B : float (optional)
@@ -161,38 +237,60 @@ def runup(wave_height, wave_period, slope, **kwargs):
     rdb = kwargs.pop('rdb', 0)
     strtype = kwargs.pop('strtype', 'sap')
     dmethod = kwargs.pop('dmethod', 'det')
+    manual = kwargs.pop('manual', 2016)
     g = kwargs.pop('g', scipy.constants.g)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-    Lm10 = g * (wave_period ** 2) / (2 * np.pi)  # Deep water wave length
-    Sm10 = wave_height / Lm10  # Wave steepness
-    Em10 = np.tan(slope) / Sm10 ** 0.5  # Breaker type
-    rB /= Lb
-    Yb = 1 - rB * (1 - rdb)  # Berm factor (1 for no berm)
+    if manual == 2007:
+        Lm10 = g * (wave_period ** 2) / (2 * np.pi)  # Deep water wave length
+        Sm10 = wave_height / Lm10  # Wave steepness
+        Em10 = np.tan(slope) / Sm10 ** 0.5  # Breaker type
+        rB /= Lb
+        Yb = 1 - rB * (1 - rdb)  # Berm factor (1 for no berm)
 
-    if B < 80:
-        YB = 1 - 0.0022 * B
-    else:
-        YB = 0.824
-
-    if Em10 > 10:
-        Yfsurg = 1
-    else:
-        Yfsurg = Yf + (Em10 - 1.8) * (1 - Yf) / 8.2
-
-    if strtype is 'sap':
-        if dmethod is 'det':
-            ru = wave_height * 1 * Yb * Yfsurg * YB * (4.3 - 1.6 / (Em10 ** 0.5))
-            ru = min(ru, wave_height * 2.11)  # Maximum for permeable core
-            return ru
-        elif dmethod is 'prob':
-            ru = wave_height * 1 * Yb * Yfsurg * YB * (4 - 1.5 / (Em10 ** 0.5))
-            ru = min(ru, wave_height * 1.97)  # Maximum for permeable core
-            return ru
+        if B < 80:
+            YB = 1 - 0.0022 * B
         else:
-            raise ValueError('ERROR: Design method not recognized')
+            YB = 0.824
+
+        if Em10 > 10:
+            Yfsurg = 1
+        else:
+            Yfsurg = Yf + (Em10 - 1.8) * (1 - Yf) / 8.2
+
+        if strtype is 'sap':
+            if dmethod is 'det':
+                ru = wave_height * 1 * Yb * Yfsurg * YB * (4.3 - 1.6 / (Em10 ** 0.5))
+                ru = min(ru, wave_height * 2.11)  # Maximum for permeable core
+                return ru
+            elif dmethod is 'prob':
+                ru = wave_height * 1 * Yb * Yfsurg * YB * (4 - 1.5 / (Em10 ** 0.5))
+                ru = min(ru, wave_height * 1.97)  # Maximum for permeable core
+                return ru
+            else:
+                raise ValueError('ERROR: Design method not recognized')
+        else:
+            raise ValueError('ERROR: Structure type not recognized')
+
+    elif manual == 2016:
+        # EurOtop 2016, p.103, eq.5.5
+        if strtype is 'sap':
+            Lm10 = g * (wave_period ** 2) / (2 * np.pi)  # Deep water wave length
+            Sm10 = wave_height / Lm10  # Wave steepness
+            Em10 = slope / Sm10 ** 0.5  # Breaker type
+
+            Yb = 1 - rB * (1 - rdb)  # Berm factor (1 for no berm)
+
+            if B <= 80:  # EurOtop 2016, p.126, eq.5.28
+                YB = 1 - 0.0022 * B
+            else:
+                YB = 0.824
+
+            return wave_height * 1.07 * Yf * YB * (4 - 1.5 / np.sqrt(Yb * Em10))
+        else:
+            raise ValueError(f'Structure type {strtype} not recognized')
     else:
-        raise ValueError('ERROR: Structure type not recognized')
+        raise ValueError(f'Invalid manual version passed in {manual}')
 
 
 # TODO - below are not implemented
@@ -433,86 +531,3 @@ def d50w50(unit: float, mode: str='d50 to w50') -> float:
 
 
 
-def overtopping(Hm0, Rc, **kwargs):
-    """
-    Calculates mean overtopping discharge.
-    Find mean overtopping discharge for <type> structure using the EurOtop (2007) and (2016) manual methods.
-
-    Parameters
-    ----------
-    Hm0 : float
-        Significant wave height at structure toe (m).
-    Rc : float
-        Freeboard, distance from structure crest to SWL (m).
-    Yf : float (optional)
-        Roughness factor (1 for concrete), p.88 EurOtop manual (2007).
-    B : float (optional)
-        Wave attack angle (deg).
-    strtype : string (optional)
-        Structure type: 'sap' for simple armored slope (default);
-    dmethod : string (optional)
-        Design method: 'det' for deterministic design (default), more conservative; 'prob' for probabilistic design.
-    manual : string (optional)
-        Manual to be used (2016 the default, 2007 is the old one).
-    confidence : float (optional)
-        Confidence level for overtopping in the manual=2016 formulation.
-    bound : str (optional)
-        For 2016 manual, set to either lower, median, or upper.
-
-    Returns
-    -------
-    q : float
-        Estimated mean overtopping discharge (m^3/s/m) for parameters entered.
-    """
-    B = kwargs.pop('B', 0)
-    Yf = kwargs.pop('Yf', 1)
-    strtype = kwargs.pop('strtype', 'sap')
-    dmethod = kwargs.pop('dmethod', 'det')
-    manual = kwargs.pop('manual', 2016)
-    confidence = kwargs.pop('confidence', 0.90)
-    bound = kwargs.pop('bound', 'upper')
-    g = kwargs.pop('g', scipy.constants.g)
-    assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
-
-    if manual == 2007:
-        if B < 80:
-            YB = 1 - 0.0033 * B
-        else:
-            YB = 0.736
-
-        if strtype is 'sap':
-            if dmethod is 'det':
-                q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * np.exp(-2.3 * Rc / (Hm0 * Yf * YB))
-                return q
-            elif dmethod is 'prob':
-                q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * np.exp(-2.6 * Rc / (Hm0 * Yf * YB))
-                return q
-            else:
-                raise ValueError('ERROR: Design method not recognized')
-        else:
-            raise ValueError('ERROR: Structure type not recognized')
-    elif manual == 2016:
-
-        if np.abs(B) < 80:
-            YB = 1 - 0.0063 * np.abs(B)
-        else:
-            raise NotImplementedError('Oblique waves >80 degrees not implemented')
-
-        if bound == 'lower':
-            coeff_009 = scipy.stats.distributions.norm.interval(alpha=confidence, loc=0.09, scale=0.0135)[0]
-            coeff_15 = scipy.stats.distributions.norm.interval(alpha=confidence, loc=1.5, scale=0.15)[1]
-        elif bound == 'upper':
-            coeff_009 = scipy.stats.distributions.norm.interval(alpha=confidence, loc=0.09, scale=0.0135)[1]
-            coeff_15 = scipy.stats.distributions.norm.interval(alpha=confidence, loc=1.5, scale=0.15)[0]
-        elif bound == 'median':
-            coeff_009 = 0.09
-            coeff_15 = 1.5
-        else:
-            raise ValueError('ERROR: Unrecognized bound value')
-
-        if strtype is 'sap':
-            return ((g * (Hm0 ** 3)) ** 0.5) * coeff_009 * np.exp(-(coeff_15 * Rc / (Hm0 * Yf * YB)) ** (1.3))
-        else:
-            raise ValueError('ERROR: Structure type not recognized')
-    else:
-        raise ValueError('ERROR: Manual not recognized')

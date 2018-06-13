@@ -344,7 +344,7 @@ def mcconnell(wave_height, wave_period, depth, clearance,
     return force
 
 
-def goda_1974(wave_height, wave_period, depth, freeboard, wall_height, angle=0, **kwargs):
+def goda_1974(wave_height, wave_period, d, hc, hw, beta=0, **kwargs):
     """
     Calculates wave load on vertical wall using the Goda (1974) formula
     (Coastal Engineering Manual, VI-5-154)
@@ -355,11 +355,11 @@ def goda_1974(wave_height, wave_period, depth, freeboard, wall_height, angle=0, 
         Design wave height (m) (<Hdesign> in CEM notation, up to user to multiply by 1.8 to get Hmax)
     wave_period : float
         Wave period (s)
-    depth : float
+    d : float
         Water depth at the wall (m) (<d> in CEM notation)
-    freeboard : float
+    hc : float
         Freeboard (m)
-    wall_height : float
+    hw : float
         Vertical wall height (m) (<hw> in CEM notation)
 
     Optional inputs
@@ -368,13 +368,15 @@ def goda_1974(wave_height, wave_period, depth, freeboard, wall_height, angle=0, 
         Water depth at the toe (m) (<hs> in CEM notation)
     hb : float (default=hs)
         Water depth at distance 5Hs seaard from the structure
-    angle : float (default=0)
+    beta : float (default=0)
         Angle of wave attack (degrees, 0 - normal to structure)
     l_1, .._2, .._3 : float (default=1 for all)
         Modification factors (tables in CEM) (<lambda_#> in CEM notation)
+    h_prime : float
+        Water depth at toe of core layer (m)
     g : float (default=scipy.constants.g=9.81)
         Gravity acceleration (m/s^2)
-    sea_water_density : float (default=1025)
+    rho : float (default=1025)
         Sea water density (kg/m^3)
 
     Returns
@@ -386,58 +388,65 @@ def goda_1974(wave_height, wave_period, depth, freeboard, wall_height, angle=0, 
     l_1 = kwargs.pop('l_1', 1)
     l_2 = kwargs.pop('l_2', 1)
     l_3 = kwargs.pop('l_3', 1)
-    hs = kwargs.pop('hs', depth)
+    hs = kwargs.pop('hs', d)  # Water depth at the toe (m) (<hs> in CEM notation)
     hb = kwargs.pop('hb', hs)
+    h_prime = kwargs.pop('h_prime', d)
     g = kwargs.pop('g', scipy.constants.g)
-    sea_water_density = kwargs.pop('sea_water_density', 1025)
+    rho = kwargs.pop('sea_water_density', 1025)
+    wave_theory = kwargs.pop('wave_theory', 'Airy')
+    Ufh = kwargs.pop('Ufh', 0.9)
+    Ufu = kwargs.pop('Ufu', 0.77)
+    Umh = kwargs.pop('Umh', 0.81)
+    Umu = kwargs.pop('Umu', 0.72)
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     # initialize wave
-    wave = FentonWave(wave_height=wave_height, wave_period=wave_period, depth=hs)
+    H_design = 1.8 * wave_height
+    if wave_theory == 'Fenton':
+        wave = FentonWave(wave_height=H_design, wave_period=wave_period, depth=hb, rho=rho)
+    elif wave_theory == 'Airy':
+        wave = AiryWave(wave_height=H_design, wave_period=wave_period, depth=hb, rho=rho)
+    else:
+        raise IOError(f'Unrecognized wave theory passed in {wave_theory}')
 
     # alpha parameters
     a_1 = 0.6 + 0.5 * (4 * np.pi * hs / wave.wave_length / np.sinh(4 * np.pi * hs / wave.wave_length)) ** 2
     a_2 = min(
-        (hb - depth) / (3 * hb) * (wave_height / depth) ** 2,
-        2 * depth / wave_height
+        (hb - d) / (3 * hb) * (H_design / d) ** 2,
+        2 * d / H_design
     )
-    a_3 = 1 - (wall_height - freeboard) / hs * (1 - 1 / np.cosh(2 * np.pi * hs / wave.wave_length))
+    a_3 = 1 - (hw - hc) / hs * (1 - 1 / np.cosh(2 * np.pi * hs / wave.wave_length))
     a_star = a_2
 
     # pressure components
-    eta_star = 0.75 * (1 + np.cos(np.deg2rad(angle))) * l_1 * wave_height
-    p1 = 0.5 * (1 + np.cos(np.deg2rad(angle))) * \
-        (l_1 * a_1 + l_2 * a_star * np.cos(np.deg2rad(angle)) ** 2) * sea_water_density * g * wave_height
-    if eta_star > freeboard:
-        p2 = (1 - freeboard / eta_star) * p1
+    eta_star = 0.75 * (1 + np.cos(np.deg2rad(beta))) * l_1 * H_design
+    p1 = 0.5 * (1 + np.cos(np.deg2rad(beta))) * \
+        (l_1 * a_1 + l_2 * a_star * (np.cos(np.deg2rad(beta)) ** 2)) * rho * g * H_design
+    if eta_star > hc:
+        p2 = (1 - hc / eta_star) * p1
     else:
         p2 = 0
     p3 = a_3 * p1
-    pu = 0.5 * (1 + np.cos(np.deg2rad(angle))) * l_3 * a_1 * a_3 * sea_water_density * g * wave_height
-
-    # load above water
-    if eta_star > freeboard:
-        load_aw = freeboard * p2 + freeboard * (p1 - p2) * 0.5
-    else:
-        load_aw = p1 * freeboard * 0.5
-
-    # load under water
-    load_uw = (wall_height - freeboard) * p3 + (wall_height - freeboard) * (p1 - p3) * 0.5
+    pu = 0.5 * (1 + np.cos(np.deg2rad(beta))) * l_3 * a_1 * a_3 * rho * g * H_design
 
     # total wave load
-    load = load_aw + load_uw
+    Fh = Ufh * (0.5 * (p1 + p2) * hc + 0.5 * (p1 + p3) * h_prime)  # total horizontal load N/m
+    Fu = Ufu * 0.5 * pu  # vertical load N/m
+    Mh = Umh * (1/6 * (2 * p1 + p3) * h_prime ** 2 + .5 * (p1 + p2) * h_prime * hc + 1/6 * (p1 + 2 * p2) * hc ** 2)
+    centroid = Mh / Fh  # m above caisson heel
 
     return pd.DataFrame(
-        data=[load, p1, p2, p3, pu],
-        index=['Total wave load (N/m)', 'p1 (Pa)', 'p2 (Pa)', 'p3 (Pa)', 'pu (Pa)'],
+        data=[Fh, Mh, centroid, p1, p2, p3, pu],
+        index=[
+            'Total wave load [N/m]',
+            'Total wave force moment at seabed [N-m/m]',
+            'Load centroid [m]',
+            'p1 (Pa)', 'p2 (Pa)', 'p3 (Pa)', 'pu (Pa)'],
         columns=['Value']
     )
 
 
-# TODO - below are not implemented
-
-
-def goda_2000(wave_height, wave_period, depth, freeboard, **kwargs):
+def goda_2000(wave_height, wave_period, d, hc, **kwargs):
     """
     Calculates wave load on vertical wall according to Goda (2000) formula
     (Random seas and design of maritime structures, p.134 - p.139)
@@ -445,66 +454,77 @@ def goda_2000(wave_height, wave_period, depth, freeboard, **kwargs):
     Mandatory inputs
     ================
     wave_height : float
-        Significant wave height (m)
+        Significant wave height (m) multiplied by 1.8 internally to get Hmax
     wave_period : float
         Wave period (s)
-    depth : float
+    d : float
         Water depth at the wall (m)
-    freeboard : float
+    hc : float
         Freeboard (m)
 
     Optional inputs
     ===============
-    depth_toe : float
+    h : float
         Water depth at structure toe (m)
-    wall_height : float
+    h_prime : float
         Vertical wall submerged height (m)
-    angle : float
+    Beta : float
         Angle of wave attack (degrees, 0 - normal to structure)
     hb : float
         Water depth at distance 5H13 seaward from the structure
+    rho : float
+        Sea water density (kg/m^3)
+    g : float
+        Grabity (m/s^2)
 
     Returns
     =======
     A pandas dataframe with pressures, total load, load centroid (above wall footing, i.e. depth d)
     """
 
-    angle = kwargs.pop('angle', 0)
-    depth_toe = kwargs.pop('depth_toe', depth)
-    wall_height = kwargs.pop('wall_height', depth)
-    hb = kwargs.pop('hb', depth_toe)
+    Beta = kwargs.pop('Beta', 0)  # Angle of wave attack (degrees, 0 - normal to structure)
+    h = kwargs.pop('h', d)  # Water depth at structure toe (m)
+    h_prime = kwargs.pop('h_prime', d)  # Vertical wall submerged height (m)
+    hb = kwargs.pop('hb', h)  #  Water depth at distance 5H13 seaward from the structure
     g = kwargs.pop('g', scipy.constants.g)
-    sea_water_density = kwargs.pop('sea_water_density', 1025)
+    rho = kwargs.pop('rho', 1025)
+    wave_theory = kwargs.pop('wave_theory', 'Airy')
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     # initialize wave
-    wave = FentonWave(wave_height=wave_height, wave_period=wave_period, depth=depth_toe)
+    Hmax = wave_height * 1.8  # Hmax=1.8H1/3
+    if wave_theory == 'Fenton':
+        wave = FentonWave(wave_height=Hmax, wave_period=wave_period, depth=hb, rho=rho)
+    elif wave_theory == 'Airy':
+        wave = AiryWave(wave_height=Hmax, wave_period=wave_period, depth=hb, rho=rho)
+    else:
+        raise IOError(f'Unrecognized wave theory passed in {wave_theory}')
 
     # alpha parameters
-    eta_star = 0.75 * (1 + np.cos(np.deg2rad(angle))) * wave_height
-    a_1 = 0.6 + 0.5 * ((4 * np.pi * depth_toe / wave.wave_length) /
-                       np.sinh(4 * np.pi * depth_toe / wave.wave_length)) ** 2
+    eta_star = 0.75 * (1 + np.cos(np.deg2rad(Beta))) * Hmax
+    a_1 = 0.6 + 0.5 * ((4 * np.pi * h / wave.wave_length) /
+                       np.sinh(4 * np.pi * h / wave.wave_length)) ** 2
     a_2 = min(
-        (hb - depth) / (3 * hb) * (wave_height / depth) ** 2,
-        2 * depth / wave_height
+        (hb - d) / (3 * hb) * (Hmax / d) ** 2,
+        2 * d / Hmax
     )
-    a_3 = 1 - (wall_height / depth_toe) * (1 - (1 / np.cosh(2 * np.pi * depth_toe / wave.wave_length)))
+    a_3 = 1 - (h_prime / h) * (1 - (1 / np.cosh(2 * np.pi * h / wave.wave_length)))
 
     # pressure components
-    p1 = 0.5 * (1 + np.cos(np.deg2rad(angle))) * \
-        (a_1 + a_2 * (np.cos(np.deg2rad(angle)) ** 2)) * sea_water_density * g * wave_height
-    p2 = p1 / np.cosh(2 * np.pi * depth_toe / wave.wave_length)
+    p1 = 0.5 * (1 + np.cos(np.deg2rad(Beta))) * \
+        (a_1 + a_2 * (np.cos(np.deg2rad(Beta)) ** 2)) * rho * g * Hmax
+    p2 = p1 / np.cosh(2 * np.pi * h / wave.wave_length)
     p3 = a_3 * p1
-    if eta_star > freeboard:
-        p4 = p1 * (1 - freeboard / eta_star)
+    if eta_star > hc:
+        p4 = p1 * (1 - hc / eta_star)
     else:
         p4 = 0
-    hc_star = min(eta_star, freeboard)
-    pu = 0.5 * (1 + np.cos(np.deg2rad(angle))) * a_1 * a_3 * sea_water_density * g * wave_height
+    hc_star = min(eta_star, hc)
+    pu = 0.5 * (1 + np.cos(np.deg2rad(Beta))) * a_1 * a_3 * rho * g * Hmax
 
     # total load, moment, and centroid
-    p = 0.5 * (p1 + p3) * wall_height + 0.5 * (p1 + p4) * hc_star
-    mp = (1 / 6) * (2 * p1 + p3) * (wall_height ** 2) + 0.5 * (p1 + p4) * wall_height * hc_star + \
+    p = 0.5 * (p1 + p3) * h_prime + 0.5 * (p1 + p4) * hc_star
+    mp = (1 / 6) * (2 * p1 + p3) * (h_prime ** 2) + 0.5 * (p1 + p4) * h_prime * hc_star + \
         (1 / 6) * (p1 + 2 * p4) * (hc_star ** 2)
     p_centroid = mp / p
     return pd.DataFrame(
@@ -521,11 +541,11 @@ def goda_2000(wave_height, wave_period, depth, freeboard, **kwargs):
             round(a_1, 3),
             round(a_2, 3),
             round(a_3, 3),
-            round(eta_star, 3),
+            round(eta_star, 3)
         ],
         index=[
             'Total wave load [N/m]',
-            'Total wave force moment at seabed [N-m]'
+            'Total wave force moment at seabed [N-m]',
             'Load centroid [m]',
             'hc_star [m]',
             'p1 [Pa]',
@@ -536,10 +556,10 @@ def goda_2000(wave_height, wave_period, depth, freeboard, **kwargs):
             'a_1',
             'a_2',
             'a_3',
-            'Wave reach [m]',
+            'Wave reach [m]'
         ],
         columns=[
-            'Value'
+            'Values'
         ]
     )
 

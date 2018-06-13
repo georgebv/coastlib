@@ -78,6 +78,7 @@ class AiryWave:
             self.L = solve_dispersion_relation(wave_period, depth)
         else:
             raise ValueError('Depth should be float/int or \'deep\'. {} was given'.format(depth))
+        self.wave_length = self.L
         self.wave_height = wave_height
         self.c = self.L / wave_period
         self.angle = angle
@@ -117,6 +118,7 @@ class AiryWave:
         if not isinstance(self.depth, str):
             if self.depth / self.wave_height <= 1.28:
                 print('WARNING: Depth limited breaking is occurring')
+        self.wave_length = self.L
 
     def report(self):
         if not isinstance(self.depth, str):
