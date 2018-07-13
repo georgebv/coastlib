@@ -112,10 +112,10 @@ def hudson(wave_height, alpha, rock_density, kd=4, **kwargs):
         raise ValueError('Formulation {0} not recognized. Use CIRIA or CEM.'.format(formulation))
 
     if ns > 2:
-       print(
-           'Armor is not stable with the stability number Ns={0}, Dn50={1} m'.
-           format(round(ns, 2), round(dn50, 2))
-       )
+        print(
+            'Armor is not stable with the stability number Ns={0}, Dn50={1} m'.
+            format(round(ns, 2), round(dn50, 2))
+        )
     return dn50
 
 
