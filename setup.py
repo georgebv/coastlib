@@ -17,5 +17,5 @@ setup(
         'License :: OSI Approved :: GPLv3 License',
         'Programming Language :: Python :: 3.6.2',
     ],
-    zip_safe=False
+    zip_safe=False, install_requires=['numpy', 'scipy', 'matplotlib', 'pandas']
 )
