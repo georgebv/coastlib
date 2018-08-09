@@ -165,11 +165,9 @@ def overtopping(Hm0, Rc, **kwargs):
 
         if strtype is 'sap':
             if dmethod is 'det':
-                q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * np.exp(-2.3 * Rc / (Hm0 * Yf * YB))
-                return q
+                return ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * np.exp(-2.3 * Rc / (Hm0 * Yf * YB))
             elif dmethod is 'prob':
-                q = ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * np.exp(-2.6 * Rc / (Hm0 * Yf * YB))
-                return q
+                return ((g * (Hm0 ** 3)) ** 0.5) * 0.2 * np.exp(-2.6 * Rc / (Hm0 * Yf * YB))
             else:
                 raise ValueError('ERROR: Design method not recognized')
         else:
