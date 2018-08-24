@@ -39,7 +39,7 @@ def joint_table(values_1, values_2, binsize_1=0.3, binsize_2=4, bins=None, relat
             raise ValueError('{}\n'
                              'Input values should be 1D lists or arrays.'.format(_e))
     if not bins:
-        if binsize_1 <=0 or binsize_2 <= 0:
+        if binsize_1 <= 0 or binsize_2 <= 0:
             raise ValueError('Bin sizes must be positive numbers')
 
         if values_1.min() >= 0:

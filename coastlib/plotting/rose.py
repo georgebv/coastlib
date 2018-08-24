@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from copy import deepcopy
 
 
 def __get_calms(values, calm_region_magnitude):
@@ -54,6 +55,7 @@ def __get_radii(
     # Shifts all bins and directions for the case of <center_on_north>
     if d_bins[0] < 0:
         d_bins = [_bin + dangle for _bin in d_bins]
+        # The local "directions" reference causes aliasing with the global "directions" variable
         for i, direction in enumerate(directions):
             if direction + dangle > 360:
                 directions[i] = direction + dangle - 360
@@ -115,7 +117,7 @@ def rose_plot(
     direction_bins : int (default=16)
         number of direction bins (results in a bin size 360/<direction_bins>)
     calm_region : float (default=-np.inf)
-        threshold below which values are dicarded (i.e. noise)
+        threshold below which values are discarded (i.e. noise)
     center_on_north : bool (default=False)
         if True, shifts direction bins so that they start from North (0 degrees)
     notch : float (default=0.95)
@@ -193,28 +195,28 @@ def rose_plot(
     number_of_value_bins = len(value_bins) - 1
 
     # Calculate percentage of calms
-    calms = __get_calms(values=values, calm_region_magnitude=calm_region_magnitude)
+    calms = __get_calms(values=deepcopy(values), calm_region_magnitude=deepcopy(calm_region_magnitude))
 
     # Get an array of angluar coordinates
     theta = __get_theta(
-        number_of_direction_bins=direction_bins, number_of_value_bins=number_of_value_bins,
-        center_on_north=center_on_north
+        number_of_direction_bins=deepcopy(direction_bins), number_of_value_bins=deepcopy(number_of_value_bins),
+        center_on_north=deepcopy(center_on_north)
     )
 
     # Get an array of radial coordinates
     radii = __get_radii(
-        value_bin_boundaries=value_bins, theta=theta, values=values,
-        directions=directions, number_of_direction_bins=direction_bins
+        value_bin_boundaries=deepcopy(value_bins), theta=deepcopy(theta), values=deepcopy(values),
+        directions=deepcopy(directions), number_of_direction_bins=deepcopy(direction_bins)
     )
     error = radii.sum() + calms - 100
     if not np.isclose([error], [0]):
         print(f'Warning: cumulative error of {error:.5f}%')
 
     # Get an array of radial coordinates of bar bottoms
-    bottoms = __get_bottoms(radii=radii, percentage_of_calms=calms)
+    bottoms = __get_bottoms(radii=deepcopy(radii), percentage_of_calms=deepcopy(calms))
 
     # Get an array of color values for value_bins
-    colors = __get_colors(number_of_value_bins=number_of_value_bins, colormap=colormap)
+    colors = __get_colors(number_of_value_bins=deepcopy(number_of_value_bins), colormap=deepcopy(colormap))
 
     # Create a figure with poolar axes
     plt.figure(figsize=(8, 8), facecolor='w', edgecolor='w')
