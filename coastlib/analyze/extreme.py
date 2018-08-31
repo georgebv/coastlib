@@ -7,6 +7,27 @@ import pandas as pd
 import scipy.stats
 
 
+input_folder = r'D:\Work folders\desktop projects\3 NPS STLI\1 Data\1 Wind\2 LCD Station 14732, La Guardia Airport'
+data = pd.read_pickle(os.path.join(input_folder, 'Wind, Station 14732, 1957-2018.pyc'))
+data = data.dropna()
+eve = EVA(data)
+eve.get_extremes(threshold=40)
+eve.fit(distribution='exponweib')
+
+plt.scatter(eve.extremes['T'], eve.extremes[eve.column])
+plt.plot(eve.retvalsum.index, eve.retvalsum['Return Value'], color='red')
+plt.ylim(eve.threshold, 80)
+plt.semilogx()
+
+plt.hist(eve.extremes[eve.column], bins=10, density=True)
+plt.plot(
+    np.sort(eve.extremes[eve.column]),
+    eve.distribution.pdf(
+        np.sort(eve.extremes[eve.column] - eve.threshold), *eve.fit_parameters[:-2],
+        loc=eve.fit_parameters[-2], scale=eve.fit_parameters[-1]
+    )
+)
+
 class EVA:
 
     def __init__(self, dataframe, column=None, discontinuous=True):
@@ -25,7 +46,7 @@ class EVA:
             if column in self.data.columns:
                 self.column = column
             else:
-                raise AttributeError('Column {0} cannot be accessed. Check spelling'.format(column))
+                raise ValueError('Column {0} cannot be accessed. Check spelling'.format(column))
         else:
             self.column = self.data.columns[0]
 
@@ -44,8 +65,9 @@ class EVA:
                 '\n\nData is not continuous!\nMissing years {0}\n'
                 'Set <dicontinuous=True> to account for all years, '
                 'assuming there were NO peaks in the missing years.\n'
-                'Without this option turned on, extreme events might be\n'
-                'significantly overestimated (conservative results)'.format(missing)
+                'Without this option turned on, extreme events might be'
+                'significantly overestimated (conservative results)'
+                'due to the total length of observation period being low'.format(missing)
             )
 
     def get_extremes(self, method='POT', **kwargs):
@@ -61,12 +83,91 @@ class EVA:
                 If method is POT only: decluster checks if extremes are declustered
             threshold : float
                 If method is POT only: threshold for extreme value extraction
+            r : float (hours, default=24)
+                If method is POT only: minimum distance between events for them to be considered independent
 
         Returns
         -------
         Creates a self.extremes dataframe with extreme values and return periods determined using
         the Weibull plotting position P=m/(N+1)
         """
+
+        self.method = method
+
+        if self.method == 'POT':
+            # Parse optional POT-only arguments
+            decluster = kwargs.pop('decluster', True)
+            self.threshold = kwargs.pop('threshold')
+            r = datetime.timedelta(hours=kwargs.pop('r', 24))
+            assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+            # Extract raw extremes
+            self.extremes = self.data[self.data[self.column] > self.threshold]
+
+            # Decluster raw extremes
+            if decluster:
+                new_indexes, new_values = [self.extremes.index[0]], [self.extremes[self.column][0]]
+                for _index, _value in zip(self.extremes.index, self.extremes[self.column].values):
+                    if _index - new_indexes[-1] > r:
+                        new_indexes.append(_index)
+                        new_values.append(_value)
+                    else:
+                        new_indexes[-1] = _index
+                        if _value > new_values[-1]:
+                            new_values[-1] = _value
+                self.extremes = pd.DataFrame(data=new_values, index=new_indexes, columns=[self.column])
+        elif self.method == 'AM':
+            self.threshold = 0
+            # Extract Annual Maxima extremes
+            extreme_indexes, extreme_values = [], []
+            for _year in np.unique(self.data.index.year):
+                extreme_values.append(
+                    self.data[self.data.index.year == _year][self.column].values.max()
+                )
+                # If several equal maximum values exist throughout a year, the first one is taken
+                extreme_indexes.append(
+                    self.data[
+                        (self.data[self.column].values == extreme_values[-1]) & (self.data.index.year == _year)
+                    ].index[0]
+                )
+            self.extremes = pd.DataFrame(data=extreme_values, index=extreme_indexes, columns=[self.column])
+
+        # Estimate return periods for extracted extreme values using the Weibull plotting position
+        self.extremes.sort_values(by=self.column, ascending=True, inplace=True)
+        self.rate = len(self.extremes) / self.N
+        if self.method == 'AM' and self.rate != 1:
+            raise ValueError(
+                'For the Annual Maxima method the number of extreme events ({0}) should be '
+                'equal to number of years ({1}).\n'
+                'Consider using <discontinuous=False> when declaring the EVA object.'.format(len(self.extremes), self.N)
+            )
+        cdf = np.arange(1, len(self.extremes) + 1) / (len(self.extremes) + 1)
+        icdf = 1 - cdf  # inverse CDF, aka annual probability of exceedance
+        self.extremes['T'] = 1 / icdf / self.rate
+        self.extremes.sort_index(inplace=True)
+
+    def fit(self, distribution='genpareto'):
+        # Fit the distribution to the extracted extreme values
+        self.distribution = getattr(scipy.stats, distribution)
+        self.fit_parameters = self.distribution.fit(self.extremes[self.column] - self.threshold, floc=0)
+        def return_value_function(t):
+            return self.threshold + self.distribution.ppf(
+                1-1/t/self.rate, *self.fit_parameters[:-2],
+                loc=self.fit_parameters[-2], scale=self.fit_parameters[-1],
+            )
+
+        # Calculate return values based on the fit distribution
+        return_periods = np.sort(
+            np.unique(
+                np.append(
+                    np.logspace(-3, 3, num=30),
+                    [1, 2, 5, 10, 15, 25, 50, 100, 200, 250, 500, 1000]
+                )
+            )
+        )
+        return_values = [return_value_function(t=_t) for _t in return_periods]
+        self.retvalsum = pd.DataFrame(data=return_values, index=return_periods, columns=['Return Value'])
+        self.retvalsum.index.name = 'Return Period'
 
 
 class EVA_old:
