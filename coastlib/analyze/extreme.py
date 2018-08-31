@@ -605,6 +605,7 @@ class EVA:
                     )
                 )
 
+    # TODO - define __repr__ method
 
 # Test
 # import os
