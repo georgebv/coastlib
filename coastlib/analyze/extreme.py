@@ -2,6 +2,7 @@ import datetime
 import os
 
 import matplotlib.pyplot as plt
+import matplotlib.gridspec
 import numpy as np
 import pandas as pd
 import scipy.stats
@@ -11,24 +12,42 @@ input_folder = r'D:\Work folders\desktop projects\3 NPS STLI\1 Data\1 Wind\2 LCD
 data = pd.read_pickle(os.path.join(input_folder, 'Wind, Station 14732, 1957-2018.pyc'))
 data = data.dropna()
 eve = EVA(data)
-eve.get_extremes(threshold=40)
-eve.fit(distribution='exponweib')
-
-plt.scatter(eve.extremes['T'], eve.extremes[eve.column])
-plt.plot(eve.retvalsum.index, eve.retvalsum['Return Value'], color='red')
-plt.ylim(eve.threshold, 80)
-plt.semilogx()
-
-plt.hist(eve.extremes[eve.column], bins=10, density=True)
-plt.plot(
-    np.sort(eve.extremes[eve.column]),
-    eve.distribution.pdf(
-        np.sort(eve.extremes[eve.column] - eve.threshold), *eve.fit_parameters[:-2],
-        loc=eve.fit_parameters[-2], scale=eve.fit_parameters[-1]
-    )
+eve.get_extremes(threshold=30)
+eve.fit(
+    distribution='exponweib', confidence_interval=0.95, confidence_method='bootstrap', k=10**2, truncate=True, floc=0
 )
+eve.plot(bins=10)
+
 
 class EVA:
+    """
+    Extreme Value Analysis class. Takes a Pandas DataFrame with values in <column> and with datetime index.
+    Extracts extreme values. Assists with threshold value selection. Fits data to distributions via MLE.
+    Returns extreme values' return periods and estimates confidence intervals. Generates data plots.
+
+    Typical Workflow
+    ================
+    1   Create a class instance by passing a Pandas Dataframe to the <dataframe> parameter and
+        column with values to <column>. Set <discontinuous> to True, if the dataset has gaps -
+        aka years without any data.
+        ~$ eve = EVA(dataframe=df, column=col, discontinuous=True)
+
+    2   Use the <.get_extremes> class method to parse extreme values. Set <method> to 'AM' to use
+        annual maxima and to 'POT' to use peaks over threshold extraction methods.
+        ~$ eve.get_extremes(method='POT', **kwargs)
+
+    3   Use the <.fit> class method to fit a distribution <distribution> to the extracted extreme values.
+        The parameter <distribution> is a string with a scipy.stats distribution name
+        (look up on https://docs.scipy.org/doc/scipy/reference/stats.html).
+        ~$ eve.fit(distribution='genpareto', confidence_interval=0.95, **kwargs)
+
+        Recommended distributions: expon, exponweib (aka classic Weibull), frechet_l (or _r),
+        genpareto, genextreme, genexpon, gumbel_r, invgauss, invweibull, lognorm, powerlognorm,
+        pearson3, pareto, rayleigh, weibull_min (or _max)
+
+    4   Use the <.plot> method to get a quick summary
+
+    """
 
     def __init__(self, dataframe, column=None, discontinuous=True):
         # Ensure passed data is a Pandas Dataframe object (pd.Dataframe)
@@ -142,17 +161,61 @@ class EVA:
                 'Consider using <discontinuous=False> when declaring the EVA object.'.format(len(self.extremes), self.N)
             )
         cdf = np.arange(1, len(self.extremes) + 1) / (len(self.extremes) + 1)
-        icdf = 1 - cdf  # inverse CDF, aka annual probability of exceedance
-        self.extremes['T'] = 1 / icdf / self.rate
+        sf = 1 - cdf  # survival function, aka annual probability of exceedance
+        self.extremes['T'] = 1 / sf / self.rate
         self.extremes.sort_index(inplace=True)
 
-    def fit(self, distribution='genpareto'):
+        # Remove previously fit distribution to avoid mistakes
+        try:
+            del self.retvalsum
+        except AttributeError:
+            pass
+
+    def fit(self, distribution='genpareto', confidence_interval=None, floc=False, **kwargs):
+        """
+        Fits <distribution> to extracted extreme values. Creates <retvalsum> dataframe with
+        estimated extreme values for return periods and upper and lower confidence bounds, if specified.
+
+        Parameters
+        ----------
+        distribution : str
+            Scipy disttribution name (default='genpareto')
+        confidence_interval : float
+            Confidence interval width, should be confidence_interval<1 or None. Not estimated if None (default=None)
+        floc : float
+            Fixed location parameter value. Location parameter is estimated if None is passed (default=None)
+        kwargs
+            confidence_method : str
+                Confidence interval estimation methods (default='bootstrap'):
+                    -'montecarlo' - montecarlo method. Generates poisson-distributed sized samples
+                        from the fitted distribution
+                    -'jackknife' - jackknife method. Generates leave-one-out samples
+                        from the original extracted extreme values
+                    -'bootstrap' - bootstrap method. Generates poisson-distributed sized samples
+                        from the original extracted extreme values with replacement
+            k : int
+                Number of distributions, !!!highly affect performance!!! (default=10**2)
+
+        Returns
+        -------
+        Creates <retvalsum> dataframe with estimated extreme values for return periods
+        and upper and lower confidence bounds, if specified.
+        """
+        # Make sure extremes have been extracted
+        if not hasattr(self, 'extremes'):
+            raise AttributeError(
+                'No extremes found. Execute the .get_extremes method before fitting the distribution.'
+            )
+
         # Fit the distribution to the extracted extreme values
         self.distribution = getattr(scipy.stats, distribution)
-        self.fit_parameters = self.distribution.fit(self.extremes[self.column] - self.threshold, floc=0)
+        if floc:
+            self.fit_parameters = self.distribution.fit(self.extremes[self.column] - self.threshold, floc=floc)
+        else:
+            self.fit_parameters = self.distribution.fit(self.extremes[self.column] - self.threshold)
         def return_value_function(t):
-            return self.threshold + self.distribution.ppf(
-                1-1/t/self.rate, *self.fit_parameters[:-2],
+            return self.threshold + self.distribution.isf(
+                1/t/self.rate, *self.fit_parameters[:-2],
                 loc=self.fit_parameters[-2], scale=self.fit_parameters[-1],
             )
 
@@ -169,8 +232,256 @@ class EVA:
         self.retvalsum = pd.DataFrame(data=return_values, index=return_periods, columns=['Return Value'])
         self.retvalsum.index.name = 'Return Period'
 
+        # Estimate confidence intravals
+        if confidence_interval:
+            confidence_method = kwargs.pop('confidence_method', 'bootstrap')
+            if confidence_method == 'montecarlo':
+                # Parse montecarlo method arguments
+                k = kwargs.pop('k', 10**2)
+                truncate = kwargs.pop('truncate', True)
+                assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
-class EVA_old:
+                # Define montecarlo sampling function (returns a sample of return values for return values)
+                def montecarlo():
+                    # Sample number of extreme values from the Poisson distribution
+                    _montecarlo_sample_length = scipy.stats.poisson.rvs(len(self.extremes))
+                    _montecarlo_rate = _montecarlo_sample_length / self.N
+                    # Sample extreme values
+                    _montecarlo_sample = self.distribution.rvs(
+                        *self.fit_parameters[:-2], loc=self.fit_parameters[-2], scale=self.fit_parameters[-1],
+                        size=_montecarlo_sample_length
+                    )
+                    # Fit distribution to sampled values
+                    if floc:
+                        _montecarlo_parameters = self.distribution.fit(_montecarlo_sample, floc=floc)
+                    else:
+                        _montecarlo_parameters = self.distribution.fit(_montecarlo_sample)
+                    return [
+                        self.threshold + self.distribution.isf(
+                            1 / _t / _montecarlo_rate, *_montecarlo_parameters[:-2],
+                            loc=_montecarlo_parameters[-2], scale=_montecarlo_parameters[-1]
+                        ) for _t in return_periods
+                    ]
+
+                # Perform montecarlo simulation
+                simulation_count = 0
+                simulated_return_values = []
+                if truncate:
+                    _upper_limits = np.array([return_value_function(t=10**4 * _t) for _t in return_periods])
+                    while simulation_count < k:
+                        _simulation = montecarlo()
+                        if sum(_simulation > _upper_limits) == 0:
+                            simulated_return_values.append(_simulation)
+                            simulation_count += 1
+                else:
+                    while simulation_count < k:
+                        _simulation = montecarlo()
+                        simulated_return_values.append(_simulation)
+                        simulation_count += 1
+
+                # Estimate confidence bounds assuming the error is normally distributed
+                filtered = [_x[~np.isnan(_x)] for _x in np.array(simulated_return_values).T]
+                moments = [scipy.stats.norm.fit(_x) for _x in filtered]
+                intervals = [
+                    scipy.stats.norm.interval(alpha=confidence_interval, loc=_x[-2], scale=_x[-1]) for _x in moments
+                ]
+                self.retvalsum['Lower'] = [_x[0] for _x in intervals]
+                self.retvalsum['Upper'] = [_x[1] for _x in intervals]
+                self.retvalsum['Sigma'] = [_x[1] for _x in moments]
+
+            elif confidence_method == 'jackknife':
+                # TODO - jackknife method (aka leave-one-out)
+                raise NotImplementedError
+
+            elif confidence_method == 'bootstrap':
+                # Parse montecarlo method arguments
+                k = kwargs.pop('k', 10 ** 2)
+                truncate = kwargs.pop('truncate', False)
+                assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+                # Define bootstrap sampling function (returns a sample of return values for return values)
+                def bootstrap():
+                    # Sample number of extreme values from the Poisson distribution
+                    _bootstrap_sample_length = scipy.stats.poisson.rvs(len(self.extremes))
+                    _bootstrap_rate = _bootstrap_sample_length / self.N
+                    # Resample extreme values
+                    _bootstrap_sample = np.random.choice(
+                        a=self.extremes[self.column].values,
+                        size=_bootstrap_sample_length, replace=True
+                    )
+                    # Fit distribution to resampled values
+                    if floc:
+                        _bootstrap_parameters = self.distribution.fit(_bootstrap_sample-self.threshold, floc=floc)
+                    else:
+                        _bootstrap_parameters = self.distribution.fit(_bootstrap_sample-self.threshold)
+                    return [
+                        self.threshold + self.distribution.isf(
+                            1 / _t / _bootstrap_rate, *_bootstrap_parameters[:-2],
+                            loc=_bootstrap_parameters[-2], scale=_bootstrap_parameters[-1]
+                        ) for _t in return_periods
+                    ]
+
+                # Perform bootstrap simulation
+                simulation_count = 0
+                simulated_return_values = []
+                if truncate:
+                    _upper_limits = np.array([return_value_function(t=10 ** 4 * _t) for _t in return_periods])
+                    while simulation_count < k:
+                        _simulation = bootstrap()
+                        if sum(_simulation > _upper_limits) == 0:
+                            simulated_return_values.append(_simulation)
+                            simulation_count += 1
+                else:
+                    while simulation_count < k:
+                        _simulation = bootstrap()
+                        simulated_return_values.append(_simulation)
+                        simulation_count += 1
+
+                # Estimate confidence bounds assuming the error is normally distributed
+                filtered = [_x[~np.isnan(_x)] for _x in np.array(simulated_return_values).T]
+                moments = [scipy.stats.norm.fit(_x) for _x in filtered]
+                intervals = [
+                    scipy.stats.norm.interval(alpha=confidence_interval, loc=_x[-2], scale=_x[-1]) for _x in moments
+                ]
+                self.retvalsum['Lower'] = [_x[0] for _x in intervals]
+                self.retvalsum['Upper'] = [_x[1] for _x in intervals]
+                self.retvalsum['Sigma'] = [_x[1] for _x in moments]
+
+            else:
+                raise ValueError('Confidence method {0} not recognized'.format(confidence_method))
+
+    def pdf(self, x):
+        if hasattr(x, '__iter__'):
+            _pdf = []
+            for _x in x:
+                if _x <= self.threshold:
+                    raise ValueError('Extreme value disttribution is not valid for values below the '
+                                     'threshold {0:2f} <= {1:.2f}'.format(_x, self.threshold))
+                _pdf.append(
+                    self.distribution.pdf(
+                        _x-self.threshold, *self.fit_parameters[:-2],
+                        loc=self.fit_parameters[-2], scale=self.fit_parameters[-1]
+                    )
+                )
+            _pdf = np.array(_pdf)
+        else:
+            if x <= self.threshold:
+                raise ValueError('Extreme value disttribution is not valid for values below the '
+                                 'threshold {0:.2f}'.format(self.threshold))
+            _pdf = self.distribution.pdf(
+                x-self.threshold, *self.fit_parameters[:-2],
+                loc=self.fit_parameters[-2], scale=self.fit_parameters[-1]
+            )
+        return _pdf
+
+    def cdf(self, x):
+        if hasattr(x, '__iter__'):
+            _cdf = []
+            for _x in x:
+                if _x <= self.threshold:
+                    raise ValueError('Extreme value disttribution is not valid for values below the '
+                                     'threshold {0:2f} <= {1:.2f}'.format(_x, self.threshold))
+                _cdf.append(
+                    self.distribution.cdf(
+                        _x-self.threshold, *self.fit_parameters[:-2],
+                        loc=self.fit_parameters[-2], scale=self.fit_parameters[-1]
+                    )
+                )
+            _cdf = np.array(_cdf)
+        else:
+            if x <= self.threshold:
+                raise ValueError('Extreme value disttribution is not valid for values below the '
+                                 'threshold {0:.2f}'.format(self.threshold))
+            _cdf = self.distribution.cdf(
+                x-self.threshold, *self.fit_parameters[:-2],
+                loc=self.fit_parameters[-2], scale=self.fit_parameters[-1]
+            )
+        return _cdf
+
+    def plot(self, bins=10):
+        """
+        Plots a summary of the EVA data - pdf, cdf, and distribution fitted to the extracted extreme values.
+
+        Parameters
+        ----------
+        bins : int
+            Number of bins in the PDF and CDF histograms (default=10)
+
+        Returns
+        -------
+        Generates a matplotlib plot
+
+        """
+
+        # Make sure distribution has been fit
+        if not hasattr(self, 'retvalsum'):
+            raise AttributeError(
+                'No distribution data found. '
+                'Execute the .get_extremes and .fit methods before plotting the EVA summary.'
+            )
+        with plt.style.context('bmh'):
+            fig = plt.figure(figsize=(18, 18))
+            gs = matplotlib.gridspec.GridSpec(2, 2)
+            # Return values plot
+            ax1 = fig.add_subplot(gs[0, :])
+            ax1.scatter(
+                self.extremes['T'], self.extremes[eve.column],
+                facecolors='None', edgecolors='royalblue', s=20, lw=1,
+                label=r'Observed extreme values'
+            )
+            ax1.plot(
+                self.retvalsum.index, self.retvalsum['Return Value'],
+                color='orangered', lw=3, ls='-',
+                label=r'Fit {0} distribution'.format(self.distribution.name)
+            )
+            if len(self.retvalsum.columns) > 1:
+                ax1.fill_between(
+                    self.retvalsum.index.values, self.retvalsum['Upper'].values,
+                    self.retvalsum['Lower'].values, alpha=0.3, color='royalblue',
+                    label=r'95% confidence interval'
+                )
+            ax1.legend()
+            ax1.semilogx()
+            ax1.set_ylim(
+                0, np.ceil(
+                    max(
+                        [
+                            self.extremes[self.column].values.max() * 1.5,
+                            self.retvalsum[self.retvalsum.index == 100.00]['Return Value'].values[0] * 1.1
+                        ]
+                    )
+                )
+            )
+            # PDF plot
+            ax2 = fig.add_subplot(gs[1, 0])
+            ax2.hist(
+                self.extremes[self.column], bins=bins, density=True,
+                color='royalblue', rwidth=.9, alpha=0.5
+            )
+            ax2.plot(
+                np.sort(self.extremes[self.column].values),
+                self.pdf(np.sort(self.extremes[self.column].values)),
+                color='orangered', lw=3, ls='-'
+            )
+            ax2.set_ylim(
+                0, np.ceil(
+                    max(np.histogram(self.extremes[self.column].values, bins=bins, normed=True, density=True)[0]) * 10
+                ) / 10
+            )
+            # CDF plot
+            ax3 = fig.add_subplot(gs[1, 1])
+            ax3.hist(
+                self.extremes[self.column], bins=bins, density=True,
+                color='royalblue', cumulative=True, rwidth=.9, alpha=0.5
+            )
+            ax3.plot(
+                np.sort(self.extremes[self.column].values),
+                self.cdf(np.sort(self.extremes[self.column].values)),
+                color='orangered', lw=3, ls='-'
+            )
+
+
+class EVAOLD:
     """
     Extreme Value Analysis class. Takes a Pandas DataFrame with values. Extracts extreme values.
     Assists with threshold value selection. Fits data to distributions (GPD).
@@ -855,14 +1166,3 @@ class EVA_old:
                 plt.savefig(save_path + '\{0} {1} Return Values Plot.png'.format(name, self.distribution),
                             bbox_inches='tight', dpi=300)
                 plt.close()
-
-    def dens_fit_plot(self, distribution='GPD'):
-        """
-        Probability density plot. Histogram of extremes with fit overlay.
-
-        :param distribution:
-        :return:
-        """
-
-        # TODO - implemented
-        print('Not yet implemented')
