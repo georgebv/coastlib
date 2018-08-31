@@ -1,5 +1,4 @@
 import datetime
-import warnings
 import os
 
 import matplotlib.pyplot as plt
@@ -9,6 +8,68 @@ import scipy.stats
 
 
 class EVA:
+
+    def __init__(self, dataframe, column=None, discontinuous=True):
+        # Ensure passed data is a Pandas Dataframe object (pd.Dataframe)
+        if not isinstance(dataframe, pd.DataFrame):
+            try:
+                self.data = dataframe.to_frame()
+            except AttributeError:
+                raise TypeError('Invalid data type in <df>.'
+                                ' EVA takes only Pandas DataFrame or Series objects.')
+        else:
+            self.data = dataframe
+
+        # Check passed column value is valid
+        if column:
+            if column in self.data.columns:
+                self.column = column
+            else:
+                raise AttributeError('Column {0} cannot be accessed. Check spelling'.format(column))
+        else:
+            self.column = self.data.columns[0]
+
+        # Verify all years are accounted for (even those without data - i.e. gaps in time series)
+        if discontinuous:
+            self.N = len(np.arange(self.data.index.year.min(), self.data.index.year.max()+1, 1))
+        else:
+            self.N = len(np.unique(self.data.index.year))
+
+        if self.N != len(np.arange(self.data.index.year.min(), self.data.index.year.max()+1, 1)):
+            missing = []
+            for _year in np.arange(self.data.index.year.min(), self.data.index.year.max()+1, 1):
+                if _year not in np.unique(self.data.index.year):
+                    missing.append(_year)
+            print(
+                '\n\nData is not continuous!\nMissing years {0}\n'
+                'Set <dicontinuous=True> to account for all years, '
+                'assuming there were NO peaks in the missing years.\n'
+                'Without this option turned on, extreme events might be\n'
+                'significantly overestimated (conservative results)'.format(missing)
+            )
+
+    def get_extremes(self, method='POT', **kwargs):
+        """
+
+        Parameters
+        ----------
+        method : str
+            Peak extraction method. POT for peaks over threshold and AM for annual maxima.
+
+        kwargs
+            decluster : bool
+                If method is POT only: decluster checks if extremes are declustered
+            threshold : float
+                If method is POT only: threshold for extreme value extraction
+
+        Returns
+        -------
+        Creates a self.extremes dataframe with extreme values and return periods determined using
+        the Weibull plotting position P=m/(N+1)
+        """
+
+
+class EVA_old:
     """
     Extreme Value Analysis class. Takes a Pandas DataFrame with values. Extracts extreme values.
     Assists with threshold value selection. Fits data to distributions (GPD).
@@ -56,32 +117,36 @@ class EVA:
         years = np.unique(self.data.index.year)
         # Get a list of years between min and max years from the series
         years_all = np.arange(years.min(), years.max()+1, 1)
+
         self.N = len(years)
         if discontinuous:
             self.N = len(years_all)
+
         if self.N != len(years_all):
             missing = [year for year in years_all if year not in years]
-            warnings.warn('\n\nData is not continuous!\nMissing years {}\n'
-                          'Set <dicontinuous=True> to account for all years, '
-                          'assuming there were NO peaks in the missing years.\n'
-                          'Without this option turned on, extreme events might be\n'
-                          'significantly overestimated (conservative results)'.format(missing))
+            print(
+                '\n\nData is not continuous!\nMissing years {}\n'
+                'Set <dicontinuous=True> to account for all years, '
+                'assuming there were NO peaks in the missing years.\n'
+                'Without this option turned on, extreme events might be\n'
+                'significantly overestimated (conservative results)'.format(missing)
+            )
 
     def __repr__(self):
 
         try:
             lev = len(self.extremes)
-        except:
+        except AttributeError:
             lev = 'not extracted'
 
         try:
             dis = self.distribution
-        except:
+        except AttributeError:
             dis = 'not assigned'
 
         try:
             em = self.method
-        except:
+        except AttributeError:
             em = 'not assigned'
 
         return 'EVA(col={col})\n' \
@@ -139,19 +204,14 @@ class EVA:
                     ):
                         # Check for time condition
                         if index - indexes[-1] >= r:
-                            # Check for the new peak being a local maxima
-                            # = accounts for flat peaks
-                            if self.extremes[self.col].values[i-1] <= value >= self.extremes[self.col].values[i+1]:
-                                indexes.append(index)
-                                values.append(value)
+                            indexes.append(index)
+                            values.append(value)
                         # If its in the same cluster (failed time condition),
                         # check if its larger than current peak for this cluster
-                        elif value > values[-1]:
-                            # Check for the new peak being a local maxima
-                            # = accounts for flat peaks
-                            if self.extremes[self.col].values[i-1] <= value >= self.extremes[self.col].values[i+1]:
-                                indexes[-1] = index
-                                values[-1] = value
+                        # = ensures the latest peak being captured (reduces total number of clusters)
+                        elif value >= values[-1]:
+                            indexes[-1] = index
+                            values[-1] = value
                 else:
                     raise ValueError('Method {} is not yet implemented'.format(dmethod))
                 self.extremes = pd.DataFrame(data=values, index=indexes, columns=[self.col])
@@ -185,8 +245,6 @@ class EVA:
 
         :param u: list
             List of threshold to be tested
-        :param plot: bool
-            Plot residuals against threshold values. Default = False
         :param save_path: str
             Path to folder. Default = None.
         :param name: str
@@ -195,6 +253,8 @@ class EVA:
             Decluster data using the run method.
         :param r: float
             Decluster run length (Default = 24 hours).
+        :param dmethod: str
+            Decluster method (Default = 'naive')
         :return:
         """
 
@@ -204,7 +264,7 @@ class EVA:
         if decluster:
             nu, res_ex_sum = [], []
             for i in range(len(u)):
-                self.get_extremes(method='POT', u=u[i], r=r, decluster=True, dmethod=dmethod)
+                self.get_extremes(method='POT', threshold=u[i], r=r, decluster=True, dmethod=dmethod)
                 nu.extend([len(self.extremes)])
                 res_ex_sum.extend([self.extremes[self.col].values - u[i]])
         else:
@@ -249,6 +309,8 @@ class EVA:
             Threshold precision.
         :param u_start:
             Starting threshold for search (should be below the lowest expected value).
+        :param dmethod: str
+            Decluster method (Default = 'naive')
         :return:
             DataFrame with threshold summary.
         """
@@ -291,18 +353,21 @@ class EVA:
             Path to save folder.
         :param name: str
             File save name.
+        :param dmethod: str
+            Decluster method (Default = 'naive')
+        :param distribution: str
+            Distribution name
         """
         # TODO - buggy method (scales and shapes are weird)
         u = np.array(u)
         if u.max() > self.data[self.col].max():
             u = u[u <= self.data[self.col].max()]
-        fits = []
         if distribution == 'GPD':
-			for tres in u:
-				self.get_extremes(method='POT', u=tres, r=r, decluster=decluster, dmethod=dmethod)
-				extremes_local = self.extremes[self.col].values - tres
-				fit = scipy.stats.genpareto.fit(extremes_local)
-				fits.extend([fit])
+            fits = []
+            for tres in u:
+                self.get_extremes(method='POT', threshold=tres, r=r, decluster=decluster, dmethod=dmethod)
+                extremes_local = self.extremes[self.col].values - tres
+                fits.append(scipy.stats.genpareto.fit(extremes_local))
             shapes = [x[0] for x in fits]
             scales = [x[2] for x in fits]
             # scales_mod = [scales[i] - shapes[i] * u[i] for i in range(len(u))]
@@ -321,7 +386,7 @@ class EVA:
             if not save_path:
                 plt.show()
             else:
-                plt.savefig(os.path.join(save_path,'{} Parameter Stability Plot.png'.format(name)),
+                plt.savefig(os.path.join(save_path, '{} Parameter Stability Plot.png'.format(name)),
                             bbox_inches='tight', dpi=600)
                 plt.close()
         else:
@@ -360,64 +425,85 @@ class EVA:
         if self.distribution == 'GPD':
             if self.method != 'POT':
                 raise ValueError('GPD distribution is applicable only with the POT method')
-            parameters = scipy.stats.genpareto.fit(self.extremes[self.col].values - self.threshold)
-            def ret_val(t, param, u):
-                return u + scipy.stats.genpareto.ppf(1 - 1 / (self.rate * t), c=param[0], loc=param[1], scale=param[2])
+            self.fit_parameters = scipy.stats.genpareto.fit(self.extremes[self.col].values - self.threshold)
+            def ret_val(t):
+                return self.threshold + scipy.stats.genpareto.ppf(
+                    1 - 1 / (self.rate * t),
+                    c=self.fit_parameters[0], loc=self.fit_parameters[1], scale=self.fit_parameters[2]
+                )
 
         elif self.distribution == 'GEV':
             if self.method != 'BM':
                 raise ValueError('GEV distribution is applicable only with the BM method')
-            parameters = scipy.stats.genextreme.fit(self.extremes[self.col].values)
-            def ret_val(t, param, u):
-                return scipy.stats.genextreme.ppf(1 - 1 / (self.rate * t), c=param[0], loc=param[1], scale=param[2])
+            self.fit_parameters = scipy.stats.genextreme.fit(self.extremes[self.col].values)
+            def ret_val(t):
+                return scipy.stats.genextreme.ppf(
+                    1 - 1 / (self.rate * t),
+                    c=self.fit_parameters[0], loc=self.fit_parameters[1], scale=self.fit_parameters[2]
+                )
 
         elif self.distribution == 'Weibull':
             if self.method != 'POT':
                 raise ValueError('Weibull distribution is applicable only with the POT method')
-            parameters = scipy.stats.weibull_min.fit(self.extremes[self.col].values - self.threshold)
-            def ret_val(t, param, u):
-                return u + scipy.stats.weibull_min.ppf(1 - 1 / (self.rate * t), c=param[0], loc=param[1], scale=param[2])
+            self.fit_parameters = scipy.stats.invweibull.fit(self.extremes[self.col].values - self.threshold)
+            def ret_val(t):
+                return self.threshold + scipy.stats.invweibull.ppf(
+                    1 - 1 / (self.rate * t),
+                    c=self.fit_parameters[0], loc=self.fit_parameters[1], scale=self.fit_parameters[2]
+                )
 
         elif self.distribution == 'Log-normal':
             if self.method == 'POT':
-                parameters = scipy.stats.lognorm.fit(self.extremes[self.col].values - self.threshold)
-                def ret_val(t, param, u):
-                    return u + scipy.stats.lognorm.ppf(1 - 1 / (self.rate * t), s=param[0], loc=param[1], scale=param[2])
+                self.fit_parameters = scipy.stats.lognorm.fit(self.extremes[self.col].values - self.threshold)
+                def ret_val(t):
+                    return self.threshold + scipy.stats.lognorm.ppf(
+                        1 - 1 / (self.rate * t),
+                        s=self.fit_parameters[0], loc=self.fit_parameters[1], scale=self.fit_parameters[2]
+                    )
             else:
-                parameters = scipy.stats.lognorm.fit(self.extremes[self.col].values)
-                def ret_val(t, param, u):
-                    return scipy.stats.lognorm.ppf(1 - 1 / (self.rate * t), s=param[0], loc=param[1], scale=param[2])
+                self.fit_parameters = scipy.stats.lognorm.fit(self.extremes[self.col].values)
+                def ret_val(t):
+                    return scipy.stats.lognorm.ppf(
+                        1 - 1 / (self.rate * t),
+                        s=self.fit_parameters[0], loc=self.fit_parameters[1], scale=self.fit_parameters[2]
+                    )
 
         elif self.distribution == 'Pearson 3':
             if self.method == 'POT':
-                parameters = scipy.stats.pearson3.fit(self.extremes[self.col].values - self.threshold)
-                def ret_val(t, param, u):
-                    return u + scipy.stats.pearson3.ppf(1 - 1 / (self.rate * t), skew=param[0], loc=param[1],
-                                                        scale=param[2])
+                self.fit_parameters = scipy.stats.pearson3.fit(self.extremes[self.col].values - self.threshold)
+                def ret_val(t):
+                    return self.threshold + scipy.stats.pearson3.ppf(
+                        1 - 1 / (self.rate * t),
+                        skew=self.fit_parameters[0], loc=self.fit_parameters[1], scale=self.fit_parameters[2]
+                    )
             else:
-                parameters = scipy.stats.pearson3.fit(self.extremes[self.col].values)
-                def ret_val(t, param, u):
-                    return scipy.stats.pearson3.ppf(1 - 1 / (self.rate * t), skew=param[0], loc=param[1],
-                                                        scale=param[2])
+                self.fit_parameters = scipy.stats.pearson3.fit(self.extremes[self.col].values)
+                def ret_val(t):
+                    return scipy.stats.pearson3.ppf(
+                        1 - 1 / (self.rate * t),
+                        skew=self.fit_parameters[0], loc=self.fit_parameters[1], scale=self.fit_parameters[2]
+                    )
 
         # TODO =================================================================================
         # TODO - seems good, but test (expon, fretchet)
         elif self.distribution == 'Gumbel':
             if self.method != 'BM':
                 raise ValueError('Gumbel distribution is applicable only with the BM method')
-            parameters = scipy.stats.gumbel_r.fit(self.extremes[self.col].values)
-            def ret_val(t, param, rate, u):
-                return scipy.stats.gumbel_r.ppf(1 - 1 / (rate * t), loc=param[0], scale=param[1])
-
+            self.fit_parameters = scipy.stats.gumbel_r.fit(self.extremes[self.col].values)
+            def ret_val(t):
+                return scipy.stats.gumbel_r.ppf(
+                    1 - 1 / (self.rate * t),
+                    loc=self.fit_parameters[0], scale=self.fit_parameters[1]
+                )
         else:
             raise ValueError('Distribution type {} not recognized'.format(self.distribution))
         # TODO =================================================================================
 
         # Return periods equally spaced on log scale from 0.1y to 1000y
         rp = np.unique(np.append(np.logspace(0, 3, num=30), [1/12, 2, 5, 10, 25, 50, 100, 200, 500]))
-        rp = np.unique(np.append(rp, self.extremes['T'].values))
+        # rp = np.unique(np.append(rp, self.extremes['T'].values))
         rp = np.sort(rp)
-        rv = ret_val(rp, param=parameters, u=self.threshold)
+        rv = [ret_val(x) for x in rp]
         self.retvalsum = pd.DataFrame(data=rv, index=rp, columns=['Return Value'])
         self.retvalsum.index.name = 'Return Period'
 
@@ -428,62 +514,95 @@ class EVA:
                 # Define montecarlo return values generator
                 if self.distribution == 'GPD':
                     def montefit():
-                        lex = scipy.stats.poisson.rvs(len(self.extremes))
-                        sample = scipy.stats.genpareto.rvs(
-                            c=parameters[0], loc=parameters[1], scale=parameters[2], size=lex
+                        _lex = scipy.stats.poisson.rvs(len(self.extremes))
+                        _sample = scipy.stats.genpareto.rvs(
+                            c=self.fit_parameters[0], loc=self.fit_parameters[1], scale=self.fit_parameters[2],
+                            size=_lex
                         )
-                        param = scipy.stats.genpareto.fit(sample)  # floc=parameters[1]
-                        return ret_val(rp, param=param, u=self.threshold)
+                        _param = scipy.stats.genpareto.fit(_sample)  # floc=parameters[1]
+                        return self.threshold + scipy.stats.genpareto.ppf(
+                            1 - 1 / (self.rate * rp),
+                            c=_param[0], loc=_param[1], scale=_param[2]
+                        )
 
                 elif self.distribution == 'GEV':
                     def montefit():
-                        lex = self.N
-                        sample = scipy.stats.genextreme.rvs(
-                            c=parameters[0], loc=parameters[1], scale=parameters[2], size=lex
+                        _lex = self.N
+                        _sample = scipy.stats.genextreme.rvs(
+                            c=self.fit_parameters[0], loc=self.fit_parameters[1], scale=self.fit_parameters[2],
+                            size=_lex
                         )
-                        param = scipy.stats.genextreme.fit(sample)  # floc=parameters[1]
-                        return ret_val(rp, param=param, u=self.threshold)
+                        _param = scipy.stats.genextreme.fit(_sample)  # floc=parameters[1]
+                        return scipy.stats.genextreme.ppf(
+                            1 - 1 / (self.rate * rp),
+                            c=_param[0], loc=_param[1], scale=_param[2]
+                        )
 
                 elif self.distribution == 'Weibull':
                     def montefit():
-                        lex = scipy.stats.poisson.rvs(len(self.extremes))
-                        sample = scipy.stats.weibull_min.rvs(
-                            c=parameters[0], loc=parameters[1], scale=parameters[2], size=lex
+                        _lex = scipy.stats.poisson.rvs(len(self.extremes))
+                        _sample = scipy.stats.invweibull.rvs(
+                            c=self.fit_parameters[0], loc=self.fit_parameters[1], scale=self.fit_parameters[2],
+                            size=_lex
                         )
-                        param = scipy.stats.weibull_min.fit(sample)
-                        return ret_val(rp, param=param, u=self.threshold)
+                        _param = scipy.stats.invweibull.fit(_sample)
+                        return self.threshold + scipy.stats.invweibull.ppf(
+                            1 - 1 / (self.rate * rp),
+                            c=_param[0], loc=_param[1], scale=_param[2]
+                        )
 
                 elif self.distribution == 'Log-normal':
                     def montefit():
                         if self.method == 'POT':
-                            lex = scipy.stats.poisson.rvs(len(self.extremes))
+                            _lex = scipy.stats.poisson.rvs(len(self.extremes))
                         else:
-                            lex = self.N
-                        sample = scipy.stats.lognorm.rvs(
-                            s=parameters[0], loc=parameters[1], scale=parameters[2], size=lex
+                            _lex = self.N
+                        _sample = scipy.stats.lognorm.rvs(
+                            s=self.fit_parameters[0], loc=self.fit_parameters[1], scale=self.fit_parameters[2],
+                            size=_lex
                         )
-                        param = scipy.stats.lognorm.fit(sample)
-                        return ret_val(rp, param=param, u=self.threshold)
+                        _param = scipy.stats.lognorm.fit(_sample)
+                        if self.method == 'POT':
+                            return self.threshold + scipy.stats.lognorm.ppf(
+                                1 - 1 / (self.rate * rp),
+                                s=_param[0], loc=_param[1], scale=_param[2]
+                            )
+                        else:
+                            return scipy.stats.lognorm.ppf(
+                                1 - 1 / (self.rate * rp),
+                                s=_param[0], loc=_param[1], scale=_param[2]
+                            )
 
                 elif self.distribution == 'Pearson 3':
                     def montefit():
                         if self.method == 'POT':
-                            lex = scipy.stats.poisson.rvs(len(self.extremes))
+                            _lex = scipy.stats.poisson.rvs(len(self.extremes))
                         else:
-                            lex = self.N
-                        sample = scipy.stats.pearson3.rvs(
-                            skew=parameters[0], loc=parameters[1], scale=parameters[2], size=lex
+                            _lex = self.N
+                        _sample = scipy.stats.pearson3.rvs(
+                            skew=self.fit_parameters[0], loc=self.fit_parameters[1], scale=self.fit_parameters[2],
+                            size=_lex
                         )
-                        param = scipy.stats.pearson3.fit(sample)
-                        return ret_val(rp, param=param, u=self.threshold)
+                        _param = scipy.stats.pearson3.fit(_sample)
+                        if self.method == 'POT':
+                            return self.threshold + scipy.stats.pearson3.ppf(
+                                1 - 1 / (self.rate * rp),
+                                skew=_param[0], loc=_param[1], scale=_param[2]
+                            )
+                        else:
+                            return scipy.stats.pearson3.ppf(
+                                1 - 1 / (self.rate * rp),
+                                skew=_param[0], loc=_param[1], scale=_param[2]
+                            )
 
                 else:
                     raise ValueError('Montecarlo method is not implemented for {} distribution'.
                                      format(self.distribution))
+
                 sims = 0
                 mrv = []
                 if trunc:
-                    uplims = ret_val(10**4 * rp, param=parameters, u=self.threshold)
+                    uplims = ret_val(10**4 * rp)
                     while sims < k:
                         x = montefit()
                         if sum(x > uplims) == 0:
@@ -499,42 +618,72 @@ class EVA:
                 intervals = [scipy.stats.norm.interval(alpha=confidence, loc=x[0], scale=x[1]) for x in moments]
                 self.retvalsum['Lower'] = [x[0] for x in intervals]
                 self.retvalsum['Upper'] = [x[1] for x in intervals]
+                self.retvalsum['Sigma'] = [x[1] for x in moments]
 
             elif method == 'jacknife':
+                # TODO - verify this method works as intended
                 # Define jacknife return values generator
                 if self.distribution == 'GPD':
                     def jacknife(_i, _lex, _idx):
-                        sample = self.extremes[self.col].values[_idx != _i]
-                        param = scipy.stats.genpareto.fit(sample - self.threshold)
-                        return ret_val(rp, param=param, u=self.threshold)
+                        _sample = self.extremes[self.col].values[_idx != _i]
+                        _param = scipy.stats.genpareto.fit(_sample - self.threshold)
+                        return self.threshold + scipy.stats.genpareto.ppf(
+                            1 - 1 / (self.rate * rp),
+                            c=_param[0], loc=_param[1], scale=_param[2]
+                        )
 
                 elif self.distribution == 'GEV':
                     def jacknife(_i, _lex, _idx):
-                        sample = self.extremes[self.col].values[_idx != _i]
-                        param = scipy.stats.genextreme.fit(sample)
-                        return ret_val(rp, param=param, u=self.threshold)
+                        _sample = self.extremes[self.col].values[_idx != _i]
+                        _param = scipy.stats.genextreme.fit(_sample)
+                        return scipy.stats.genextreme.ppf(
+                            1 - 1 / (self.rate * rp),
+                            c=_param[0], loc=_param[1], scale=_param[2]
+                        )
 
                 elif self.distribution == 'Weibull':
                     def jacknife(_i, _lex, _idx):
-                        sample = self.extremes[self.col].values[_idx != _i]
-                        param = scipy.stats.weibull_min.fit(sample)
-                        return ret_val(rp, param=param, u=self.threshold)
+                        _sample = self.extremes[self.col].values[_idx != _i]
+                        _param = scipy.stats.invweibull.fit(_sample)
+                        return self.threshold + scipy.stats.invweibull.ppf(
+                            1 - 1 / (self.rate * rp),
+                            c=_param[0], loc=_param[1], scale=_param[2]
+                        )
 
                 elif self.distribution == 'Log-normal':
                     def jacknife(_i, _lex, _idx):
-                        sample = self.extremes[self.col].values[_idx != _i]
-                        param = scipy.stats.lognorm.fit(sample)
-                        return ret_val(rp, param=param, u=self.threshold)
+                        _sample = self.extremes[self.col].values[_idx != _i]
+                        _param = scipy.stats.lognorm.fit(_sample)
+                        if self.method == 'POT':
+                            return self.threshold + scipy.stats.lognorm.ppf(
+                                1 - 1 / (self.rate * rp),
+                                s=_param[0], loc=_param[1], scale=_param[2]
+                            )
+                        else:
+                            return scipy.stats.lognorm.ppf(
+                                1 - 1 / (self.rate * rp),
+                                s=_param[0], loc=_param[1], scale=_param[2]
+                            )
 
                 elif self.distribution == 'Pearson 3':
                     def jacknife(_i, _lex, _idx):
-                        sample = self.extremes[self.col].values[_idx != _i]
-                        param = scipy.stats.pearson3.fit(sample)
-                        return ret_val(rp, param=param, u=self.threshold)
+                        _sample = self.extremes[self.col].values[_idx != _i]
+                        _param = scipy.stats.pearson3.fit(_sample)
+                        if self.method == 'POT':
+                            return self.threshold + scipy.stats.pearson3.ppf(
+                                1 - 1 / (self.rate * rp),
+                                skew=_param[0], loc=_param[1], scale=_param[2]
+                            )
+                        else:
+                            return scipy.stats.pearson3.ppf(
+                                1 - 1 / (self.rate * rp),
+                                skew=_param[0], loc=_param[1], scale=_param[2]
+                            )
 
                 else:
                     raise ValueError('Jackinfe method is not implemented for {} distribution'.
                                      format(self.distribution))
+
                 lex = len(self.extremes)
                 idx = np.arange(lex)
                 mrv = []
@@ -549,6 +698,8 @@ class EVA:
                                 for i in range(len(filtered))]) ** .5
                 intervals = [scipy.stats.norm.interval(alpha=confidence, loc=loc, scale=scale)
                              for loc, scale in zip(_x_t, std)]
+                # moments = [scipy.stats.norm.fit(x) for x in filtered]
+                # intervals = [scipy.stats.norm.interval(alpha=confidence, loc=x[0], scale=x[1]) for x in moments]
                 self.retvalsum['Lower'] = [x[0] for x in intervals]
                 self.retvalsum['Upper'] = [x[1] for x in intervals]
 
@@ -573,6 +724,7 @@ class EVA:
         :return:
         """
 
+        # TODO - method is broken and unreliable
         unit = kwargs.pop('unit', 'unit')
         ylim = kwargs.pop('ylim', [self.extremes[self.col].values.min(), self.extremes[self.col].values.max()])
         assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
@@ -611,5 +763,5 @@ class EVA:
         :return:
         """
 
-        # TODO - implement
+        # TODO - implemented
         print('Not yet implemented')

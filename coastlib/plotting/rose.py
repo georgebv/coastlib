@@ -57,7 +57,7 @@ def __get_radii(
         d_bins = [_bin + dangle for _bin in d_bins]
         # The local "directions" reference causes aliasing with the global "directions" variable
         for i, direction in enumerate(directions):
-            if direction + dangle > 360:
+            if direction + dangle >= 360:
                 directions[i] = direction + dangle - 360
             else:
                 directions[i] = direction + dangle

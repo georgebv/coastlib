@@ -4,6 +4,8 @@ import pandas as pd
 import scipy.interpolate
 import scipy.optimize
 import scipy.stats
+import warnings
+from scipy.stats._continuous_distns import _distn_names
 import statsmodels.nonparametric.kde
 
 
@@ -96,15 +98,14 @@ def joint_table(values_1, values_2, binsize_1=0.3, binsize_2=4, bins=None, relat
         return pd.DataFrame(data=table[0], index=index_1, columns=index_2)
 
 
-
-def confidence_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
-    '''
+def confidence_fit(func, x, y, x_new, confidence=95, sims=1000, **kwargs):
+    """
     Fits function <function> to the <x,y> locus of points and evaluates the fit for a new set of values <x_new>.
     Returns <lower ci, fit, upper ci> using <how> method for a confidence interval <confidence>.
 
     Mandatory inputs
     ================
-    function : callable
+    func : callable
     x : list or array
     y : list or array
     x_new : list or array
@@ -125,7 +126,7 @@ def confidence_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
     ======
     (y_new, lower, upper) : tuple of <numpy.ndarray>s
         a tuple with (y_new fitted to <x_new>, lower bound for <confidence>, upper bound for <confidence>)
-    '''
+    """
 
     resample_ratio = kwargs.pop('resample_ratio', 0.4)
     poisson = kwargs.pop('poisson', True)
@@ -134,7 +135,7 @@ def confidence_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
     assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
     # Initial fit
-    popt, pcov = scipy.optimize.curve_fit(function, x, y, bounds=bounds)
+    popt, pcov = scipy.optimize.curve_fit(func, x, y, bounds=bounds)
 
     # Confidence interval
     popt_s = []
@@ -142,7 +143,7 @@ def confidence_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
         for i in range(sims):
             idx = np.random.choice(np.arange(len(x)), int(len(x) * resample_ratio), replace=False)
             x_s, y_s = x[idx], y[idx]
-            popt_l, pcov_l = scipy.optimize.curve_fit(function, x_s, y_s, bounds=bounds)
+            popt_l, pcov_l = scipy.optimize.curve_fit(func, x_s, y_s, bounds=bounds)
             popt_s.append(popt_l)
     elif how == 'kde':
         values = np.vstack([x, y])
@@ -155,13 +156,13 @@ def confidence_fit(function, x, y, x_new, confidence=95, sims=1000, **kwargs):
             else:
                 kde_sample = kernel.resample(len(x))
             x_s, y_s = kde_sample[0], kde_sample[1]
-            popt_l, pcov_l = scipy.optimize.curve_fit(function, x_s, y_s, bounds=bounds)
+            popt_l, pcov_l = scipy.optimize.curve_fit(func, x_s, y_s, bounds=bounds)
             popt_s.append(popt_l)
     else:
         raise ValueError('Method {} not recognized.'.format(how))
 
-    y_new = function(x_new, *popt)
-    y_s = np.array([function(x_new, *j) for j in popt_s])
+    y_new = func(x_new, *popt)
+    y_s = np.array([func(x_new, *j) for j in popt_s])
     moments = [scipy.stats.norm.fit(x) for x in y_s.T]
     intervals = [scipy.stats.norm.interval(alpha=confidence / 100, loc=x[0], scale=x[1]) for x in moments]
     lower = [x[0] for x in intervals]
@@ -218,3 +219,64 @@ def associated_value(values_1, values_2, value, search_range, plot=True, echo=Tr
         print(f'Associated value -> {av:.2f}')
 
     return av
+
+
+def best_fit_distribution(data, bins=200, distribution_names=_distn_names):
+    """
+    Finds best scipy distribution fit for 1D data using SSE as fit metric
+
+    Mandatory Inputs
+    ================
+    data : array-like
+        Array-like structure containing data
+    bins : int
+        Number of bins into which data is split for analysis
+
+    Optional inputs
+    ===============
+
+    Output
+    ======
+    tuple with: name of best distribution, fit parameters (loc, scale, etc.)
+
+    """
+
+    # Get empirical PDF values
+    y, x = np.histogram(data, bins=bins, density=True)
+    x = (x + np.roll(x, -1))[:-1] / 2
+
+    # Assume normal distribution as default best
+    best_distribution = scipy.stats.norm
+    best_params = (0, 1)
+    best_sse = np.inf
+
+    # Estimate distribution parameters
+    for distn_name in distribution_names:
+        print('Testing the {0} distribution'.format(distn_name))
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore')
+
+                # Fit the distribution
+                distribution = getattr(scipy.stats, distn_name)
+                params = distribution.fit(data)
+
+                # Get fit parameters
+                loc = params[-2]
+                scale = params[-1]
+                arg = params[:-2]
+
+                # Calculate fitted PDF and error with fit in distribution
+                pdf = distribution.pdf(x, loc=loc, scale=scale, *arg)
+                sse = np.sum(np.power(y - pdf, 2.0))
+
+                # Check if this distribution is better than the current best
+                if best_sse > sse > 0:
+                    best_distribution = distribution
+                    best_params = params
+                    best_sse = sse
+
+        except Exception:
+            pass
+
+    return best_distribution.name, best_params
