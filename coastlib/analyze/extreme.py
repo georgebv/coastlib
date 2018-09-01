@@ -20,11 +20,15 @@ class EVA:
         aka years without any data.
         ~$ eve = EVA(dataframe=df, column=col, discontinuous=True)
 
-    2   Use the <.get_extremes> class method to parse extreme values. Set <method> to 'AM' to use
+    2   Use the <.threshold_selection> class method to run various threshold selection
+        assistance routines.
+        ~$ eve.threshold_selection(thresholds=list_of_thresholds, method='mean residual life plot')
+
+    3   Use the <.get_extremes> class method to parse extreme values. Set <method> to 'AM' to use
         annual maxima and to 'POT' to use peaks over threshold extraction methods.
         ~$ eve.get_extremes(method='POT', **kwargs)
 
-    3   Use the <.fit> class method to fit a distribution <distribution> to the extracted extreme values.
+    4   Use the <.fit> class method to fit a distribution <distribution> to the extracted extreme values.
         The parameter <distribution> is a string with a scipy.stats distribution name
         (look up on https://docs.scipy.org/doc/scipy/reference/stats.html).
         ~$ eve.fit(distribution='genpareto', confidence_interval=0.95, **kwargs)
@@ -33,7 +37,7 @@ class EVA:
         genpareto, genextreme, genexpon, gumbel_r, invgauss, invweibull, lognorm, powerlognorm,
         pearson3, pareto, rayleigh, weibull_min (or _max)
 
-    4   Use the <.plot> method to get a quick visual summary - shows observed pdf, cdf, extreme values
+    5   Use the <.plot> class method to get a quick visual summary - shows observed pdf, cdf, extreme values
         vs. the distribution-predicted smooth fit
 
     """
@@ -54,7 +58,7 @@ class EVA:
             if column in self.data.columns:
                 self.column = column
             else:
-                raise ValueError('Column {0} cannot be accessed. Check spelling'.format(column))
+                raise ValueError('Invalid value passed for column "{0}". Check spelling'.format(column))
         else:
             self.column = self.data.columns[0]
 
@@ -78,6 +82,30 @@ class EVA:
                 'due to the total length of observation period being low'.format(missing)
             )
 
+    def __repr__(self):
+        summary = f'Extreme Value Analysis\n' \
+                  f'======================\n' \
+                  f'Parameter          | {self.column}\n' \
+                  f'Number of years    | {self.N:.0f}\n'
+
+        try:
+            summary += f'Extreme events     | {len(self.extremes):.0f}\n' \
+                       f'Extreme event rate | {self.rate:.2f}\n' \
+                       f'Extraction method  | {self.method}\n'
+        except AttributeError:
+            summary += f'Extreme events     | not extracted\n' \
+                       f'Extreme event rate | not extracted' \
+                       f'Extraction method  | not extracted\n'
+
+        try:
+            summary += f'Distribution       | {self.distribution}\n' \
+                       f'Fit parameters     | {self.fit_parameters}'
+        except AttributeError:
+            summary += f'Distribution       | not selected\n' \
+                       f'Fit parameters     | not fit'
+
+        return summary
+
     def get_extremes(self, method='POT', **kwargs):
         """
         Extracts extreme values from provided data using POT (peaks over threshold)
@@ -100,7 +128,7 @@ class EVA:
 
         Returns
         -------
-        Creates a self.extremes dataframe with extreme values and return periods determined using
+        Creates a <.extremes> dataframe with extreme values and return periods determined using
         the Weibull plotting position P=m/(N+1)
         """
 
@@ -128,6 +156,7 @@ class EVA:
                         if _value > new_values[-1]:
                             new_values[-1] = _value
                 self.extremes = pd.DataFrame(data=new_values, index=new_indexes, columns=[self.column])
+
         elif self.method == 'AM':
             self.threshold = 0
             # Extract Annual Maxima extremes
@@ -160,7 +189,7 @@ class EVA:
 
         # Remove previously fit distribution to avoid mistakes
         try:
-            del self.retvalsum
+            del self.retvalsum, self.distribution, self.fit_parameters
         except AttributeError:
             pass
 
@@ -195,7 +224,7 @@ class EVA:
 
         Returns
         -------
-        Creates <retvalsum> dataframe with estimated extreme values for return periods
+        Creates <.retvalsum> dataframe with estimated extreme values for return periods
         and upper and lower confidence bounds, if specified.
         """
 
@@ -215,9 +244,10 @@ class EVA:
         # Fit the distribution to the extracted extreme values
         self.distribution = getattr(scipy.stats, distribution)
         if loc:
-            self.fit_parameters = self.distribution.fit(self.extremes[self.column] - self.threshold, floc=loc)
+            self.fit_parameters = self.distribution.fit(self.extremes[self.column] - self.threshold, loc=loc)
         else:
             self.fit_parameters = self.distribution.fit(self.extremes[self.column] - self.threshold)
+
         def return_value_function(t):
             return self.threshold + self.distribution.isf(
                 1/t/self.rate, *self.fit_parameters[:-2],
@@ -289,6 +319,7 @@ class EVA:
                 self.retvalsum['Sigma'] = [_x[1] for _x in moments]
 
             elif confidence_method == 'jackknife':
+                # TODO - jackknife method (aka leave-one-out)
                 # TODO - jackknife method (aka leave-one-out)
                 raise NotImplementedError
 
@@ -424,10 +455,6 @@ class EVA:
         ----------
         bins : int
             Number of bins in the PDF and CDF histograms (default=10)
-
-        Returns
-        -------
-        Generates a matplotlib plot
         """
 
         # Make sure distribution has been fit
@@ -499,16 +526,31 @@ class EVA:
 
     def threshold_selection(self, thresholds, method='empirical', **kwargs):
         """
+        This method provides several routines used to assist threshold selection
 
         Parameters
         ----------
-        thresholds
-        method
+        thresholds : iterable of floats
+                List of thresholds to check
+        method : str
+            Threshold selection assistance methods (default='empirical'):
+                -'empirical' - returns a dataframe with suggested
+                -'mean residual life plot' - plots threshold vs. mean residuals with confidence bounds
+                -'parameter stability plot' - returns a list of dataframes with parameters
+                    and lower and upper parameter confidence bounds for each distribution parameter
         kwargs
-
-        Returns
-        -------
-
+            decluster : bool
+                Decluster checks if extremes are declustered (default=True)
+            r : float
+                POT method only: minimum distance in hours between events for them to be considered independent
+                (default=24)
+            k : int
+                Number of samples used to estimate confidence bounds (default=10**2)
+                Reduce to improve performance of the 'mean residual life plot' or 'parameter stability plot' methods
+            confidence_interval : float
+                Confidence interval width, should be confidence_interval<1 (default=0.95)
+            loc : float
+                Guess of the location parameter value. Location parameter is estimated if None is passed (default=None)
         """
 
         # Parse arguments
@@ -516,10 +558,11 @@ class EVA:
         r = kwargs.pop('r', 24)
         k = kwargs.pop('k', 10**2)
         confidence_interval = kwargs.pop('confidence_interval', 0.95)
-        assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+        loc = kwargs.pop('loc', None)
 
         # Generate threshold selection assistance data
         if method == 'empirical':
+            assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
             # 90% rulse
             tres = [
                 np.percentile(self.data[self.column].values, 90)
@@ -549,6 +592,7 @@ class EVA:
                                 columns=['Threshold'])
 
         elif method == 'mean residual life plot':
+            assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
             mean_residuals = []
             mean_residuals_lower, mean_residuals_upper = [], []
             for threshold in thresholds:
@@ -566,12 +610,9 @@ class EVA:
                         a=self.extremes[self.column].values,
                         size=len(self.extremes), replace=True
                     )
-                    try:
-                        _mean_residuals.append(
-                            (_sample - threshold).mean()
-                        )
-                    except TypeError:
-                        _mean_residuals.append(_sample)
+                    _mean_residuals.append(
+                        (_sample - threshold).mean()
+                    )
                     _simulation_count += 1
                 _moments = scipy.stats.norm.fit(_mean_residuals)
                 _intervals = scipy.stats.norm.interval(alpha=confidence_interval, loc=_moments[-2], scale=_moments[-1])
@@ -605,7 +646,69 @@ class EVA:
                     )
                 )
 
-    # TODO - define __repr__ method
+        elif method == 'parameter stability plot':
+            # Parse parameter stability plot arguments
+            distribution = kwargs.pop('distribution')
+            assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
+
+            # Set distribution
+            _distribution = getattr(scipy.stats, distribution)
+
+            # Get a list of tuples with fit parameters (length of tuple depends on distribution)
+            fit_parameters = []
+            fit_parameters_lower, fit_parameters_upper = [], []
+            for threshold in thresholds:
+                # Fit distribution
+                self.get_extremes(method='POT', threshold=threshold, r=r, decluster=decluster)
+                if loc:
+                    _fit_parameters = _distribution.fit(self.extremes[self.column] - self.threshold, loc=loc)
+                else:
+                    _fit_parameters = _distribution.fit(self.extremes[self.column] - self.threshold)
+                fit_parameters.append(_fit_parameters)
+
+                # Estimate _fit_parameters confidence bounds using the bootstrap method
+                # Perform k simulations and collect a list of fit paramters for each
+                _simulation_count = 0
+                _fit_parameters_bounds = []
+                while _simulation_count < k:
+                    _sample = np.random.choice(
+                        a=self.extremes[self.column].values,
+                        size=len(self.extremes), replace=True
+                    )
+                    if loc:
+                        _fit_parameters = _distribution.fit(self.extremes[self.column] - threshold, loc=loc)
+                    else:
+                        _fit_parameters = _distribution.fit(self.extremes[self.column] - threshold)
+                    _fit_parameters_bounds.append(_fit_parameters)
+                    _simulation_count += 1
+                # Get lower and upper confidence bounds for each fit parameter
+                _fit_parameters_lower, _fit_parameters_upper = [], []
+                for i in range(len(_fit_parameters_bounds[0])):
+                    _parameter_array = np.array([_v[i] for _v in _fit_parameters_bounds])
+                    _moments = scipy.stats.norm.fit(_parameter_array)
+                    _intervals = scipy.stats.norm.interval(
+                        alpha=confidence_interval, loc=_moments[-2], scale=_moments[-1]
+                    )
+                    _fit_parameters_lower.append(_intervals[0])
+                    _fit_parameters_upper.append(_intervals[1])
+                fit_parameters_lower.append(_fit_parameters_lower)
+                fit_parameters_upper.append(_fit_parameters_upper)
+
+            # Generate a Pandas DataFrame with fit parameter and lower and upper confidence bounds
+            # for each fit parameter
+            self.parameter_stability_data = []
+            for i in range(len(fit_parameters[0])):
+                _df = pd.DataFrame(
+                    data=[_v[i] for _v in fit_parameters], index=thresholds,
+                    columns=['Fit Parameter {0}'.format(i)]
+                )
+                _df.index.name = 'Threshold'
+                _df['Lower'] = [_v[i] for _v in fit_parameters_lower]
+                _df['Upper'] = [_v[i] for _v in fit_parameters_upper]
+                self.parameter_stability_data.append(_df)
+
+        else:
+            raise ValueError(r'Method "{0}" is not recognized'.format(method))
 
 # Test
 # import os
@@ -622,56 +725,3 @@ class EVA:
 #
 # eve.threshold_selection(method='empirical', thresholds=np.arange(30, 60))
 # eve.threshold_selection(method='mean residual life plot', thresholds=np.arange(30, 60, 1))
-
-
-# def par_stab_plot(self, u, distribution='GPD', decluster=True, dmethod='naive',
-#                   r=24, save_path=None, name='_DATA_SOURCE_'):
-#     """
-#     Generates a parameter stability plot for the a range of thresholds u.
-#     :param u: list or array
-#         List of threshold values.
-#     :param decluster: bool
-#         Use run method to decluster data 9default = True)
-#     :param r: float
-#         Run lengths (hours), specify if decluster=True.
-#     :param save_path: str
-#         Path to save folder.
-#     :param name: str
-#         File save name.
-#     :param dmethod: str
-#         Decluster method (Default = 'naive')
-#     :param distribution: str
-#         Distribution name
-#     """
-#     u = np.array(u)
-#     if u.max() > self.data[self.col].max():
-#         u = u[u <= self.data[self.col].max()]
-#     if distribution == 'GPD':
-#         fits = []
-#         for tres in u:
-#             self.get_extremes(method='POT', threshold=tres, r=r, decluster=decluster, dmethod=dmethod)
-#             extremes_local = self.extremes[self.col].values - tres
-#             fits.append(scipy.stats.genpareto.fit(extremes_local))
-#         shapes = [x[0] for x in fits]
-#         scales = [x[2] for x in fits]
-#         # scales_mod = [scales[i] - shapes[i] * u[i] for i in range(len(u))]
-#         scales_mod = scales
-#         with plt.style.context('bmh'):
-#             plt.figure(figsize=(16, 8))
-#             plt.subplot(1, 2, 1)
-#             plt.plot(u, shapes, lw=2, color='orangered', label=r'Shape Parameter')
-#             plt.xlabel(r'Threshold Value')
-#             plt.ylabel(r'Shape Parameter')
-#             plt.subplot(1, 2, 2)
-#             plt.plot(u, scales_mod, lw=2, color='orangered', label=r'Scale Parameter')
-#             plt.xlabel(r'Threshold Value')
-#             plt.ylabel(r'Scale Parameter')
-#             plt.suptitle(r'{} Parameter Stability Plot'.format(name))
-#         if not save_path:
-#             plt.show()
-#         else:
-#             plt.savefig(os.path.join(save_path, '{} Parameter Stability Plot.png'.format(name)),
-#                         bbox_inches='tight', dpi=600)
-#             plt.close()
-#     else:
-#         print('The {} distribution is not yet implemented for this method'.format(distribution))
