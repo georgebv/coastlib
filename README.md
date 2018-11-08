@@ -1,11 +1,1 @@
-# coastlib general information
-
-## Prerequisites
-* numpy
-* scipy
-* pandas
-* matplotlib
-
-
-## Install
-clone the package to your hard drive and run `pip install .` in cmd/powershell/terminal from the folder with setup.py
+Moved to GitLab at https://gitlab.com/georgebv/coastlib
