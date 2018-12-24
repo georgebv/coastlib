@@ -1,5 +1,10 @@
+statsmodels
+corner
+emcee
+mpmath
 numpy
 scipy
 pandas
 matplotlib
-pint
+rasterio
+cartopy

@@ -4,12 +4,12 @@ Below is a sneak peak from the latest version of the Extreme Value Analysis modu
 
 - extreme values extraction and declustering:
 
-![alt tag](https://github.com/georgebv/coastlib/blob/master/coastlib/Figure_3.png)
+![alt tag](https://github.com/georgebv/coastlib/blob/master/misc/Figure_3.png)
 
 - using Markov chain Monte Carlo (using [emcee affine invariant ensemble sampler](http://dfm.io/emcee/current/)) to find posterior distributions of fit parameters:
 
-![alt tag](https://github.com/georgebv/coastlib/blob/master/coastlib/Figure_7.png)
+![alt tag](https://github.com/georgebv/coastlib/blob/master/misc/Figure_7.png)
 
 - plotting return values:
 
-![alt tag](https://github.com/georgebv/coastlib/blob/master/coastlib/Figure_10.png)
+![alt tag](https://github.com/georgebv/coastlib/blob/master/misc/Figure_10.png)
