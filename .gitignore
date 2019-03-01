@@ -3,3 +3,6 @@
 
 # Python general
 __pycache__/
+
+# Jupyter
+.ipynb_checkpoints/

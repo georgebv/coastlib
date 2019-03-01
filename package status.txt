@@ -1,0 +1,17 @@
+coastlib
+	| math
+		| derivatives.py - fully operational
+		| vector.py - not started
+	| metocean
+		| get_soundg.py - fully operational
+		| noaa.py - fully operational
+		| tide.py - not started
+		| wavewatch.py - WIP
+	| plotting
+		| rose.py - fully operational
+	| stats
+		| distributions.py - fully operational
+		| extreme.py - fully operational
+	| waves
+		| fenton.py - fully operational
+		| airy.py - fully operational

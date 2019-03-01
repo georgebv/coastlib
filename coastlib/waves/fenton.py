@@ -3,11 +3,17 @@ import shutil
 import subprocess
 import threading
 
-import matplotlib.pyplot as plt
 import matplotlib.animation
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.constants
+
+import coastlib.waves.support
+import coastlib.helper.environment
+
+
+coastlib.helper.environment.append_bin()
 
 
 def _generate_data(
@@ -84,7 +90,7 @@ class FentonWave:
             Number of points on free surface.
             Number of velocity/acceration profiles over half a wavelength, including 0 and lambda/2.
             Number of vertical points in each profile, including points at bottom and surface.
-            default=dict(n_surface=50, n_profiles=50, n_vertical=50).
+            default=dict(n_surface=10, n_profiles=100, n_vertical=50).
 
     Public Attributes
     -----------------
@@ -135,6 +141,7 @@ class FentonWave:
     --------------
     self.plot
     self.animate
+    self.validate
 
     Private Methods
     ---------------
@@ -144,7 +151,6 @@ class FentonWave:
     self.__write_inputs
     self.__run_fourier
     self.__parse_outputs
-
     """
 
     def __init__(self, wave_height, depth, wave_period=None, wave_length=None, timeout=5, **kwargs):
@@ -186,7 +192,7 @@ class FentonWave:
                 Number of points on free surface.
                 Number of velocity/acceration profiles over half a wavelength, including 0 and lambda/2.
                 Number of vertical points in each profile, including points at bottom and surface.
-                default=dict(n_surface=50, n_profiles=50, n_vertical=50).
+                default=dict(n_surface=10, n_profiles=100, n_vertical=50).
         """
 
         self.wave_height = wave_height
@@ -224,7 +230,7 @@ class FentonWave:
         self.convergence = kwargs.pop('convergence', dict(max_iter=40, crit_conv='1.e-5'))
 
         # Output quantity
-        self.points = kwargs.pop('points', dict(n_surface=50, n_profiles=50, n_vertical=50))
+        self.points = kwargs.pop('points', dict(n_surface=10, n_profiles=100, n_vertical=50))
 
         self.data = dict(
             h_by_d=self.wave_height / self.depth,
@@ -242,6 +248,10 @@ class FentonWave:
         self.__run(os.path.join(os.environ['TEMP'], 'fenton_temp'), timeout)
 
     def __repr__(self):
+        """
+        Generates a string with a summary of the FentonWave class instance object.
+        """
+
         summary = str(
             f'{" "*24}Fenton Wave\n'
             f'{"="*59}\n'
@@ -274,11 +284,18 @@ class FentonWave:
         # Clean up if Fourier.exe was terminated
         if self.__killed:
             shutil.rmtree(path)
-            raise TimeoutError(
-                f'Fourier.exe was not responding and was terminated after {timeout:.2f} seconds. '
-                'Likely a convergence problem caused by an inadequate combination of input parameters:\n'
-                f'wave_height={self.wave_height:.2f}, wave_period={self.wave_period:.2f}, depth={self.depth:.2f}'
-            )
+            if self.measure_of_length == 'Period':
+                raise TimeoutError(
+                    f'Fourier.exe was not responding and was terminated after {timeout:.2f} seconds. '
+                    f'Likely a convergence problem caused by an inadequate combination of input parameters:\n'
+                    f'wave_height={self.wave_height:.2f}, wave_period={self.wave_period:.2f}, depth={self.depth:.2f}'
+                )
+            elif self.measure_of_length == 'Wavelength':
+                raise TimeoutError(
+                    f'Fourier.exe was not responding and was terminated after {timeout:.2f} seconds. '
+                    f'Likely a convergence problem caused by an inadequate combination of input parameters:\n'
+                    f'wave_height={self.wave_height:.2f}, wave_length={self.wave_length:.2f}, depth={self.depth:.2f}'
+                )
 
         # Parse output and clean up
         self.__parse_outputs(path)
@@ -337,7 +354,7 @@ class FentonWave:
                     pass
         finally:
             timer.cancel()
-        log.extend(['\n=== "Fourier.exe" process finished with an exit code ({}) ==='.format(p.poll())])
+        log.extend([f'\n=== "Fourier.exe" process finished with an exit code ({p.poll()}) ==='])
         self.fourier_log = ''.join(log)
         os.chdir(curdir)
 
@@ -408,125 +425,119 @@ class FentonWave:
         self.flowfield['X/d'] = xd
         self.flowfield['Phase (deg)'] = phase
 
-        # Convert self.solution from dimensionless to dimensional
-        if self.measure_of_length == 'Period':
-            summary = [row[1] for row in self.solution.values]
-            self.depth *= summary[0]
-            self.wave_length = summary[1] * self.depth
-            self.wave_height = summary[2] * self.depth
-            self.wave_period = summary[3] / np.sqrt(self.g / self.depth)
-            self.wave_speed = summary[4] * np.sqrt(self.g * self.depth)
-            self.eulerian_current = summary[5] * np.sqrt(self.g * self.depth)
-            self.stokes_current = summary[6] * np.sqrt(self.g * self.depth)
-            self.mean_fluid_speed = summary[7] * np.sqrt(self.g * self.depth)
-            self.wave_volume_flux = summary[8] * np.sqrt(self.g * self.depth ** 3)
-            self.bernoulli_constant_r = summary[9] * (self.g * self.depth)
-            self.volume_flux = summary[10] * np.sqrt(self.g * self.depth ** 3)
-            self.bernoulli_constant_R = summary[11] * (self.g * self.depth)
-            self.momentum_flux = summary[12] * (self.rho * self.g * self.depth ** 2)
-            self.impulse = summary[13] * (self.rho * np.sqrt(self.g * self.depth ** 3))
-            self.kinetic_energy = summary[14] * (self.rho * self.g * self.depth ** 2)
-            self.potential_energy = summary[15] * (self.rho * self.g * self.depth ** 2)
-            self.mean_square_of_bed_velocity = summary[16] * (self.g * self.depth)
-            self.radiation_stress = summary[17] * (self.rho * self.g * self.depth ** 2)
-            self.wave_power = summary[18] * (self.rho * self.g ** (3 / 2) * self.depth ** (5 / 2))
-            self.solution = pd.DataFrame(
-                data=[
-                    'm',  # d - depth
-                    'm',  # d - wave length
-                    'm',  # d - wave height
-                    's',  # /sqrt(g/d) - wave period
-                    'm/s',  # sqrt(gd) - wave speed
-                    'm/s',  # sqrt(gd) - eulerian current
-                    'm/s',  # sqrt(gd) - stokes current
-                    'm/s',  # sqrt(gd) - mean fluid speed
-                    'm^2/s',  # sqrt(gd^3) - wave volume flux
-                    '(m/s)^2',  # gd - bernoulli constant r
-                    'm^2/s',  # sqrt(gd^3) - volume flux
-                    '(m/s)^2',  # gd - bernoulli constant R
-                    'kg/s^2 or (N/m)',  # rho*gd^2 - momentum flux
-                    'kg/(m*s)',  # rho*sqrt(gd^3) - impulse
-                    'kg/s^2 or (N/m)',  # rho*gd^2 - kinetic energy
-                    'kg/s^2 or (N/m)',  # rho*gd^2 - potential energy
-                    '(m/s)^2',  # gd - mean square of bed velocity
-                    'kg/s^2 or (N/m)',  # rho*gd^2 - raidation stress
-                    'kg*m/s^3 or (W/m)'  # rho*g^(3/2)*d^(5/2) - wave power
-                ],
-                columns=[
-                    'Unit'
-                ],
-                index=[
-                    'depth',
-                    'wave length',
-                    'wave height',
-                    'wave period',
-                    'wave speed',
-                    'eulerian current',
-                    'stokes current',
-                    'mean fluid_speed',
-                    'wave volume flux',
-                    'bernoulli constant r',
-                    'volume flux',
-                    'bernoulli constant R',
-                    'momentum flux',
-                    'impulse',
-                    'kinetic energy',
-                    'potential energy',
-                    'mean square of bed velocity',
-                    'radiation stress',
-                    'wave_power'
-                ]
-            )
-            self.solution['Value'] = [
-                self.depth,
-                self.wave_length,
-                self.wave_height,
-                self.wave_period,
-                self.wave_speed,
-                self.eulerian_current,
-                self.stokes_current,
-                self.mean_fluid_speed,
-                self.wave_volume_flux,
-                self.bernoulli_constant_r,
-                self.volume_flux,
-                self.bernoulli_constant_R,
-                self.momentum_flux,
-                self.impulse,
-                self.kinetic_energy,
-                self.potential_energy,
-                self.mean_square_of_bed_velocity,
-                self.radiation_stress,
-                self.wave_power
+        # Convert self.solution from dimensionless to dimensional using g and mean depth
+        summary = [row[1] for row in self.solution.values]
+        self.wave_number = 2 * np.pi / (self.depth * summary[0] * summary[1])
+        self.depth *= summary[0]
+        self.wave_length = summary[1] * self.depth
+        self.wave_height = summary[2] * self.depth
+        self.wave_period = summary[3] / np.sqrt(self.g / self.depth)
+        self.wave_speed = summary[4] * np.sqrt(self.g * self.depth)
+        self.eulerian_current = summary[5] * np.sqrt(self.g * self.depth)
+        self.stokes_current = summary[6] * np.sqrt(self.g * self.depth)
+        self.mean_fluid_speed = summary[7] * np.sqrt(self.g * self.depth)
+        self.wave_volume_flux = summary[8] * np.sqrt(self.g * self.depth ** 3)
+        self.bernoulli_constant_r = summary[9] * (self.g * self.depth)
+        self.volume_flux = summary[10] * np.sqrt(self.g * self.depth ** 3)
+        self.bernoulli_constant_R = summary[11] * (self.g * self.depth)
+        self.momentum_flux = summary[12] * (self.rho * self.g * self.depth ** 2)
+        self.impulse = summary[13] * (self.rho * np.sqrt(self.g * self.depth ** 3))
+        self.kinetic_energy = summary[14] * (self.rho * self.g * self.depth ** 2)
+        self.potential_energy = summary[15] * (self.rho * self.g * self.depth ** 2)
+        self.mean_square_of_bed_velocity = summary[16] * (self.g * self.depth)
+        self.radiation_stress = summary[17] * (self.rho * self.g * self.depth ** 2)
+        self.wave_power = summary[18] * (self.rho * self.g ** (3 / 2) * self.depth ** (5 / 2))
+        self.solution = pd.DataFrame(
+            data=[
+                'm',  # d - depth
+                'm',  # d - wave length
+                'm',  # d - wave height
+                's',  # /sqrt(g/d) - wave period
+                'm/s',  # sqrt(gd) - wave speed
+                'm/s',  # sqrt(gd) - eulerian current
+                'm/s',  # sqrt(gd) - stokes current
+                'm/s',  # sqrt(gd) - mean fluid speed
+                'm^2/s',  # sqrt(gd^3) - wave volume flux
+                '(m/s)^2',  # gd - bernoulli constant r
+                'm^2/s',  # sqrt(gd^3) - volume flux
+                '(m/s)^2',  # gd - bernoulli constant R
+                'kg/s^2 or (N/m)',  # rho*gd^2 - momentum flux
+                'kg/(m*s)',  # rho*sqrt(gd^3) - impulse
+                'kg/s^2 or (N/m)',  # rho*gd^2 - kinetic energy
+                'kg/s^2 or (N/m)',  # rho*gd^2 - potential energy
+                '(m/s)^2',  # gd - mean square of bed velocity
+                'kg/s^2 or (N/m)',  # rho*gd^2 - raidation stress
+                'kg*m/s^3 or (W/m)'  # rho*g^(3/2)*d^(5/2) - wave power
+            ],
+            columns=[
+                'Unit'
+            ],
+            index=[
+                'depth',
+                'wave length',
+                'wave height',
+                'wave period',
+                'wave speed',
+                'eulerian current',
+                'stokes current',
+                'mean fluid_speed',
+                'wave volume flux',
+                'bernoulli constant r',
+                'volume flux',
+                'bernoulli constant R',
+                'momentum flux',
+                'impulse',
+                'kinetic energy',
+                'potential energy',
+                'mean square of bed velocity',
+                'radiation stress',
+                'wave_power'
             ]
-            self.solution.index.rename('Parameter', inplace=True)
+        )
+        self.solution['Value'] = [
+            self.depth,
+            self.wave_length,
+            self.wave_height,
+            self.wave_period,
+            self.wave_speed,
+            self.eulerian_current,
+            self.stokes_current,
+            self.mean_fluid_speed,
+            self.wave_volume_flux,
+            self.bernoulli_constant_r,
+            self.volume_flux,
+            self.bernoulli_constant_R,
+            self.momentum_flux,
+            self.impulse,
+            self.kinetic_energy,
+            self.potential_energy,
+            self.mean_square_of_bed_velocity,
+            self.radiation_stress,
+            self.wave_power
+        ]
+        self.solution.index.rename('Parameter', inplace=True)
 
-            # Convert self.surface from dimensionless to dimensional
-            self.surface['X (m)'] = self.surface['X/d'].values * self.depth
-            self.surface['eta (m)'] = self.surface['eta/d'].values * self.depth
-            for _col in ['X/d', 'eta/d', 'check of surface pressure']:
-                del self.surface[_col]
+        # Convert self.surface from dimensionless to dimensional
+        self.surface['X (m)'] = self.surface['X/d'].values * self.depth
+        self.surface['eta (m)'] = self.surface['eta/d'].values * self.depth
+        for _col in ['X/d', 'eta/d', 'check of surface pressure']:
+            del self.surface[_col]
 
-            # Convert self.flowfield from dimensionless to dimensional
-            self.flowfield['X (m)'] = self.flowfield['X/d'].values * self.depth
-            self.flowfield['y (m)'] = self.flowfield['y (d)'] * self.depth
-            self.flowfield['u (m/s)'] = self.flowfield['u (sqrt(gd))'] * np.sqrt(self.g * self.depth)
-            self.flowfield['v (m/s)'] = self.flowfield['v (sqrt(gd))'] * np.sqrt(self.g * self.depth)
-            self.flowfield['dphi/dt (m^2/s^2)'] = self.flowfield['dphi/dt (gd)'] * self.g * self.depth
-            self.flowfield['du/dt (m/s^2)'] = self.flowfield['du/dt (g)'] * self.g
-            self.flowfield['dv/dt (m/s^2)'] = self.flowfield['dv/dt (g)'] * self.g
-            self.flowfield['du/dx (1/s)'] = self.flowfield['du/dx (sqrt(g/d))'] * np.sqrt(self.g / self.depth)
-            self.flowfield['du/dy (1/s)'] = self.flowfield['du/dy (sqrt(g/d))'] * np.sqrt(self.g / self.depth)
-            for _col in [
-                'y (d)', 'u (sqrt(gd))', 'v (sqrt(gd))', 'dphi/dt (gd)', 'du/dt (g)', 'dv/dt (g)',
-                'du/dx (sqrt(g/d))', 'du/dy (sqrt(g/d))', 'Bernoully check (gd)', 'X/d'
-            ]:
-                del self.flowfield[_col]
-
-        elif self.measure_of_length == 'Wavelength':
-            raise NotImplementedError
-
-        else:
-            raise RuntimeError
+        # Convert self.flowfield from dimensionless to dimensional
+        self.flowfield['X (m)'] = self.flowfield['X/d'].values * self.depth
+        self.flowfield['y (m)'] = self.flowfield['y (d)'] * self.depth
+        self.flowfield['u (m/s)'] = self.flowfield['u (sqrt(gd))'] * np.sqrt(self.g * self.depth)
+        self.flowfield['v (m/s)'] = self.flowfield['v (sqrt(gd))'] * np.sqrt(self.g * self.depth)
+        self.flowfield['dphi/dt (m^2/s^2)'] = self.flowfield['dphi/dt (gd)'] * self.g * self.depth
+        self.flowfield['du/dt (m/s^2)'] = self.flowfield['du/dt (g)'] * self.g
+        self.flowfield['dv/dt (m/s^2)'] = self.flowfield['dv/dt (g)'] * self.g
+        self.flowfield['du/dx (1/s)'] = self.flowfield['du/dx (sqrt(g/d))'] * np.sqrt(self.g / self.depth)
+        self.flowfield['du/dy (1/s)'] = self.flowfield['du/dy (sqrt(g/d))'] * np.sqrt(self.g / self.depth)
+        for _col in [
+            'y (d)', 'u (sqrt(gd))', 'v (sqrt(gd))', 'dphi/dt (gd)', 'du/dt (g)', 'dv/dt (g)',
+            'du/dx (sqrt(g/d))', 'du/dy (sqrt(g/d))', 'Bernoully check (gd)', 'X/d'
+        ]:
+            del self.flowfield[_col]
 
     def plot(self, what='ua', scale=1, nprof=4):
         """
@@ -572,11 +583,12 @@ class FentonWave:
             ax.plot(
                 np.unique(np.append(-phases[::-1], phases)),
                 np.append(surface[::-1][:-1], surface),
-                lw=3, color='k', zorder=5)
+                lw=3, color='k', zorder=5
+            )  # free surface
             ax.plot(
                 [-phases.max(), phases.max()],
                 [0, 0], color='k', lw=3, ls='--', zorder=5
-            )
+            )  # seabed
 
             for i in np.arange(0, len(phases), int(np.round(len(phases) / nprof))):
                 profile = self.flowfield[self.flowfield['X (m)'] == phases[i]]
@@ -618,7 +630,7 @@ class FentonWave:
                         color='orangered', lw=2, zorder=10
                     )  # profile
 
-            ax.set_title(f'Fenton Wave, {column} plot')
+            ax.set_title(f'Fenton Wave, Parameter ${column}$')
             ax.set_xlabel('Phase (m)')
             ax.set_ylabel('Elevation (m)')
             fig.tight_layout()
@@ -643,7 +655,7 @@ class FentonWave:
 
         Returns
         -------
-        animation object
+        matplotlib animation object
         """
 
         column = {
@@ -673,12 +685,12 @@ class FentonWave:
             ax.set_ylim([-0.1 * self.depth, 1.1 * self.surface['eta (m)'].values.max()])
             ax.set_xlim([self.surface['X (m)'].values.min() * 1.1, self.surface['X (m)'].values.max() * 1.1])
 
-            surface, = ax.plot(phases, etas, lw=3, color='k', zorder=5)
+            surface, = ax.plot(phases, etas, lw=3, color='k', zorder=5)  # free surface
             lines = [surface]
             ax.plot(
                 [-phases.max(), phases.max()],
                 [0, 0], color='k', lw=3, ls='--', zorder=5
-            )
+            )  # seabed
 
             profile = self.flowfield[self.flowfield['X (m)'] == 0]
             vert, = ax.plot(
@@ -724,7 +736,7 @@ class FentonWave:
             lines.append(htop)
             lines.append(prof)
 
-            ax.set_title(f'Fenton Wave, Phase {0:5.2f} sec')
+            ax.set_title(f'Fenton Wave, Parameter ${column}$, {0:5.2f} sec')
             ax.set_xlabel('Phase (m)')
             ax.set_ylabel('Elevation (m)')
             fig.tight_layout()
@@ -734,7 +746,7 @@ class FentonWave:
                 return np.abs(array[idx])
 
             def get_frame(i):
-                ax.set_title(f'Fenton Wave, Phase {i:5.2f} sec')
+                ax.set_title(f'Fenton Wave, Parameter ${column}$, {i:5.2f} sec')
                 if i <= self.wave_period / 2:
                     frame_phase = (i / self.wave_period) * self.wave_length
                     eta_phase = frame_phase - self.wave_length / 2
@@ -745,13 +757,16 @@ class FentonWave:
                 frame_etas = np.append(etas[idx:], etas[:idx])[::-1]
                 for j, line in enumerate(lines):
                     frame_profile = self.flowfield[self.flowfield['X (m)'] == find_nearest(phases, frame_phase)]
+                    # Update free surface
                     if j == 0:
                         line.set_data(phases, frame_etas)
+                    # Update vertical line
                     elif j == 1:
                         line.set_data(
                             [0, 0],
                             [frame_profile['y (m)'].values.min(), frame_profile['y (m)'].values.max()],
                         )
+                    # Update bottom horizontal line
                     elif j == 2:
                         if what == 'vy':
                             line.set_data(
@@ -763,6 +778,7 @@ class FentonWave:
                                 [0, 0 + frame_profile[column].values[0] * scale],
                                 [frame_profile['y (m)'].values.min(), frame_profile['y (m)'].values.min()]
                             )
+                    # Update top horizontal line
                     elif j == 3:
                         if what == 'vy':
                             line.set_data(
@@ -774,6 +790,7 @@ class FentonWave:
                                 [0, 0 + frame_profile[column].values[-1] * scale],
                                 [frame_profile['y (m)'].values.max(), frame_profile['y (m)'].values.max()]
                             )
+                    # Update profile
                     elif j == 4:
                         if what == 'vy':
                             line.set_data(
@@ -787,6 +804,7 @@ class FentonWave:
                             )
                 return lines
 
+            # Type hint for pycharm inspection
             timesteps: int = np.arange(0, self.wave_period+1/fps, 1/fps)
 
             animation = matplotlib.animation.FuncAnimation(
@@ -800,6 +818,20 @@ class FentonWave:
 
             return animation
 
+    def validate(self):
+        """
+        Shows what wave theory is applicable for given wave parameters using the
+        wave theories' figure by Le Mehaute per USACE CEM Part II Chap. 1 p.II-1-58
+
+        Returns
+        -------
+        (fig, ax)
+        """
+
+        return coastlib.waves.support.wave_theories(
+            wave_height=self.wave_height, wave_period=self.wave_period, depth=self.depth, g=self.g
+        )
+
 
 if __name__ == '__main__':
     try:
@@ -811,5 +843,9 @@ if __name__ == '__main__':
             timeout=30, fourier_components=20, height_steps=20,
             points=dict(n_surface=10, n_profiles=60*6, n_vertical=60*6)
         )
-        # _fig, _ax = self.plot(what='ua', scale=2, nprof=5)
-        _ani = self.animate(what='u', scale=2, fps=60, savepath=r'C:\users\georg\Desktop\fenton.mp4')
+        self.validate()
+        _fig, _ax = self.plot(what='ua', scale=1, nprof=4)
+        _ani = self.animate(
+            what='u', scale=2, fps=60,
+            savepath=os.path.join(r'C:', os.environ['HOMEPATH'], r'Desktop\fenton.mp4')
+        )

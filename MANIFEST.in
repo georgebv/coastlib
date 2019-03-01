@@ -1,0 +1,4 @@
+include *.txt
+include *.exe
+include *.md
+include bin/Fourier.exe
