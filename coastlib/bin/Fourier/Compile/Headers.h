@@ -11,7 +11,7 @@
 
 #ifdef Main
 FILE
-	*monitor, *Input1, *Input2, *Elevation, *Flowfield, *Solution;
+	*monitor, *Input1, *Input2, *Elevation, *Flowfield, *Solution, *Solution2;
 char
 	Title[100], dummy[100], Case[20], Currentname[10], Current1[10]="Euler", Current2[10]="Stokes",
 	Depth[100], Method[100], Convergence_file[50], Points_file[50];
@@ -19,7 +19,7 @@ char
 
 #ifdef Subprograms
 extern FILE
-	*monitor, *Input1, *Input2, *Elevation, *Flowfield, *Solution;
+	*monitor, *Input1, *Input2, *Elevation, *Flowfield, *Solution, *Solution2;
 extern char
 	Case[], dummy[], Title[], Currentname[], Current1[], Current2[], Depth[], Method[],
 	Convergence_file[], Points_file[], Theory[], Diagname[];

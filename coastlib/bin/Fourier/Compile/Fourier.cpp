@@ -13,7 +13,7 @@
 void
 	init(void), Solve(void), Title_block(FILE*),	Output(void);
 int
-	flushall(void);
+	_fcloseall(void);
 
 #define Main
 #define	Int		int
@@ -132,12 +132,14 @@ for ( Y[0] = 0., j = 1 ; j <= n ; j++ )
 // Print  results
 
 Solution=fopen("Solution.res","w");
+Solution2=fopen("Solution-Flat.res","w");
 Elevation = fopen("Surface.res","w");
 Flowfield = fopen("Flowfield.res","w");
 
 Output();
 
-fflush(NULL);
+_fcloseall();//26.01.2019 fflush(NULL);
+
 printf("\nTouch key to continue\n\n"); //getch();
 
 printf("\nFinished\n");

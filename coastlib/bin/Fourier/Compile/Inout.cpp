@@ -161,10 +161,16 @@ fprintf(file,"\n# Dimensionless Period T*sqrt(g/L):%7.2f", z[3]/sqrt(2*pi));
 fprintf(file,"\n# Current criterion: %s,  Dimensionless value:%6.3lf\n", Currentname, Current);
 }
 
-void Results(double x, double y)
+void Results(const char *Description, double x, double y)
 {
-fprintf(Solution, LO, x);
-Is_finite fprintf(Solution,"" LO, y);
+static int Virgin=0;
+Virgin++;
+fprintf(Solution, "\n%s" LO, Description, x);
+Is_finite
+	{
+	fprintf(Solution,"" LO, y);
+	fprintf(Solution2,"%2d\t%15.7e\t%15.7e\t%s\n", Virgin, x, y, Description);
+	}
 }
 
 void Output(void)
@@ -214,43 +220,51 @@ Is_finite
 
 Is_finite fprintf(Solution, "\n# Stokes-Ursell number %7.3f", 0.5*z[2]/pow(z[1],3));
 fprintf(Solution, "\n\n# Integral quantities - notation from Fenton (1988)");
+fprintf(Solution2,"# %s", Title);
+fprintf(Solution2,"\n# Solution non-dimensionalised by (1) g & wavenumber, and (2) g & mean depth\n");
 Is_finite
 	{
 	fprintf(Solution, "\n# (1) Quantity, (2) symbol, solution non-dimensionalised by (3) g & wavenumber, and (4) g & mean depth\n");
-	fprintf(Solution, "\n# Water depth                        (d)"); Results(z[1], 1.);
+	//fprintf(Solution, "\n# Water depth                        (d)"); Results(z[1], 1.);
+	Results("# Water depth                        (d)", z[1], 1.);
 	}
 Is_deep
 	{
 	fprintf(Solution, "\n# (1) Quantity, (2) symbol, solution non-dimensionalised by (3) g & wavenumber\n");
 	}
-fprintf(Solution, "\n# Wave length                   (lambda)"); Results(2*pi, L);
-fprintf(Solution, "\n# Wave height                        (H)"); Results(z[2], H);
-fprintf(Solution, "\n# Wave period                      (tau)"); Results(z[3], T);
-fprintf(Solution, "\n# Wave speed                         (c)"); Results(z[4], c);
-fprintf(Solution, "\n# Eulerian current                 (u1_)"); Results(z[5], ce);
-fprintf(Solution, "\n# Stokes current                   (u2_)"); Results(z[6], cs);
-fprintf(Solution, "\n# Mean fluid speed in frame of wave (U_)"); Results(z[7], ubar);
-fprintf(Solution, "\n# Volume flux due to waves           (q)"); Results(z[8], z[8]/pow(kd,1.5));
-fprintf(Solution, "\n# Bernoulli constant                 (r)"); Results(z[9], z[9]/kd);
+Results("# Wave length                   (lambda)", 2*pi, L);
+Results("# Wave height                        (H)", z[2], H);
+Results("# Wave period                      (tau)", z[3], T);
+Results("# Wave speed                         (c)", z[4], c);
+Results("# Eulerian current                 (u1_)", z[5], ce);
+Results("# Stokes current                   (u2_)", z[6], cs);
+Results("# Mean fluid speed in frame of wave (U_)", z[7], ubar);
+Results("# Volume flux due to waves           (q)", z[8], z[8]/pow(kd,1.5));
+Results("# Bernoulli constant                 (r)", z[9], z[9]/kd);
 
 Is_finite
 	{
-	fprintf(Solution, "\n# Volume flux                        (Q)"); Results(Q*pow(kd,1.5), Q);
-	fprintf(Solution, "\n# Bernoulli constant                 (R)"); Results(R*kd, R);
-	fprintf(Solution, "\n# Momentum flux                      (S)"); Results(s, s/kd/kd );
-	fprintf(Solution, "\n# Impulse                            (I)"); Results(pulse, pulse/pow(kd,1.5));
-	fprintf(Solution, "\n# Kinetic energy                     (T)"); Results(ke, ke/kd/kd);
-	fprintf(Solution, "\n# Potential energy                   (V)"); Results(pe, pe/kd/kd);
-	fprintf(Solution, "\n# Mean square of bed velocity     (ub2_)"); Results(ub2, ub2/kd);
-	fprintf(Solution, "\n# Radiation stress                 (Sxx)"); Results(sxx, sxx/kd/kd);
-	fprintf(Solution, "\n# Wave power                         (F)"); Results(f, f/pow(kd,2.5));
+	Results("# Volume flux                        (Q)", Q*pow(kd,1.5), Q);
+	Results("# Bernoulli constant                 (R)", R*kd, R);
+	Results("# Momentum flux                      (S)", s, s/kd/kd );
+	Results("# Impulse                            (I)", pulse, pulse/pow(kd,1.5));
+	Results("# Kinetic energy                     (T)", ke, ke/kd/kd);
+	Results("# Potential energy                   (V)", pe, pe/kd/kd);
+	Results("# Mean square of bed velocity     (ub2_)", ub2, ub2/kd);
+	Results("# Radiation stress                 (Sxx)", sxx, sxx/kd/kd);
+	Results("# Wave power                         (F)", f, f/pow(kd,2.5));
 	}
 
 fprintf(Solution, "\n\n# Dimensionless coefficients in Fourier series" );
 fprintf(Solution, "\n# Potential/Streamfn\tSurface elevations" );
 fprintf(Solution, "\n# j, B[j], & E[j], j=1..N\n" );
+fprintf(Solution2, "%2d\t# N, number of dimensionless Fourier coefficients - j, B[j], & E[j] below\n", n);
+
 for ( i=1 ; i <= n ; i++ )
+	{
 	fprintf(Solution, "\n%2d\t%15.7e\t%15.7e", i, B[i], Y[i]);
+	fprintf(Solution2, "%2d\t%15.7e\t%15.7e\n", i, B[i], Y[i]);
+	}
 fprintf(Solution, "\n\n" );
 
 // Surface - print out coordinates of points on surface for plotting plus check of pressure on surface
@@ -303,6 +317,11 @@ Is_deep
 	fprintf(Flowfield,  "\n#         sqrt(g/k)       g/k       g       g       sqrt(gk)        g/k         ");
 	}
 fprintf(Flowfield,  "\n#*******************************************************************************");
+
+fprintf(Flowfield,  "\n# Note that increasing X/d and 'Phase' here describes half of a wave for");
+fprintf(Flowfield,  "\n# X/d >= 0. In a physical problem, where we might have a constant x, because");
+fprintf(Flowfield,  "\n# the phase X = x - c * t, then as time t increases, X becomes increasingly");
+fprintf(Flowfield,  "\n# negative and not positive as passing down the page here implies.");
 
 for(I = 0; I <= Nprofiles ; ++I)
 	{
@@ -456,8 +475,8 @@ Is_finite
 	dudt = ut + u*ux + v*uy;
 	dvdt = vt + u*vx + v*vy;
 	Pressure = R - y - 0.5 * ((u-c)*(u-c)+v*v);
-	//printf("\n%f %f %f %f", R, y, 0.5*((u-c)*(u-c)+v*v),Pressure);
 	Bernoulli_check = dphidt + Pressure + y + 0.5*(u*u+v*v)-(R-0.5*c*c);
+	//printf("\n%f %f %f %f %f", R, y, 0.5*((u-c)*(u-c)+v*v),Pressure,Bernoulli_check);
 	}
 
 Is_deep
