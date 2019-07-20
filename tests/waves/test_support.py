@@ -2,9 +2,9 @@ from coastlib.waves import solve_dispersion_relation, wave_theories
 from matplotlib.testing.compare import compare_images
 import numpy as np
 import os
-import matplotlib
+import matplotlib.pyplot
 
-matplotlib.use('Qt5Agg')
+matplotlib.pyplot.ion()
 
 
 def test_solve_dispersion_relation():
