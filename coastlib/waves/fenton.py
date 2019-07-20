@@ -368,12 +368,35 @@ class FentonWave:
             Path to work folder.
         """
 
-        # Parse Soluion.res
-        with open(os.path.join(path, 'Solution.res'), 'r') as f:
-            rows, values = [], []
-            for i, line in enumerate(f):
-                if 14 <= i < 33:
-                    s_line = line.split('\t')
+        # Parse Solution-Flat.res/Solution.res
+        if 'Solution-Flat.res' in os.listdir(path):
+            with open(os.path.join(path, 'Solution-Flat.res'), 'r') as f:
+                rows, values = [], []
+                for i, line in enumerate(f.readlines()[2:21]):
+                    s_line = line.rstrip().split('\t')
+                    rows.append(
+                        ' '.join(
+                            [
+                                s_line[3][2:].split('  ')[0],
+                                s_line[3][2:].split('  ')[-1].split(' ')[-1]
+                            ]
+                        )
+                    )
+                    values.append([float(s_line[1]), float(s_line[2])])
+            self.solution = pd.DataFrame(
+                data=values, index=rows, columns=pd.MultiIndex.from_tuples(
+                    [
+                        ('Solution non-dimensionalised by', 'g & wavenumber'),
+                        ('Solution non-dimensionalised by', 'g & mean depth')
+                    ]
+                )
+            )
+            self.solution.index.name = 'Quantity (symbol)'
+        else:
+            with open(os.path.join(path, 'Solution.res'), 'r') as f:
+                rows, values = [], []
+                for line in f.readlines()[14:33]:
+                    s_line = line.rstrip().split('\t')
                     rows.append(
                         ' '.join(
                             [
@@ -407,7 +430,7 @@ class FentonWave:
         with open(os.path.join(path, 'Flowfield.res'), 'r') as f:
             xd, phase, fields = [], [], []
             header = None
-            for i, line in enumerate(f.readlines()[14:]):
+            for i, line in enumerate(f.readlines()[18:]):
                 if line.startswith('# X/d'):
                     header = [float(line[7:16]), float(line[25:32])]
                 elif len(line) > 3:
