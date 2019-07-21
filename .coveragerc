@@ -1,8 +1,8 @@
-[report]
+[run]
 omit = 
     tests/*
-    *__init__*
-    coastlib/bin/*
+
+[report]
 exclude_lines =
     pragma: no cover
     def __repr__
