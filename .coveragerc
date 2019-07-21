@@ -1,4 +1,5 @@
 [run]
+include = */coastlib/*
 omit = 
     tests/*
 
