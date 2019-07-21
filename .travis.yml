@@ -18,7 +18,7 @@ install:
     - python setup.py install
 
 script:
-    - py.test -v tests
+    - py.test -v tests --cov coastlib
 
 after_success:
     - coveralls
