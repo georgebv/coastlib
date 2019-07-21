@@ -1,6 +1,6 @@
 # coastlib
 
-[![Build Status](https://travis-ci.org/georgebv/coastlib.svg?branch=reborn)](https://travis-ci.org/georgebv/coastlib) [![Coverage Status](https://coveralls.io/repos/github/georgebv/coastlib/badge.svg)](https://coveralls.io/github/georgebv/coastlib) [![Requirements Status](https://requires.io/github/georgebv/coastlib/requirements.svg?branch=reborn)](https://requires.io/github/georgebv/coastlib/requirements/?branch=reborn)
+[![Build Status](https://travis-ci.org/georgebv/coastlib.svg?branch=reborn)](https://travis-ci.org/georgebv/coastlib) [![Coverage Status](https://coveralls.io/repos/github/georgebv/coastlib/badge.svg?branch=reborn)](https://coveralls.io/github/georgebv/coastlib?branch=reborn) [![Requirements Status](https://requires.io/github/georgebv/coastlib/requirements.svg?branch=reborn)](https://requires.io/github/georgebv/coastlib/requirements/?branch=reborn)
 
 coastlib is a Python library dedicated to solving problems related to the discipline of [coastal engineering](https://en.wikipedia.org/wiki/Coastal_engineering). This project pursues the following goals:
 
