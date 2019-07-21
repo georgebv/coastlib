@@ -13,7 +13,7 @@ install:
     - conda update -q conda
     - conda info -a
     
-    - conda create --yes -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib pandas pillow pytest nose coveralls
+    - conda create --yes -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib pandas pillow pytest nose coveralls pytest-cov
     - source activate test-environment
     - python setup.py install
 
