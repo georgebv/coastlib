@@ -1,6 +1,6 @@
 # coastlib
 
-[![Build Status](https://travis-ci.org/georgebv/coastlib.svg?branch=reborn)](https://travis-ci.org/georgebv/coastlib) [![Coverage Status](https://coveralls.io/repos/github/georgebv/coastlib/badge.svg?branch=reborn)](https://coveralls.io/github/georgebv/coastlib?branch=reborn) [![Requirements Status](https://requires.io/github/georgebv/coastlib/requirements.svg?branch=reborn)](https://requires.io/github/georgebv/coastlib/requirements/?branch=reborn) [![PyPI version](https://badge.fury.io/py/coastlib.svg)](https://badge.fury.io/py/coastlib)
+[![Build Status](https://travis-ci.org/georgebv/coastlib.svg?branch=master)](https://travis-ci.org/georgebv/coastlib) [![Coverage Status](https://coveralls.io/repos/github/georgebv/coastlib/badge.svg?branch=master)](https://coveralls.io/github/georgebv/coastlib?branch=master) [![Documentation Status](https://readthedocs.org/projects/coastlib/badge/?version=latest)](https://coastlib.readthedocs.io/en/latest/?badge=latest) [![Requirements Status](https://requires.io/github/georgebv/coastlib/requirements.svg?branch=master)](https://requires.io/github/georgebv/coastlib/requirements/?branch=master) [![PyPI version](https://badge.fury.io/py/coastlib.svg)](https://badge.fury.io/py/coastlib)
 
 **coastlib** is a Python library dedicated to solving problems related to the discipline of [coastal engineering](https://en.wikipedia.org/wiki/Coastal_engineering), such as data collection (NOAA NCEI, WAVEWATCH III, etc.), extreme value analysis (EVA), data analysis and visualization, wave theories, and many more.
 
