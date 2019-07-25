@@ -19,7 +19,7 @@ install:
     - touch tests/__init__.py tests/waves/__init__.py
 
 script:
-    - py.test -v tests --cov=coastlib
+    - py.test -v tests --cov=coastlib --ignore=tests/waves/test_fenton.py
 
 after_success:
     - coveralls

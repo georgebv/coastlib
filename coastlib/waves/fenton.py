@@ -7,7 +7,6 @@ import matplotlib.animation
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import scipy.constants
 
 import coastlib.waves.support
 import coastlib.helper.environment
@@ -69,7 +68,7 @@ class FentonWave:
         Timeout in seconds (default=5). Fourier.exe is terminated after timeout.
     kwargs
         g : float, optional
-            Earth gravity in m/s^2 (default=scipy.constants.g).
+            Standard acceleration due to gravity in m/s^2 (default=9.80665).
         rho : float, optional
             Water density in kg/m^3 (default=1025).
         current_criterion : int, optional
@@ -92,121 +91,29 @@ class FentonWave:
             Number of vertical points in each profile, including points at bottom and surface.
             default=dict(n_surface=10, n_profiles=100, n_vertical=50).
 
-    Public Attributes
-    -----------------
-    self.__init__()
-        self.wave_height : float
-        self.depth : float
-        self.g : float
-        self.rho : float
-        self.measure_of_length : str
-        self.wave_period : float
-        self.wave_length : float
-        self.current_criterion : int
-        self.current_velocity : float
-        self.fourier_components : int
-        self.height_steps : int
-        self.convergence : dict
-        self.points : dict
-        self.data : dict
-
-        self.fourier_log : str
-
-        self.solution : pd.DataFrame
-        self.surface : pd.DataFrame
-        self.flowfield : pd.DataFrame
-
-        self.wave_speed
-        self.eulerian_current
-        self.stokes_current
-        self.mean_fluid_speed
-        self.wave_volume_flux
-        self.bernoulli_constant_r
-        self.volume_flux
-        self.bernoulli_constant_R
-        self.momentum_flux
-        self.impulse
-        self.kinetic_energy
-        self.potential_energy
-        self.mean_square_of_bed_velocity
-        self.radiation_stress
-        self.wave_power
-
-    Private Attributes
-    ------------------
-    self.__init__()
-        self.__killed
-
-    Public Methods
-    --------------
-    self.plot
-    self.animate
-    self.validate
-
-    Private Methods
-    ---------------
-    self.__init__
-    self.__repr__
-    self.__run
-    self.__write_inputs
-    self.__run_fourier
-    self.__parse_outputs
+    Examples
+    --------
+    >>> wave = FentonWave(wave_height=2, wave_period=6, depth=20)
+    >>> wave.wave_length
+    55.70521
+    >>> wave = FentonWave(wave_height=2, wave_length=55.70521, depth=20)
+    >>> wave.wave_period
+    6.0000000594928
     """
 
     def __init__(self, wave_height, depth, wave_period=None, wave_length=None, timeout=5, **kwargs):
-        """
-        Initializes the FentonWave class instance object.
-
-        Parameters
-        ----------
-        wave_height : float
-            Wave height in meters.
-        depth : float
-            Water depth in meters.
-        wave_period : float, optional
-            Wave period in seconds. Mandatory, if wave_length is not provided.
-        wave_length : float, optional
-            Wave length in meters. Mandatory, if wave_period is not provided.
-        timeout : float, optional
-            Timeout in seconds (default=5). Fourier.exe is terminated after timeout.
-        kwargs
-            g : float, optional
-                Earth gravity in m/s^2 (default=scipy.constants.g).
-            rho : float, optional
-                Water density in kg/m^3 (default=1025).
-            current_criterion : int, optional
-                1 for Eulerian mean current, 2 for mass-transport velocity (default=1).
-            current_velocity : float, optional
-                Current velocity in meters per second (default=0).
-            fourier_components : int, optional
-                Number of Fourier components.
-                10-20 OK for ordinary waves, more for highest (default=20).
-            height_steps : int, optional
-                Maximum number of iterations for each height step.
-                10 OK for ordinary waves, 40 for highest (default=10).
-            convergence : dict, optional
-                Maximum number of iterations for each height step; 10 OK for ordinary waves, 40 for highest.
-                Criterion for convergence, typically '1.e4' or '1.e5' for highest waves.
-                default=dict(max_iter=40, crit_conv='1.e-5').
-            points : dict, optional
-                Number of points on free surface.
-                Number of velocity/acceration profiles over half a wavelength, including 0 and lambda/2.
-                Number of vertical points in each profile, including points at bottom and surface.
-                default=dict(n_surface=10, n_profiles=100, n_vertical=50).
-        """
-
         self.wave_height = wave_height
         self.depth = depth
 
         # Physical parameters
-        self.g = kwargs.pop('g', scipy.constants.g)
+        self.g = kwargs.pop('g', 9.80665)
         self.rho = kwargs.pop('rho', 1025)
 
         # Wave length setup
         if wave_period is None and wave_length is None:
-            raise ValueError('either wave_period or wave_length must be provided')
+            raise ValueError('Either wave_period or wave_length must be provided')
         elif wave_period is not None and wave_length is not None:
-            raise ValueError('both wave_period or wave_length were be provided, only one is required')
+            raise ValueError('Both wave_period or wave_length were provided, only one is required')
         elif wave_period is not None:
             self.measure_of_length = 'Period'
             self.wave_period = wave_period
@@ -245,34 +152,28 @@ class FentonWave:
         assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(', '.join(kwargs.keys()))
 
         self.__killed = False
-        self.__run(os.path.join(os.environ['TEMP'], 'fenton_temp'), timeout)
+        self.__run(timeout)
 
     def __repr__(self):
-        """
-        Generates a string with a summary of the FentonWave class instance object.
-        """
-
-        summary = str(
-            f'{" "*24}Fenton Wave\n'
-            f'{"="*59}\n'
-        )
+        summary = f'{" "*24}Fenton Wave\n{"="*59}\n'
         summary += str(self.solution.round(3))
         summary += f'\n{"="*59}'
         return summary
 
-    def __run(self, path, timeout):
+    def __run(self, timeout):
         """
         Executes entire run sequence (write inputs -> run Fourier -> parse outputs -> clean up).
 
         Parameters
         ----------
-        path : str
-            Path to work folder.
         timeout : float, optional
             Timeout in seconds (default=5). Fourier.exe is terminated after timeout.
         """
 
         # Create work folder. Remove if already existed
+        path = os.path.join(
+            os.environ['TEMP'], 'fenton_temp_' + ''.join(np.random.choice(list('0123456789abcdefgABCDEFG'), size=10))
+        )
         if os.path.exists(path):
             shutil.rmtree(path)
         os.makedirs(path)
@@ -768,13 +669,16 @@ class FentonWave:
                 idx = np.abs(array - value).argmin()
                 return np.abs(array[idx])
 
+            timesteps = np.arange(0, self.wave_period + 1 / fps, 1 / fps)
+
             def get_frame(i):
-                ax.set_title(f'Fenton Wave, Parameter ${column}$, {i:5.2f} sec')
-                if i <= self.wave_period / 2:
-                    frame_phase = (i / self.wave_period) * self.wave_length
+                timestep = timesteps[i]
+                ax.set_title(f'Fenton Wave, Parameter ${column}$, {timestep:5.2f} sec')
+                if timestep <= self.wave_period / 2:
+                    frame_phase = (timestep / self.wave_period) * self.wave_length
                     eta_phase = frame_phase - self.wave_length / 2
                 else:
-                    frame_phase = (i / self.wave_period) * self.wave_length - self.wave_length
+                    frame_phase = (timestep / self.wave_period) * self.wave_length - self.wave_length
                     eta_phase = frame_phase + self.wave_length / 2
                 idx = np.abs(phases - eta_phase).argmin()
                 frame_etas = np.append(etas[idx:], etas[:idx])[::-1]
@@ -827,11 +731,8 @@ class FentonWave:
                             )
                 return lines
 
-            # Type hint for pycharm inspection
-            timesteps: int = np.arange(0, self.wave_period+1/fps, 1/fps)
-
             animation = matplotlib.animation.FuncAnimation(
-                fig=fig, func=get_frame, frames=timesteps,
+                fig=fig, func=get_frame, frames=len(timesteps),
                 interval=1000/fps, repeat=True, blit=False
             )
 

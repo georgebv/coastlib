@@ -1,7 +1,6 @@
 [report]
 omit = 
     tests/*
-    coastlib/waves/fenton.py
     *__init__*
 exclude_lines =
     pragma: no cover
