@@ -1,4 +1,4 @@
-import setuptools
+from setuptools import setup, find_packages
 from os import path
 
 
@@ -7,7 +7,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 
-setuptools.setup(
+setup(
     name='coastlib',
     version='0.9',
     author='Georgii Bocharov',
@@ -17,9 +17,10 @@ setuptools.setup(
     url='https://github.com/georgebv/coastlib',
     license='GPLv3',
     keywords='coastal ocean marine engineering',
-    packages=setuptools.find_packages(),
+    packages=find_packages(),
+    include_package_data=True,
     classifiers=[
-        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Development Status :: 4 - Beta',
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering',

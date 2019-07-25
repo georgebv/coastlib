@@ -1,15 +1,23 @@
-Entire code base is currentyl being rewritten. New version with significantly modified tools, such as Markov chain Monte Carlo extreme value analysis, is planned to be released some time early 2019. Please [contact me](mailto:bocharovgeorgii@gmail.com) if you are interested in working on an open-source coastal/ocean engineering library and would like to collaborate.
+# coastlib
 
-Below is a sneak peak from the latest version of the Extreme Value Analysis module I have been working on for the last 2 years:
+[![Build Status](https://travis-ci.org/georgebv/coastlib.svg?branch=reborn)](https://travis-ci.org/georgebv/coastlib) [![Coverage Status](https://coveralls.io/repos/github/georgebv/coastlib/badge.svg?branch=reborn)](https://coveralls.io/github/georgebv/coastlib?branch=reborn) [![Requirements Status](https://requires.io/github/georgebv/coastlib/requirements.svg?branch=reborn)](https://requires.io/github/georgebv/coastlib/requirements/?branch=reborn) [![PyPI version](https://badge.fury.io/py/coastlib.svg)](https://badge.fury.io/py/coastlib)
 
-- extreme values extraction and declustering:
+**coastlib** is a Python library dedicated to solving problems related to the discipline of [coastal engineering](https://en.wikipedia.org/wiki/Coastal_engineering), such as data collection (NOAA NCEI, WAVEWATCH III, etc.), extreme value analysis (EVA), data analysis and visualization, wave theories, and many more.
 
-![alt tag](https://github.com/georgebv/coastlib/blob/master/misc/Figure_3.png)
+**Version:** 0.9
 
-- using Markov chain Monte Carlo (using [emcee affine invariant ensemble sampler](http://dfm.io/emcee/current/)) to find posterior distributions of fit parameters:
+**License:** GNU General Public License v3.0
 
-![alt tag](https://github.com/georgebv/coastlib/blob/master/misc/Figure_7.png)
+**E-Mail:** bocharovgeorgii@gmail.com
 
-- plotting return values:
+**Documentation:** coming soon
 
-![alt tag](https://github.com/georgebv/coastlib/blob/master/misc/Figure_10.png)
+## Project Goals
+
+- provide a comprehensive toolbox for solving common analytical coastal engineering problems
+- provide state-of-art solutions in a simple and accessible form so that engineers and researchers can concentrate on their problem and not the code or underlying math
+- provide flexible tools to experienced users so that they can change the code to meet their needs
+
+## Examples
+
+Coming soon

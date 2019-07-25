@@ -4,5 +4,5 @@
 # Python general
 __pycache__/
 
-# Jupyter
-.ipynb_checkpoints/
+# pytest
+.pytest_cache/
