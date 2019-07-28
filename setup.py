@@ -9,7 +9,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='coastlib',
-    version='0.9',
+    version='0.9.1',
     author='Georgii Bocharov',
     author_email='bocharovgeorgii@gmail.com',
     description='Coastal engineering library and tools',

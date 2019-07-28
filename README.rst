@@ -4,7 +4,7 @@ coastlib
 ========
 **coastlib** is a Python library dedicated to solving problems related to the discipline of `coastal engineering <https://en.wikipedia.org/wiki/Coastal_engineering>`_, such as data collection (NOAA NCEI, WAVEWATCH III, etc.), extreme value analysis (EVA), data analysis and visualization, wave theories, and many more.
 
-**Version:** 0.9
+**Version:** 0.9.1
 
 **License:** GNU General Public License v3.0
 
@@ -16,7 +16,7 @@ Installation
 ============
 .. code:: bash
 
-    pip install
+    pip install coastlib
 
 Jupyter Notebooks
 =================

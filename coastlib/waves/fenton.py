@@ -8,45 +8,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-import coastlib.waves.support
+from coastlib.waves.support import wave_theories
+from coastlib.plotting.styles import matplotlib_styles
 import coastlib.helper.environment
 
 
 coastlib.helper.environment.append_bin()
-
-
-def _generate_data(
-        h_by_d, measure_of_length, value_of_that_length,
-        current_criterion, current_magnitude, n, number_of_height_steps
-):
-    return str(
-        f'Wave settings\n'
-        f'{h_by_d:.20f}\n'
-        f'{measure_of_length}\n'
-        f'{value_of_that_length:.20f}\n'
-        f'{current_criterion:d}\n'
-        f'{current_magnitude:.20f}\n'
-        f'{n:d}\n'
-        f'{number_of_height_steps:d}\n'
-        f'FINISH'
-    )
-
-
-def _generate_convergence(max_iter, crit_conv):
-    return str(
-        f'Convergence settings\n'
-        f'{max_iter:d}\n'
-        f'{crit_conv}'
-    )
-
-
-def _generate_points(n_surface, n_profiles, n_vertical):
-    return str(
-        f'Output settings\n'
-        f'{n_surface:d}\n'
-        f'{n_profiles:d}\n'
-        f'{n_vertical:d}'
-    )
 
 
 class FentonWave:
@@ -155,9 +122,9 @@ class FentonWave:
         self.__run(timeout)
 
     def __repr__(self):
-        summary = f'{" "*24}Fenton Wave\n{"="*59}\n'
-        summary += str(self.solution.round(3))
-        summary += f'\n{"="*59}'
+        summary = f'{" "*24}Fenton Wave\n{"="*59}\n' \
+                  f'{self.solution.round(3)}\n' \
+                  f'{"="*59}'
         return summary
 
     def __run(self, timeout):
@@ -167,13 +134,13 @@ class FentonWave:
         Parameters
         ----------
         timeout : float, optional
-            Timeout in seconds (default=5). Fourier.exe is terminated after timeout.
+            Timeout in seconds. Fourier.exe is terminated after timeout.
         """
 
         # Create work folder. Remove if already existed
-        path = os.path.join(
-            os.environ['TEMP'], 'fenton_temp_' + ''.join(np.random.choice(list('0123456789abcdefgABCDEFG'), size=10))
-        )
+        tmp_symbols = list('0123456789abcdefgABCDEFG')
+        tmp_file_name = f'fenton_temp_{"".join(np.random.choice(tmp_symbols, size=10))}'
+        path = os.path.join(os.environ['TEMP'], tmp_file_name)
         if os.path.exists(path):
             shutil.rmtree(path)
         os.makedirs(path)
@@ -213,13 +180,28 @@ class FentonWave:
         """
 
         with open(os.path.join(path, 'Data.dat'), 'w') as f:
-            f.write(_generate_data(**self.data))
+            data = f'Wave settings\n{self.data["h_by_d"]:.20f}\n' \
+                   f'{self.data["measure_of_length"]}\n' \
+                   f'{self.data["value_of_that_length"]:.20f}\n' \
+                   f'{self.data["current_criterion"]:d}\n' \
+                   f'{self.data["current_magnitude"]:.20f}\n' \
+                   f'{self.data["n"]:d}\n' \
+                   f'{self.data["number_of_height_steps"]:d}\n' \
+                   f'FINISH'
+            f.write(data)
 
         with open(os.path.join(path, 'Convergence.dat'), 'w') as f:
-            f.write(_generate_convergence(**self.convergence))
+            convergence = f'Convergence settings\n' \
+                          f'{self.convergence["max_iter"]:d}\n' \
+                          f'{self.convergence["crit_conv"]}'
+            f.write(convergence)
 
         with open(os.path.join(path, 'Points.dat'), 'w') as f:
-            f.write(_generate_points(**self.points))
+            points = f'Output settings\n' \
+                     f'{self.points["n_surface"]:d}\n' \
+                     f'{self.points["n_profiles"]:d}\n' \
+                     f'{self.points["n_vertical"]:d}'
+            f.write(points)
 
     def __run_fourier(self, path, timeout):
         """
@@ -230,7 +212,7 @@ class FentonWave:
         path : str
             Path to work folder.
         timeout : float, optional
-            Timeout in seconds (default=5). Fourier.exe is terminated after timeout.
+            Timeout in seconds. Fourier.exe is terminated after timeout.
         """
 
         log = []
@@ -478,7 +460,8 @@ class FentonWave:
 
         Returns
         -------
-        tuple(fig, ax)
+        fig : matplotlib Figure object
+        ax : matplotlib Axes object
         """
 
         column = {
@@ -498,7 +481,7 @@ class FentonWave:
             [self.flowfield[self.flowfield['X (m)'] == phase]['y (m)'].values.max() for phase in phases]
         )
 
-        with plt.style.context('bmh'):
+        with plt.rc_context(rc=matplotlib_styles['coastlib_rc']):
             fig, ax = plt.subplots(figsize=(12, 8))
 
             ax.set_ylim([-0.1 * self.depth, 1.1 * self.surface['eta (m)'].values.max()])
@@ -507,51 +490,49 @@ class FentonWave:
             ax.plot(
                 np.unique(np.append(-phases[::-1], phases)),
                 np.append(surface[::-1][:-1], surface),
-                lw=3, color='k', zorder=5
+                lw=3, color='#0351C1', zorder=5
             )  # free surface
-            ax.plot(
-                [-phases.max(), phases.max()],
-                [0, 0], color='k', lw=3, ls='--', zorder=5
-            )  # seabed
+            ax.axhline(self.depth, ls='--', lw=1, color='#5199FF')  # still water level
+            ax.axhline(0, color='#D2AA1B', lw=2, zorder=5)  # seabed
 
             for i in np.arange(0, len(phases), int(np.round(len(phases) / nprof))):
                 profile = self.flowfield[self.flowfield['X (m)'] == phases[i]]
                 ax.plot(
                     [phases[i], phases[i]],
                     [profile['y (m)'].values.min(), profile['y (m)'].values.max()],
-                    color='k', lw=1, ls='--', zorder=5
+                    color='#F85C50', lw=1, ls='--', zorder=5
                 )  # vertical line
                 if what == 'vy':
                     ax.plot(
                         [phases[i], phases[i] - profile[column].values[0] * scale],
                         [profile['y (m)'].values.min(), profile['y (m)'].values.min()],
-                        color='orangered', lw=2, zorder=10
+                        color='#F85C50', lw=2, zorder=10
                     )  # horizontal line bottom
                     ax.plot(
                         [phases[i], phases[i] - profile[column].values[-1] * scale],
                         [profile['y (m)'].values.max(), profile['y (m)'].values.max()],
-                        color='orangered', lw=2, zorder=10
+                        color='#F85C50', lw=2, zorder=10
                     )  # horizontal line top
                     ax.plot(
                         phases[i] - profile[column].values * scale,
                         profile['y (m)'].values,
-                        color='orangered', lw=2, zorder=10
+                        color='#F85C50', lw=2, zorder=10
                     )  # profile
                 else:
                     ax.plot(
                         [phases[i], phases[i] + profile[column].values[0] * scale],
                         [profile['y (m)'].values.min(), profile['y (m)'].values.min()],
-                        color='orangered', lw=2, zorder=10
+                        color='#F85C50', lw=2, zorder=10
                     )  # horizontal line bottom
                     ax.plot(
                         [phases[i], phases[i] + profile[column].values[-1] * scale],
                         [profile['y (m)'].values.max(), profile['y (m)'].values.max()],
-                        color='orangered', lw=2, zorder=10
+                        color='#F85C50', lw=2, zorder=10
                     )  # horizontal line top
                     ax.plot(
                         phases[i] + profile[column].values * scale,
                         profile['y (m)'].values,
-                        color='orangered', lw=2, zorder=10
+                        color='#F85C50', lw=2, zorder=10
                     )  # profile
 
             ax.set_title(f'Fenton Wave, Parameter ${column}$')
@@ -579,7 +560,8 @@ class FentonWave:
 
         Returns
         -------
-        matplotlib animation object
+        fig : matplotlib Figure object
+        ax : matplotlib Axes object
         """
 
         column = {
@@ -603,56 +585,54 @@ class FentonWave:
         phases = np.unique(np.append(-phases[::-1], phases))
         etas = np.append(eta[::-1][:-1], eta)
 
-        with plt.style.context('bmh'):
+        with plt.rc_context(rc=matplotlib_styles['coastlib_rc']):
             fig, ax = plt.subplots(figsize=(12, 8))
 
             ax.set_ylim([-0.1 * self.depth, 1.1 * self.surface['eta (m)'].values.max()])
             ax.set_xlim([self.surface['X (m)'].values.min() * 1.1, self.surface['X (m)'].values.max() * 1.1])
 
-            surface, = ax.plot(phases, etas, lw=3, color='k', zorder=5)  # free surface
+            surface, = ax.plot(phases, etas, lw=3, color='#0351C1', zorder=5)  # free surface
             lines = [surface]
-            ax.plot(
-                [-phases.max(), phases.max()],
-                [0, 0], color='k', lw=3, ls='--', zorder=5
-            )  # seabed
+            ax.axhline(self.depth, ls='--', lw=1, color='#5199FF')  # still water level
+            ax.axhline(0, color='#D2AA1B', lw=2, zorder=5)  # seabed
 
             profile = self.flowfield[self.flowfield['X (m)'] == 0]
             vert, = ax.plot(
                 [0, 0],
                 [profile['y (m)'].values.min(), profile['y (m)'].values.max()],
-                color='k', lw=1, ls='--', zorder=5
+                color='#F85C50', lw=1, ls='--', zorder=5
             )  # vertical line
             if what == 'vy':
                 hbot, = ax.plot(
                     [0, 0 - profile[column].values[0] * scale],
                     [profile['y (m)'].values.min(), profile['y (m)'].values.min()],
-                    color='orangered', lw=2, zorder=10
+                    color='#F85C50', lw=2, zorder=10
                 )  # horizontal line bottom
                 htop, = ax.plot(
                     [0, 0 - profile[column].values[-1] * scale],
                     [profile['y (m)'].values.max(), profile['y (m)'].values.max()],
-                    color='orangered', lw=2, zorder=10
+                    color='#F85C50', lw=2, zorder=10
                 )  # horizontal line top
                 prof, = ax.plot(
                     0 - profile[column].values * scale,
                     profile['y (m)'].values,
-                    color='orangered', lw=2, zorder=10
+                    color='#F85C50', lw=2, zorder=10
                 )  # profile
             else:
                 hbot, = ax.plot(
                     [0, 0 + profile[column].values[0] * scale],
                     [profile['y (m)'].values.min(), profile['y (m)'].values.min()],
-                    color='orangered', lw=2, zorder=10
+                    color='#F85C50', lw=2, zorder=10
                 )  # horizontal line bottom
                 htop, = ax.plot(
                     [0, 0 + profile[column].values[-1] * scale],
                     [profile['y (m)'].values.max(), profile['y (m)'].values.max()],
-                    color='orangered', lw=2, zorder=10
+                    color='#F85C50', lw=2, zorder=10
                 )  # horizontal line top
                 prof, = ax.plot(
                     0 + profile[column].values * scale,
                     profile['y (m)'].values,
-                    color='orangered', lw=2, zorder=10
+                    color='#F85C50', lw=2, zorder=10
                 )  # profile
 
             lines.append(vert)
@@ -749,10 +729,11 @@ class FentonWave:
 
         Returns
         -------
-        (fig, ax)
+        fig : matplotlib Figure object
+        ax : matplotlib Axes object
         """
 
-        return coastlib.waves.support.wave_theories(
+        return wave_theories(
             wave_height=self.wave_height, wave_period=self.wave_period, depth=self.depth, g=self.g
         )
 
