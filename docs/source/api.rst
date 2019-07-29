@@ -1,4 +1,0 @@
-coastlib API reference
-**********************
-
-
