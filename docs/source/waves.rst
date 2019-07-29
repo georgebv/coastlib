@@ -13,8 +13,6 @@ The FentonWave module is a high level interface to John D Fenton's steady water 
 
 Shown below is a simple example of using the FentonWave class to calculate a steady wave:
 
-
-
 >>> from coastlib.waves import FentonWave
 >>> wave = FentonWave(wave_height=3, wave_period=6, depth=20)
 >>> wave
@@ -42,8 +40,13 @@ Shown below is a simple example of using the FentonWave class to calculate a ste
     radiation stress               kg/s^2 or (N/m)     7023.656
     wave_power                   kg*m/s^3 or (W/m)    60062.853
     ===========================================================
+>>> wave.plot()
+
+|FentonWave Image|
 
 An in-depth tutorial for the ``waves`` module is available in `this Jupyter notebook`_.
 
 .. _Fourier program: https://johndfenton.com/Steady-waves/Fourier.html
 .. _this Jupyter notebook: https://github.com/georgebv/coastlib-notebooks
+
+.. |FentonWave Image| image:: ./example_images/fentonwave.png

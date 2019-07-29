@@ -495,6 +495,15 @@ class FentonWave:
             ax.axhline(self.depth, ls='--', lw=1, color='#5199FF')  # still water level
             ax.axhline(0, color='#D2AA1B', lw=2, zorder=5)  # seabed
 
+            ax.text(
+                -phases.max(), self.depth * 1.015, f'Still Water Level, {self.depth:.1f}m',
+                fontsize=10, color='#454545', zorder=10
+            )
+            ax.text(
+                -phases.max(), self.depth * 0.015, f'Seabed, 0.0m',
+                fontsize=10, color='#454545', zorder=10
+            )
+
             for i in np.arange(0, len(phases), int(np.round(len(phases) / nprof))):
                 profile = self.flowfield[self.flowfield['X (m)'] == phases[i]]
                 ax.plot(
@@ -502,6 +511,11 @@ class FentonWave:
                     [profile['y (m)'].values.min(), profile['y (m)'].values.max()],
                     color='#F85C50', lw=1, ls='--', zorder=5
                 )  # vertical line
+                ax.text(
+                    phases[i], profile['y (m)'].values.max() + self.depth * 0.015,
+                    f'{profile[column].values[-1]:.2f}',
+                    fontsize=10, color='#454545', zorder=20
+                )
                 if what == 'vy':
                     ax.plot(
                         [phases[i], phases[i] - profile[column].values[0] * scale],
@@ -596,12 +610,27 @@ class FentonWave:
             ax.axhline(self.depth, ls='--', lw=1, color='#5199FF')  # still water level
             ax.axhline(0, color='#D2AA1B', lw=2, zorder=5)  # seabed
 
+            ax.text(
+                -phases.max(), self.depth * 1.015, f'Still Water Level, {self.depth:.1f}m',
+                fontsize=10, color='#454545', zorder=10
+            )
+            ax.text(
+                -phases.max(), self.depth * 0.015, f'Seabed, 0.0m',
+                fontsize=10, color='#454545', zorder=10
+            )
+
             profile = self.flowfield[self.flowfield['X (m)'] == 0]
             vert, = ax.plot(
                 [0, 0],
                 [profile['y (m)'].values.min(), profile['y (m)'].values.max()],
                 color='#F85C50', lw=1, ls='--', zorder=5
             )  # vertical line
+            profile_text = ax.text(
+                0, profile['y (m)'].values.max() + self.depth * 0.015,
+                f'{profile[column].values[-1]:.2f}',
+                fontsize=10, color='#454545', zorder=20,
+                bbox=dict(facecolor='w', edgecolor='None', boxstyle='round,pad=.2')
+            )
             if what == 'vy':
                 hbot, = ax.plot(
                     [0, 0 - profile[column].values[0] * scale],
@@ -687,6 +716,8 @@ class FentonWave:
                             )
                     # Update top horizontal line
                     elif j == 3:
+                        profile_text.set_position([0, frame_profile['y (m)'].values.max() + self.depth * 0.015])
+                        profile_text.set_text(f'{frame_profile[column].values[-1]:.2f}')
                         if what == 'vy':
                             line.set_data(
                                 [0, 0 - frame_profile[column].values[-1] * scale],

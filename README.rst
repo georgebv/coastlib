@@ -24,7 +24,7 @@ Coming soon
 
 Examples
 ========
-Coming soon
+|FentonWave Image|
 
 .. |Build Status| image:: https://travis-ci.org/georgebv/coastlib.svg?branch=master
     :target: https://travis-ci.org/georgebv/coastlib
@@ -36,3 +36,5 @@ Coming soon
      :target: https://requires.io/github/georgebv/coastlib/requirements/?branch=master
 .. |PyPI version| image:: https://badge.fury.io/py/coastlib.svg
     :target: https://badge.fury.io/py/coastlib
+
+.. |FentonWave Image| image:: ./docs/source/example_images/fentonwave.png
