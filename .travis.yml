@@ -16,7 +16,7 @@ install:
     - conda create --yes -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib pandas pillow pytest nose coveralls pytest-cov
     - source activate test-environment
     - python setup.py install
-    - touch tests/__init__.py tests/waves/__init__.py
+    - touch tests/__init__.py tests/waves/__init__.py tests/helper/__init__.py
 
 script:
     - py.test -v tests --cov=coastlib --ignore=tests/waves/test_fenton.py
