@@ -1,17 +1,9 @@
 Welcome to coastlib documentation!
 **********************************
 
-Table of Contents
-=================
 .. toctree::
-   :maxdepth: 2
+   :caption: Table of Contents
+   :maxdepth: 1
    
    introduction
    waves
-
-
-Indices and tables
-==================
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
