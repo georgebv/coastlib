@@ -16,7 +16,7 @@ Shown below is a simple example of using the FentonWave class to calculate a ste
 >>> from coastlib.waves import FentonWave
 >>> wave = FentonWave(wave_height=3, wave_period=6, depth=20)
 >>> wave
-                                Fenton Wave
+                            Fenton Wave
     ===========================================================
                                               Unit        Value
     Parameter                                                  
