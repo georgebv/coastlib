@@ -7,7 +7,7 @@ import numpy as np
 from matplotlib.testing.compare import compare_images
 
 
-plt.ion()
+plt.ioff()
 
 
 data_folder = os.sep.join([*os.path.realpath(__file__).split(os.sep)[:-1], 'data'])

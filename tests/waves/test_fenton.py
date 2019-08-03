@@ -2,10 +2,10 @@ from coastlib.waves import FentonWave
 from matplotlib.testing.compare import compare_images
 import numpy as np
 import os
-import matplotlib.pyplot
+import matplotlib.pyplot as plt
 
 
-matplotlib.pyplot.ion()
+plt.ion()
 
 
 def test_fentonwave_wavelength():
@@ -73,6 +73,7 @@ def run_fentonwave_plot(figname, **kwargs):
     fig.savefig(compare_path, dpi=100)
     comparison = compare_images(baseline_path, compare_path, .001)
     os.remove(compare_path)
+    plt.close(fig)
     return comparison
 
 
