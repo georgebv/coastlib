@@ -81,6 +81,7 @@ def run_rose_plot(data, figname, **kwargs):
     fig.savefig(compare_path, dpi=100)
     comparison = compare_images(baseline_path, compare_path, .001)
     os.remove(compare_path)
+    plt.close(fig)
     return comparison
 
 

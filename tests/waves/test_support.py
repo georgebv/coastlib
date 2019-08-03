@@ -2,9 +2,9 @@ from coastlib.waves import solve_dispersion_relation, wave_theories
 from matplotlib.testing.compare import compare_images
 import numpy as np
 import os
-import matplotlib.pyplot
+import matplotlib.pyplot as plt
 
-matplotlib.pyplot.ion()
+plt.ion()
 
 
 def test_solve_dispersion_relation():
@@ -40,6 +40,7 @@ def run_wave_theories(wave_height, wave_period, depth, figname, **kwargs):
     fig.savefig(compare_path, dpi=100)
     comparison = compare_images(baseline_path, compare_path, .001)
     os.remove(compare_path)
+    plt.close(fig)
     return comparison
 
 
