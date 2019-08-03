@@ -66,6 +66,8 @@ class FentonWave:
     >>> wave = FentonWave(wave_height=2, wave_length=55.70521, depth=20)
     >>> wave.wave_period
     6.0000000594928
+    >>> fig, ax = wave.plot(what='ua', scale=1, nprof=4)
+    >>> ani = wave.animate(what='u', scale=2, fps=60)
     """
 
     def __init__(self, wave_height, depth, wave_period=None, wave_length=None, timeout=5, **kwargs):
@@ -766,22 +768,4 @@ class FentonWave:
 
         return wave_theories(
             wave_height=self.wave_height, wave_period=self.wave_period, depth=self.depth, g=self.g
-        )
-
-
-if __name__ == '__main__':
-    try:
-        self = FentonWave(wave_height=4000, wave_period=8, depth=1, current_velocity=1)
-    except TimeoutError as e:
-        print(e)
-        self = FentonWave(
-            wave_height=6, wave_period=6, depth=12, current_velocity=0,
-            timeout=30, fourier_components=20, height_steps=20,
-            points=dict(n_surface=10, n_profiles=60*6, n_vertical=60*6)
-        )
-        self.validate()
-        _fig, _ax = self.plot(what='ua', scale=1, nprof=4)
-        _ani = self.animate(
-            what='u', scale=2, fps=60,
-            savepath=os.path.join(r'C:', os.environ['HOMEPATH'], r'Desktop\fenton.mp4')
         )

@@ -43,5 +43,5 @@ def run_wave_theories(wave_height, wave_period, depth, figname, **kwargs):
     return comparison
 
 
-def test_basic():
+def test_wave_theories_basic():
     assert run_wave_theories(wave_height=2, wave_period=6, depth=20, figname='wave_theories_basic') is None

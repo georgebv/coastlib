@@ -247,7 +247,7 @@ def coops_api_batch(begin_date, end_date, return_logs=False, echo_progress=False
 
     logs = {}
     progress_bar = ProgressBar(
-        total_iterations=int(np.ceil((end_date - begin_date) / time_delta)),
+        total_iterations=int((end_date - begin_date) / time_delta) + 1,
         bars=50, bar_items='0123456789#', prefix='NOAA CO-OPS'
     )
     if echo_progress:
