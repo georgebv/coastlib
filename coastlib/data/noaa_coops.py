@@ -260,15 +260,15 @@ def coops_api_batch(begin_date, end_date, return_logs=False, echo_progress=False
         try:
             data.append(coops_api(begin_date=_start.strftime('%Y%m%d'), end_date=_end.strftime('%Y%m%d'), **kwargs))
             logs[len(logs)] = {
-                'start': begin_date,
-                'end': end_date,
+                'start': _start,
+                'end': _end,
                 'success': True,
                 'error_message': None
             }
         except ValueError as _err:
             logs[len(logs)] = {
-                'start': begin_date,
-                'end': end_date,
+                'start': _start,
+                'end': _end,
                 'success': False,
                 'error_message': str(_err)
             }
