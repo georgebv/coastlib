@@ -4,7 +4,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 
-plt.ioff()
+plt.ion()
 
 
 def test_solve_dispersion_relation():
