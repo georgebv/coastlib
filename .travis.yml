@@ -17,10 +17,10 @@ install:
     - source activate test-environment
     - python setup.py install
     - touch tests/__init__.py tests/waves/__init__.py tests/helper/__init__.py
-    - touch tests/data/__init__.py tests/plotting/__init__.py
+    - touch tests/data/__init__.py
 
 script:
-    - py.test -v tests --cov=coastlib --ignore=tests/waves/test_fenton.py --ignore=tests/waves/test_support.py
+    - py.test -v tests --cov=coastlib --ignore=tests/waves --ignore=tests/plotting
 
 after_success:
     - coveralls

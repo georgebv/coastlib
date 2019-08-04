@@ -5,7 +5,7 @@ import os
 import matplotlib.pyplot as plt
 
 
-plt.ion()
+plt.ioff()
 
 
 def test_fentonwave_wavelength():

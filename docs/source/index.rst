@@ -6,4 +6,6 @@ Welcome to coastlib documentation!
    :maxdepth: 1
    
    introduction
+   data
+   plotting
    waves

@@ -20,11 +20,14 @@ Installation
 
 Jupyter Notebooks
 =================
-Coming soon
+- ``coastlib.data``
+    - `noaa_coops`_ - NOAA CO-OPS data extraction
 
 Examples
 ========
 |FentonWave Image|
+
+|rose_plot_1 Image| |rose_plot_2 Image|
 
 .. |Build Status| image:: https://travis-ci.org/georgebv/coastlib.svg?branch=master
     :target: https://travis-ci.org/georgebv/coastlib
@@ -37,4 +40,8 @@ Examples
 .. |PyPI version| image:: https://badge.fury.io/py/coastlib.svg
     :target: https://badge.fury.io/py/coastlib
 
+.. _noaa_coops: https://nbviewer.jupyter.org/github/georgebv/coastlib-notebooks/blob/master/notebooks/data/noaa_coops.ipynb
+
 .. |FentonWave Image| image:: ./docs/source/example_images/fentonwave.png
+.. |rose_plot_1 Image| image:: ./docs/source/example_images/rose_plot_1.png
+.. |rose_plot_2 Image| image:: ./docs/source/example_images/rose_plot_2.png

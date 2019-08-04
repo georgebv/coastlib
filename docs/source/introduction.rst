@@ -10,5 +10,3 @@ To install coastlib run the following::
 To make sure everything works as expected run the tests::
 
     py.test -v tests
-
-
