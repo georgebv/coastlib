@@ -134,16 +134,18 @@ def wave_theories(wave_height, wave_period, depth, g=scipy.constants.g):
     if not (0.0005 <= _x <= 0.2 and 0.00005 <= _y <= 0.05):
         raise ValueError('Wave parameters outside of the LeMehaute figure range')
 
-    with plt.rc_context(rc=coastlib_rc):
-        fig, ax = plt.subplots(figsize=(7, 8))
-        ax.imshow(image, zorder=5)
-        ax.plot([292, 1587], [y2pix(_y), y2pix(_y)], ls='--', c='#F85C50', lw=1.4, zorder=15)
-        ax.plot([292, 1587], [y2pix(_y), y2pix(_y)], ls='-', c='#FFFFFF', lw=4, zorder=10)
-        ax.plot([x2pix(_x), x2pix(_x)], [29, 1540], ls='--', c='#F85C50', lw=1.4, zorder=15)
-        ax.plot([x2pix(_x), x2pix(_x)], [29, 1540], ls='-', c='#FFFFFF', lw=4, zorder=10)
-        ax.scatter(x2pix(_x), y2pix(_y), edgecolors='#FFFFFF', facecolor='#F85C50', s=100, lw=1.4, zorder=20)
-        ax.axis('off')
-        ax.set_title('Ranges of suitability of various wave theories, Le Mehaute (1976)', x=.57, fontsize=12)
-        fig.subplots_adjust(top=.96, bottom=0.01, right=1, left=0)
+    fig, ax = plt.subplots(figsize=(7, 8))
+    ax.imshow(image, zorder=5)
+    ax.plot([292, 1587], [y2pix(_y), y2pix(_y)], ls='--', c='#F85C50', lw=1.4, zorder=15)
+    ax.plot([292, 1587], [y2pix(_y), y2pix(_y)], ls='-', c='#FFFFFF', lw=4, zorder=10)
+    ax.plot([x2pix(_x), x2pix(_x)], [29, 1540], ls='--', c='#F85C50', lw=1.4, zorder=15)
+    ax.plot([x2pix(_x), x2pix(_x)], [29, 1540], ls='-', c='#FFFFFF', lw=4, zorder=10)
+    ax.scatter(x2pix(_x), y2pix(_y), edgecolors='#FFFFFF', facecolor='#F85C50', s=100, lw=1.4, zorder=20)
+    ax.axis('off')
+    ax.set_title(
+        'Ranges of suitability of various wave theories, Le Mehaute (1976)', x=.57, fontsize=12, color='#454545',
+        fontname='Arial'
+    )
+    fig.subplots_adjust(top=.96, bottom=0.01, right=1, left=0)
 
     return fig, ax
