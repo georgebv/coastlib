@@ -20,7 +20,7 @@ install:
     - touch tests/data/__init__.py tests/plotting/__init__.py
 
 script:
-    - py.test -v tests --cov=coastlib --ignore=tests/waves/test_fenton.py
+    - py.test -v tests --cov=coastlib --ignore=tests/waves/test_fenton.py --ignore=tests/waves/test_support.py
 
 after_success:
     - coveralls
