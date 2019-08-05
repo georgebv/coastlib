@@ -25,8 +25,6 @@ def get_rose_parameters(
         Matplotlib colormap (default=plt.get_cmap('viridis')).
     center_on_north : bool, optional
         If True, first bin has its center on North. If False, first bin has its start on North (default=True).
-    calm_size : float, optional
-        Size of calm region in percent (defaul=1).
     calm_value : float, optional
         Value defining calm region. All values smaller than this value are placed into the calm region (default=None).
         Must not be larger than smallest value in value_bin_boundaries.
@@ -116,10 +114,8 @@ def get_rose_parameters(
         len(fixed_values)
     ), 'Number of binned values in bar bottoms is not equal to total number of adjusted values'
     calm_percentage = calm_count / len(values) * 100
-    radii = binned / len(values) * 100
-    bottoms = bottom_counts / len(values) * 100
-    if calm_size is not None:
-        bottoms += calm_size
+    radii = binned / len(fixed_values) * 100
+    bottoms = bottom_counts / len(fixed_values) * 100
 
     # Get colors for each value bin
     colors = np.array([cmap(i) for i in np.linspace(0.0, 1.0, radii.shape[0])])
@@ -129,7 +125,7 @@ def get_rose_parameters(
 
 def rose_plot(
         values, directions, value_bin_boundaries, n_dir_bins=12, cmap=plt.get_cmap('viridis'), rose_type='bar',
-        fig=None, ax=None, center_on_north=True, calm_size=1, calm_value=None, title='Rose Plot', value_name=None,
+        fig=None, ax=None, center_on_north=True, calm_size=None, calm_value=None, title='Rose Plot', value_name=None,
         rwidths=None, geomspace=False, **kwargs
 ):
     """
@@ -158,7 +154,7 @@ def rose_plot(
     center_on_north : bool, optional
         If True, first bin has its center on North. If False, first bin has its start on North (default=True).
     calm_size : float, optional
-        Size of calm region in percent (defaul=1).
+        Size of calm region in percent (defaul=None).
     calm_value : float, optional
         Value defining calm region. All values smaller than this value are placed into the calm region (default=None).
         Must not be larger than smallest value in value_bin_boundaries.
@@ -170,6 +166,8 @@ def rose_plot(
     rwidths : array_like or float, optional
         Widths of bars in each row (one value per row). If None, geomspace from 0.1 to 0.95 (default=None).
         If scalar value is passed (float), draws a regular rose plot with constant widths.
+    geomspace : bool, optional
+        If True, scales rwidths in geometric progression (default=False).
     bar_props : dict, optional
         Dictionary with keyword arguments passed to ax.bar object.
         Default=dict(edgecolor='k', linewidth=.3, zorder=-15)
@@ -215,8 +213,10 @@ def rose_plot(
 
     with plt.rc_context(rc=coastlib_rc):
         if fig is None and ax is None:
+            fig_created = True
             fig, ax = plt.subplots(figsize=(12, 8), subplot_kw=dict(projection='polar'))
         elif fig is not None and ax is not None:
+            fig_created = False
             if not hasattr(ax, 'set_theta_zero_location'):
                 raise ValueError('passed axes must have polar projection')
         else:
@@ -232,8 +232,11 @@ def rose_plot(
         theta, radii, bottoms, colors, p_calms, value_bin_boundaries = get_rose_parameters(
             values=values, directions=directions,
             value_bin_boundaries=value_bin_boundaries, n_dir_bins=n_dir_bins, cmap=cmap,
-            center_on_north=center_on_north, calm_size=calm_size, calm_value=calm_value
+            center_on_north=center_on_north, calm_value=calm_value
         )
+
+        if calm_size is None:
+            calm_size = p_calms
 
         if rwidths is None:
             if geomspace:
@@ -250,25 +253,19 @@ def rose_plot(
             f'{value_bin_boundaries[i]:.2f} ≤ {value_name} < {value_bin_boundaries[i + 1]:.2f}'
             for i in range(0, len(value_bin_boundaries) - 2)
         ]
-        bar_labels.extend(['{0} ≥ {1:.2f}'.format(value_name, value_bin_boundaries[-2])])
+        bar_labels.append(f'{value_name} ≥ {value_bin_boundaries[-2]:.2f}')
 
         # Draw calm region and add to legend
-        if calm_size is not None:
-            ax.bar(
-                0, calm_size, 2*np.pi, 0, color='#FFFFFF', zorder=10, alpha=.5
-            )
-            if calm_value is not None:
-                ax.bar(
-                    0, calm_size, 2*np.pi, 0, color='None', label=f'{p_calms:.2f}% Calms ({calm_value:.2f})'
-                )
-            else:
-                ax.bar(
-                    0, calm_size, 2*np.pi, 0, color='None',
-                    label=f'{p_calms:.2f}% Calms ({value_bin_boundaries[0]:.2f})'
-                )
-            ax.plot(
-                np.linspace(0, 2*np.pi, 100),
-                [calm_size]*100, lw=1, color='#454545', zorder=15
+        ax.set_rorigin(-calm_size)
+        if p_calms > 0:
+            # ax.bar(
+            #     0, 0, 2*np.pi, 0, color='None',
+            #     label=f'{p_calms:.2f}% Calms ({value_bin_boundaries[0]:.2f})'
+            # )
+            ax.text(
+                0, -calm_size, f'{p_calms:.1f}%',
+                horizontalalignment='center', verticalalignment='center',
+                fontsize=10, color='#454545', zorder=10
             )
 
         # Draw rose
@@ -312,7 +309,7 @@ def rose_plot(
                 edgecolor='#ffffff', title_fontsize=12
             )
         ax.set_title(title, fontsize=16)
-        if fig is not None:
+        if fig_created:
             fig.tight_layout()
 
         # Label y-axis (percentage)
@@ -320,19 +317,14 @@ def rose_plot(
         labels = []
         for i, item in enumerate(ax.get_yticklabels()):
             t = float(item.get_text())
-            if calm_size is not None:
-                t -= calm_size
-            if t < 0:
-                labels.append('')
-            else:
-                # If there are more than 6 labels, leave only odd labels
-                if len(ax.get_yticklabels()) > 6:
-                    if i % 2 != 0:
-                        labels.append('')
-                    else:
-                        labels.append(f'{t:.1f} %')
+            # If there are more than 6 labels, leave only odd labels
+            if len(ax.get_yticklabels()) > 6:
+                if i % 2 != 0:
+                    labels.append('')
                 else:
                     labels.append(f'{t:.1f} %')
+            else:
+                labels.append(f'{t:.1f} %')
         ax.set_yticklabels(
             labels,
             fontdict=dict(
