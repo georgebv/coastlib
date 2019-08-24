@@ -14,4 +14,4 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-from .noaa_coops import coops_api, coops_api_batch, coops_datum
+from coastlib.data.noaa_coops import coops_api, coops_api_batch, coops_datum
