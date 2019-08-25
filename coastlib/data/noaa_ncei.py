@@ -15,6 +15,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import requests
+import pandas as pd
 
 
 def ncei_datasets(
@@ -114,14 +115,16 @@ def ncei_datasets(
 
     if response.status_code == 400:
         raise ValueError(
-            f'errorMessage: {data["errorMessage"]}\n'
-            f'errorCode: {data["errorCode"]}\n'
-            f'errors: {data["errors"]}'
+            f'\n'
+            f'    errorMessage: {data["errorMessage"]}\n'
+            f'    errorCode: {data["errorCode"]}\n'
+            f'    errors: {data["errors"]}'
         )
     elif response.status_code == 500:
         raise ValueError(
-            f'errorMessage: {data["errorMessage"]}\n'
-            f'errorCode: {data["errorCode"]}'
+            f'\n'
+            f'    errorMessage: {data["errorMessage"]}\n'
+            f'    errorCode: {data["errorCode"]}'
         )
 
     formats = [ds['key'] for ds in data['formats']['buckets']]
@@ -237,14 +240,16 @@ def ncei_search(
 
     if response.status_code == 400:
         raise ValueError(
-            f'errorMessage: {data["errorMessage"]}\n'
-            f'errorCode: {data["errorCode"]}\n'
-            f'errors: {data["errors"]}'
+            f'\n'
+            f'    errorMessage: {data["errorMessage"]}\n'
+            f'    errorCode: {data["errorCode"]}\n'
+            f'    errors: {data["errors"]}'
         )
     elif response.status_code == 500:
         raise ValueError(
-            f'errorMessage: {data["errorMessage"]}\n'
-            f'errorCode: {data["errorCode"]}'
+            f'\n'
+            f'    errorMessage: {data["errorMessage"]}\n'
+            f'    errorCode: {data["errorCode"]}'
         )
 
     datatypes = [ds['key'] for ds in data['dataTypes']['buckets']]
@@ -259,17 +264,144 @@ def ncei_search(
     return datatypes, stations, results
 
 
-def ncei_api():
+def ncei_api(
+        dataset, stations, start_date=None, end_date=None,
+        datatypes=None, bounding_box=(90, -180, -90, 180), output_format='json', units='metric'
+):
     """
     Retrieve data from the NOAA NCEI data service
     https://www.ncei.noaa.gov/support/access-data-service-api-user-documentation
 
+    Parameters
+    ----------
+    dataset : str
+        Dataset name (e.g. 'local-climatological-data').
+        See `ncei_datasets()` method for available dataset names.
+    stations : str or array-like
+        Accepts a valid station id or a list of of station ids.
+        Data returned will contain data for the station(s) specified.
+    start_date : str, optional
+        Start date in the ISO 8601 format (default=None).
+            YYYY-MM-DD
+                examples:
+                    1776-07-04
+                    1941-12-07
+            YYYY-MM-DDTHH:mm:ss
+                with Z or z for UTC
+                and +HH:mm or -HH:mm for the offset from UTC
+                examples:
+                    2001-11-02T12:45:00Z
+                    2001-11-02T12:45:00z
+                    2001-11-02T08:45:00+04:00
+    end_date : str, optional
+        Start date in the ISO 8601 format (default=None).
+        See the `start_date` argument for format description.
+    datatypes : str or array-like, optional
+        Accepts a valid data type id or a list of data type ids.
+        Data returned will contain all of the data type(s) specified.
+    bounding_box : array-like, optional
+        The bounding box is used to select data from a geographic location contained within the coordinates,
+        given as four comma separated numbers. North and South range from -90 to 90 and East and West range
+        from -180 to 180. If these are not set the geographic extent defaults to the entire globe (90,-180,-90,180).
+    output_format : str, optional
+        (default='json')
+        The format parameter allows the user to select how the data should be formatted.
+        Note that some data formats ignore certain data types.
+        For example, PDF data may only display data types for a report, and not for the requested dataTypes.
+        These are the available formats:
+            csv — Comma-Separated Values (CSV)
+            ssv — Space-Separated Values (SSV)
+            json — JavaScript Object Notation (JSON)
+            pdf — Portable Document Format (PDF)
+            netcdf  — Network Common Data Form (NetCDF)
+    units : str, optional
+        The units parameter converts the output data for datasets and datatypes
+        that support conversion to either “metric” or “standard” units (default='metric').
+
     Returns
     -------
+    if `output_format` is not 'json'
+        content : bytes
+            response.content (see `requests` module)
+    else
+        data : pandas.DataFrame
+            DataFrame with parsed output with multiindex in the form ['STATION', 'DATE'].
 
+    Raises
+    ------
+    ValueError
+        if REST response status code is 400 or 500
     """
 
     request_endpoint = r'https://www.ncei.noaa.gov/access/services/data/v1?'
+
+    request_arguments = [f'dataset={dataset}']
+
+    if stations is not None:
+        if isinstance(stations, str):
+            request_arguments.append(f'stations={stations}')
+        else:
+            request_arguments.append(f'stations={",".join(str(v) for v in stations)}')
+
+    assert isinstance(start_date, type(end_date)),\
+        f'`start_date` and `end_date` are both required if one of them is passed'
+    if start_date is not None:
+        request_arguments.append(f'startDate={start_date}')
+    if end_date is not None:
+        request_arguments.append(f'endDate={end_date}')
+
+    if datatypes is not None:
+        if isinstance(datatypes, str):
+            request_arguments.append(f'dataTypes={datatypes}')
+        else:
+            request_arguments.append(f'dataTypes={",".join(str(v) for v in datatypes)}')
+
+    if len(bounding_box) != 4:
+        raise TypeError(f'Invalid `bounding_box` passed in \'{bounding_box}\'')
+    request_arguments.append(f'boundingBox={",".join([str(v) for v in bounding_box])}')
+
+    request_arguments.append(f'format={output_format}')
+
+    request_arguments.append('includeAttributes=true')
+    request_arguments.append('includeStationName=true')
+    request_arguments.append('includeStationLocation=1')
+
+    request_arguments.append(f'units={units}')
+
+    request_url = request_endpoint + '&'.join(request_arguments)
+
+    response = requests.get(request_url)
+
+    if response.status_code == 400:
+        raise ValueError(
+            f'\n'
+            f'    errorMessage: {response.json()["errorMessage"]}\n'
+            f'    errorCode: {response.json()["errorCode"]}\n'
+            f'    errors: {response.json()["errors"]}'
+        )
+    elif response.status_code == 500:
+        raise ValueError(
+            f'\n'
+            f'    errorMessage: {response.json()["errorMessage"]}\n'
+            f'    errorCode: {response.json()["errorCode"]}'
+        )
+
+    if output_format != 'json':
+        return response.content
+
+    data = response.json()
+
+    df = pd.DataFrame(data)
+    df['DATE'] = pd.to_datetime(df['DATE'])
+    df['STATION'] = df['STATION'] + ' : ' + df['NAME']
+    del df['NAME']
+    df.set_index(['STATION', 'DATE'], inplace=True)
+
+    return df
+
+
+def ncei_api_batch():
+    pass
 
 
 if __name__ == '__main__':
@@ -277,9 +409,14 @@ if __name__ == '__main__':
     for key, value in nd_data[-1].items():
         print(f'{key} :\n    {", ".join(value.keys())}')
 
-    ns_data = ncei_search(dataset='local-climatological-data', stations='72503014732')
+    ns_data = ncei_search(dataset='local-climatological-data', stations='72503014732', limit=5)
     for key, value in ns_data[-1].items():
         print(f'{key} -> {value["name"]}\n')
     for key, value in ns_data[-1]['72503014732']['datatypes'].items():
         if 'dir' in key.lower() or 'speed' in key.lower():
             print(f'{key} -> {value}')
+
+    na_data = ncei_api(
+        dataset='local-climatological-data', stations=['72503014732', '70219026615'],
+        start_date='2012-10-01', end_date='2012-11-01'
+    )
