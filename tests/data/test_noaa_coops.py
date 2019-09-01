@@ -1,7 +1,5 @@
 from coastlib.data.noaa_coops import coops_api, coops_api_batch, coops_datum
 import numpy as np
-import sys
-import io
 
 
 def test_coops_api_basic():
@@ -37,16 +35,10 @@ def test_coops_api_batch_basic():
 
 
 def test_coops_api_batch_custom():
-    stdout_ = sys.stdout
-    stream = io.StringIO()
-    sys.stdout = stream
     df, logs = coops_api_batch(
         station=8518750, begin_date='20130101', end_date='20130307', product='water_level', datum='NAVD',
         return_logs=True, echo_progress=True
     )
-    sys.stdout = stdout_
-    assert stream.getvalue()[:80] == 'NOAA CO-OPS   0% [0                                                 ] 0/3 [ETA: '
-    assert stream.getvalue()[-120:-60] == ' 100% [##################################################] 3'
 
     assert len(df) == 15601
     assert np.allclose(df.mean().values, np.array([-0.33339863,  0.1075654]))
