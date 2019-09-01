@@ -181,7 +181,7 @@ def ncei_search(
         Data returned will contain data for the station(s) specified.
     limit : int, optional
         Defaults to 25, limits the number of results in the response. Maximum is 1000.
-    offset int, optional
+    offset : int, optional
         Defaults to 0, used to offset the resultlist.
 
     Returns

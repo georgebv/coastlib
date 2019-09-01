@@ -1,11 +1,11 @@
-from coastlib.helper.progress_bar import to_ds, ProgressBar
+from coastlib.helper.progress_bar import time2str, ProgressBar
 import sys
 import io
 
 
-def test_to_ds():
-    assert to_ds(3) == '03'
-    assert to_ds(16) == '16'
+def test_time2str():
+    assert time2str(3) == '00:00:03.00'
+    assert time2str(31243.23) == '08:40:43.23'
 
 
 def test_progress_bar_defaults():

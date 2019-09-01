@@ -36,7 +36,10 @@ def nanfloat(v):
         return np.nan
 
 
-def coops_api(station, begin_date, end_date, product, datum, **kwargs):
+def coops_api(
+        station, begin_date, end_date, product,
+        datum=None, units='english', time_zone='gmt', interval=None, current_bin=None
+):
     """
     Parses NOAA Tides & Currents web data via the NOAA CO-OPS data retrieval API.
     See https://tidesandcurrents.noaa.gov/api/ for reference.
@@ -76,7 +79,7 @@ def coops_api(station, begin_date, end_date, product, datum, **kwargs):
         predictions             6 minute predictions water level data for the station.
         datums                  datums data for the stations.
         currents                Currents data for currents stations.
-    datum : str
+    datum : str, optional (mandatory for product=`water_level`)
         CRD                     Columbia River Datum
         IGLD                    International Great Lakes Datum
         LWD                     Great Lakes Low Water Datum (Chart Datum)
@@ -89,7 +92,7 @@ def coops_api(station, begin_date, end_date, product, datum, **kwargs):
         NAVD                    North American Vertical Datum
         STND                    Station Datum
     units : str, optional
-        (default='metric')
+        (default='english')
         metric                  Metric (Celsius, meters, cm/s) units
         english                 English (fahrenheit, feet, knots) units
     time_zone : str, optional
@@ -103,7 +106,7 @@ def coops_api(station, begin_date, end_date, product, datum, **kwargs):
         The hourly interval is supported for Met data and Predictions data only.
             h                   Hourly Met data and predictions data will be returned
             hilo                High/Low tide predictions for subordinate stations.
-    bin : int, optional
+    current_bin : int, optional
         # TODO - this option is not yet implemented
         Currents data for bin number <bin> of the specified station is returned.
         If a bin is not specified for a PORTS station, the data is returned using a predefined real-time bin.
@@ -129,22 +132,31 @@ def coops_api(station, begin_date, end_date, product, datum, **kwargs):
     1.5010661458333334
     """
 
-    units = kwargs.pop('units', 'english')
-    time_zone = kwargs.pop('time_zone', 'gmt')
-    interval = kwargs.pop('interval', None)
-    assert len(kwargs) == 0, f'unrecognized arguments passed in: {", ".join(kwargs.keys())}'
-
     link = rf'https://tidesandcurrents.noaa.gov/api/datagetter?product={product}' \
            rf'&application=coastlib' \
            rf'&begin_date={begin_date}' \
-           rf'&end_date={end_date}' \
-           rf'&datum={datum}' \
-           rf'&station={station}' \
-           rf'&time_zone={time_zone}' \
-           rf'&units={units}' \
-           rf'&format=json'
+           rf'&end_date={end_date}'
+
+    if product in [
+        'water_level', 'hourly_height', 'hourly_height',
+        'high_low', 'daily_mean', 'monthly_mean',
+        'one_minute_water_level', 'predictions', 'datums'
+    ] and datum is None:
+        raise ValueError(f'<datum> must providedd when <product> is \"{product}\"')
+
+    if datum is not None:
+        link += rf'&datum={datum}'
+
+    link += rf'&station={station}' \
+            rf'&time_zone={time_zone}' \
+            rf'&units={units}' \
+            rf'&format=json'
+
     if interval is not None:
         link += rf'&interval={interval}'
+
+    if current_bin is not None:
+        raise NotImplementedError('<current_bin> parameter is not yet implemented')
 
     with urlopen(link) as link_data:
         raw_data = json.loads(link_data.read().decode())
@@ -386,12 +398,3 @@ def coops_datum(station, units='metric', metadata=False):
         return df, md
 
     return df
-
-
-if __name__ == "__main__":
-    _df, _logs = coops_api_batch(
-        station=8518750, begin_date='18120125', end_date='18121101', product='water_level',
-        datum='NAVD', echo_progress=True, return_logs=True
-    )
-    # coops_api_data = coops_api(station=8518750, begin_date='20121025', end_date='20121101', product='water_level')
-    # coops_api_data.plot()

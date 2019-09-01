@@ -17,11 +17,21 @@
 import time
 
 
-def to_ds(value):
-    if len(f'{value:.0f}') < 2:
-        return f'0{value:.0f}'
+def time2str(value):
+    hours = value // 3600
+    minutes = value % 3600 // 60
+    seconds = value % 60
+    ts = []
+    for v in [hours, minutes]:
+        if v < 10:
+            ts.append(f'0{v:.0f}')
+        else:
+            ts.append(f'{v:.0f}')
+    if seconds < 10:
+        ts.append(f'0{seconds:.2f}')
     else:
-        return f'{value:.0f}'
+        ts.append(f'{seconds:.2f}')
+    return ':'.join(ts)
 
 
 class ProgressBar:
@@ -37,20 +47,31 @@ class ProgressBar:
         bars : int, optional
             Length of progress bar (default=50).
         bar_items : str, optional
-            String with characters used to represent intermediate states of bar. Last symbol represents a complete bar.
+            String with characters used to represent progress bar elements. Last symbol represents a completed cell.
         prefix : str, optional
-            Prefix placed before the progress bar (default='').
+            Prefix placed before the progress bar (default=''). Used to describe progress of what is reported.
         """
 
         self.total_iterations = total_iterations
-        self.bars = bars
         self.bar_items = bar_items
         self.prefix = prefix
 
+        self.__bars = bars
+
+        self.__percent_per_bar = 100 / self.__bars
         self.__start_time = time.time()
-        self.__percent_per_bar = 100 / self.bars
         self.__i = 0
-        self.__update_bar()
+
+    @property
+    def bars(self):
+        return self.__bars
+
+    @bars.setter
+    def bars(self, value):
+        if not isinstance(value, int):
+            raise TypeError(f'value \'{value}\' is not valid for the <bars> parameter')
+        self.__bars = value
+        self.__percent_per_bar = 100 / self.__bars
 
     @property
     def i(self):
@@ -59,11 +80,10 @@ class ProgressBar:
     @i.setter
     def i(self, value):
         if value > self.total_iterations:
-            raise ValueError(f'Value {value} exceeds the iterator limit of {self.total_iterations}')
+            raise ValueError(f'iterator value of \'{value}\' exceeds the iterator limit of \'{self.total_iterations}\'')
         if not isinstance(value, int) or value < 0:
-            raise ValueError(f'{value} is not a valid iterator value')
+            raise TypeError(f'\'{value}\' is not a valid iterator value')
         self.__i = value
-        self.__update_bar()
 
     def __repr__(self):
         return self.progress_bar
@@ -71,36 +91,38 @@ class ProgressBar:
     def increment(self, inc=1):
         self.i += inc
 
-    def __update_bar(self):
-        percentage = self.i / self.total_iterations * 100
+    @property
+    def progress_bar(self):
+        percentage = 100 * self.i / self.total_iterations
         full_bars = int(percentage / self.__percent_per_bar)
-        bar = '[' + f'{self.bar_items[-1]}' * full_bars
-        if len(bar) < (self.bars + 1):
+        bar = ['[']
+        if full_bars > 0:
+            bar.append(f'{self.bar_items[-1]}' * full_bars)
+        if full_bars < self.bars:
             partial_bar_ind = int(
                 percentage % self.__percent_per_bar / self.__percent_per_bar * (len(self.bar_items) - 1)
             )
-            bar += self.bar_items[partial_bar_ind]
-        bar += ' ' * (self.bars - (len(bar) - 1)) + ']'
+            bar.append(self.bar_items[partial_bar_ind])
+            bar.append(' ' * (self.bars - full_bars - 1))
+        bar.append(']')
+        bar = ''.join(bar)
 
         elapsed = time.time() - self.__start_time
-        elapsed_string = f'{to_ds(elapsed // 3600)}:' \
-                         f'{to_ds(elapsed % 3600 // 60)}:' \
-                         f'{to_ds(elapsed % 60)}.{str(elapsed % 1)[2]}'
+        elapsed_string = time2str(elapsed)
+
         try:
             speed = self.i / elapsed
             eta = (self.total_iterations - self.i) / speed
-            eta_string = f'{to_ds(eta // 3600)}:' \
-                         f'{to_ds(eta % 3600 // 60)}:' \
-                         f'{to_ds(eta % 60)}.{str(eta % 1)[2]}'
+            eta_string = time2str(eta)
         except ZeroDivisionError:
             speed = 0
             eta_string = f'00:00:00.00'
 
-        self.progress_bar = f'{self.prefix} {percentage:>3.0f}% ' \
-                            f'{bar} ' \
-                            f'{self.i:>{len(str(self.total_iterations))}}/' \
-                            f'{self.total_iterations:>{len(str(self.total_iterations))}} ' \
-                            f'[ETA: {eta_string}, Elapsed: {elapsed_string}, Speed: {speed:.2f} it/s]'
+        return f'{self.prefix} {percentage:>3.0f}% ' \
+               f'{bar} ' \
+               f'{self.i:>{len(str(self.total_iterations))}}/' \
+               f'{self.total_iterations:>{len(str(self.total_iterations))}} ' \
+               f'[ETA: {eta_string}, Elapsed: {elapsed_string}, Speed: {speed:.2f} it/s]'
 
     def print(self):
         print(self.progress_bar, end='\r')

@@ -14,8 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-import coastlib.bin
 import os
+import pathlib
 
 
 def append_bin():
@@ -24,6 +24,6 @@ def append_bin():
     Allows calling binary files from the terminal.
     """
 
-    bin_path = os.path.split(str(coastlib.bin.__file__))[0]
-    if bin_path not in os.environ['PATH']:
+    bin_path = str(pathlib.Path(__file__).parent.parent / 'bin')
+    if bin_path not in os.environ['PATH'].split(os.pathsep):
         os.environ['PATH'] += os.pathsep + bin_path
