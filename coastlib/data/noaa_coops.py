@@ -227,23 +227,78 @@ def coops_api(
         raise RuntimeError
 
 
-def coops_api_batch(begin_date, end_date, return_logs=False, echo_progress=False, **kwargs):
+def coops_api_batch(
+        station, begin_date, end_date, product,
+        return_logs=False, echo_progress=False,
+        datum=None, units='english', time_zone='gmt', interval=None, current_bin=None):
     """
     Expands functionality of the <coops_api> function allowing to extract data for
     arbitrary time periods.
 
     Parameters
     ----------
+    station : int or str
+        A 7 character station ID, or a currents station ID.
+        Station listings for various products can be viewed at https://tidesandcurrents.noaa.gov
+        or viewed on a map at Tides & Currents Station Map.
     begin_date : datetime.datetime or str
         Start date-time - must be either a datetime object or a string convertible to datetime object.
     end_date : datetime.datetime or str
         End date-time - must be either a datetime object or a string convertible to datetime object.
+    product : str
+        water_level             Preliminary or verified water levels, depending on availability.
+        air_temperature         Air temperature as measured at the station.
+        water_temperature       Water temperature as measured at the station.
+        wind                    Wind speed, direction, and gusts as measured at the station.
+        air_pressure            Barometric pressure as measured at the station.
+        air_gap                 Air Gap (distance between a bridge and the water's surface) at the station.
+        conductivity            The water's conductivity as measured at the station.
+        visibility              Visibility from the station's visibility sensor. A measure of atmospheric clarity.
+        humidity                Relative humidity as measured at the station.
+        salinity                Salinity and specific gravity data for the station.
+        hourly_height           Verified hourly height water level data for the station.
+        high_low                Verified high/low water level data for the station.
+        daily_mean              Verified daily mean water level data for the station.
+        monthly_mean            Verified monthly mean water level data for the station.
+        one_minute_water_level  One minute water level data for the station.
+        predictions             6 minute predictions water level data for the station.
+        datums                  datums data for the stations.
+        currents                Currents data for currents stations.
     return_logs : bool, optional
         If True, returns a dictionary with logs for all iterations.
     echo_progress : bool, optional
         If True, prints out progress bar (default=False).
-    kwargs
-        See <coops_api> docstring for a full list of arguments.
+    datum : str, optional (mandatory for product=`water_level`)
+        CRD                     Columbia River Datum
+        IGLD                    International Great Lakes Datum
+        LWD                     Great Lakes Low Water Datum (Chart Datum)
+        MHHW                    Mean Higher High Water
+        MHW                     Mean High Water
+        MTL                     Mean Tide Level
+        MSL                     Mean Sea Level
+        MLW                     Mean Low Water
+        MLLW                    Mean Lower Low Water
+        NAVD                    North American Vertical Datum
+        STND                    Station Datum
+    units : str, optional
+        (default='english')
+        metric                  Metric (Celsius, meters, cm/s) units
+        english                 English (fahrenheit, feet, knots) units
+    time_zone : str, optional
+        (default='gmt')
+        gmt                     Greenwich Mean Time
+        lst                     Local Standard Time. The time local to the requested station.
+        lst_ldt                 Local Standard/Local Daylight Time. The time local to the requested station.
+    interval : str, optional
+        The interval for which Meteorological data is returned (default=None).
+        The default is 6 minute interval and there is no need to specify it.
+        The hourly interval is supported for Met data and Predictions data only.
+            h                   Hourly Met data and predictions data will be returned
+            hilo                High/Low tide predictions for subordinate stations.
+    current_bin : int, optional
+        # TODO - this option is not yet implemented
+        Currents data for bin number <bin> of the specified station is returned.
+        If a bin is not specified for a PORTS station, the data is returned using a predefined real-time bin.
 
     Returns
     -------
@@ -259,7 +314,6 @@ def coops_api_batch(begin_date, end_date, return_logs=False, echo_progress=False
     0.29498921634703756
     """
 
-    product = kwargs['product']
     if product in ['daily_mean', 'monthly_mean']:
         time_delta = pd.to_timedelta('3500D')
     elif product in ['hourly_height', 'high_low']:
@@ -286,7 +340,13 @@ def coops_api_batch(begin_date, end_date, return_logs=False, echo_progress=False
     _end = begin_date + time_delta
     while _end - time_delta <= end_date:
         try:
-            data.append(coops_api(begin_date=_start.strftime('%Y%m%d'), end_date=_end.strftime('%Y%m%d'), **kwargs))
+            data.append(
+                coops_api(
+                    station=station, begin_date=_start.strftime('%Y%m%d'), end_date=_end.strftime('%Y%m%d'),
+                    product=product, datum=datum, units=units, time_zone=time_zone, interval=interval,
+                    current_bin=current_bin
+                )
+            )
             logs[len(logs)] = {
                 'start': _start,
                 'end': _end,
