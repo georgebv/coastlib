@@ -232,7 +232,7 @@ def coops_api_batch(
         return_logs=False, echo_progress=False,
         datum=None, units='english', time_zone='gmt', interval=None, current_bin=None):
     """
-    Expands functionality of the <coops_api> function allowing to extract data for
+    Expands functionality of the <coops_api> function allowing extraction of data for
     arbitrary time periods.
 
     Parameters
@@ -302,6 +302,10 @@ def coops_api_batch(
 
     Returns
     -------
+    if return_logs :
+        df : pd.DataFrame
+            Pandas DataFrame with parsed time series.
+        logs : dict
     df : pd.DataFrame
         Pandas DataFrame with parsed time series.
 

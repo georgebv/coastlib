@@ -14,8 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-import requests
+from datetime import datetime
+
 import pandas as pd
+import requests
+from coastlib.helper import ProgressBar
 
 
 def ncei_datasets(
@@ -400,8 +403,126 @@ def ncei_api(
     return df
 
 
-def ncei_api_batch():
-    pass
+def ncei_api_batch(
+        dataset, stations, start_date=None, end_date=None, time_delta='350D', return_logs=False, echo_progress=False,
+        datatypes=None, bounding_box=(90, -180, -90, 180), units='metric'
+):
+    """
+    Expands functionality of the <ncei_api> function allowing extraction of data for
+    arbitrary time periods.
+
+    Parameters
+    ----------
+    dataset : str
+        Dataset name (e.g. 'local-climatological-data').
+        See `ncei_datasets()` method for available dataset names.
+    stations : str or array-like
+        Accepts a valid station id or a list of of station ids.
+        Data returned will contain data for the station(s) specified.
+    start_date : str, optional
+        Start date - must be either a datetime object or a string convertible to datetime object.
+    end_date : str, optional
+        Start date - must be either a datetime object or a string convertible to datetime object.
+    time_delta : str or pandas.Timedelta, optional
+        Interval of data collection (default='350D'). If string, must be convertible to pandas.Timedelta.
+    return_logs : bool, optional
+        If True, returns a dictionary with logs for all iterations.
+    echo_progress : bool, optional
+        If True, prints out progress bar (default=False).
+    datatypes : str or array-like, optional
+        Accepts a valid data type id or a list of data type ids.
+        Data returned will contain all of the data type(s) specified.
+    bounding_box : array-like, optional
+        The bounding box is used to select data from a geographic location contained within the coordinates,
+        given as four comma separated numbers. North and South range from -90 to 90 and East and West range
+        from -180 to 180. If these are not set the geographic extent defaults to the entire globe (90,-180,-90,180).
+    units : str, optional
+        The units parameter converts the output data for datasets and datatypes
+        that support conversion to either “metric” or “standard” units (default='metric').
+
+    Returns
+    -------
+    if return_logs :
+        df : pd.DataFrame
+            Pandas DataFrame with parsed time series.
+        logs : dict
+    df : pd.DataFrame
+        Pandas DataFrame with parsed time series.
+
+    Raises
+    ------
+    ValueError
+        if REST response status code is 400 or 500
+    """
+
+    if not isinstance(time_delta, pd.Timedelta):
+        time_delta = pd.to_timedelta(time_delta)
+
+    if not isinstance(start_date, datetime):
+        start_date = pd.to_datetime(start_date)
+
+    if not isinstance(end_date, datetime):
+        end_date = pd.to_datetime(end_date)
+
+    logs = {}
+    progress_bar = ProgressBar(
+        total_iterations=int((end_date - start_date) / time_delta) + 1,
+        bars=50, bar_items='0123456789#', prefix='NOAA NCEI'
+    )
+    if echo_progress:
+        print(progress_bar, end='\r')
+
+    data = []
+    _start = start_date
+    _end = start_date + time_delta
+    while _end - time_delta <= end_date:
+        try:
+            data.append(
+                ncei_api(
+                    dataset=dataset, stations=stations,
+                    start_date=_start.strftime('%Y-%m-%dT%H:%M:%S'), end_date=_end.strftime('%Y-%m-%dT%H:%M:%S'),
+                    datatypes=datatypes, bounding_box=bounding_box, output_format='json', units=units
+                )
+            )
+            logs[len(logs)] = {
+                'start': _start,
+                'end': _end,
+                'success': True,
+                'error_message': None
+            }
+        except ValueError as _err:
+            logs[len(logs)] = {
+                'start': _start,
+                'end': _end,
+                'success': False,
+                'error_message': str(_err)
+            }
+        except KeyError:
+            logs[len(logs)] = {
+                'start': _start,
+                'end': _end,
+                'success': False,
+                'error_message': 'Retrieved data has non-standard format. Try using the <ncei_api> function.'
+            }
+        _start += time_delta
+        _end += time_delta
+        if echo_progress:
+            progress_bar.increment()
+            print(progress_bar, end='\r')
+
+    if len(data) > 0:
+        df = pd.concat(data)
+        df.sort_index(inplace=True)
+        df = df[~df.index.duplicated(keep='first')]
+    else:
+        df = None
+    if echo_progress:
+        print(progress_bar)
+
+    if return_logs:
+        return df, logs
+
+    return df
 
 
 if __name__ == '__main__':
@@ -419,4 +540,9 @@ if __name__ == '__main__':
     na_data = ncei_api(
         dataset='local-climatological-data', stations=['72503014732', '70219026615'],
         start_date='2012-10-01', end_date='2012-11-01'
+    )
+
+    b_data = ncei_api_batch(
+        dataset='local-climatological-data', stations=['72503014732', '70219026615'],
+        start_date='2010-01-01', end_date='2011-01-01', echo_progress=True, time_delta='10D'
     )
