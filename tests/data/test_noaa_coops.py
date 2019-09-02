@@ -1,5 +1,14 @@
-from coastlib.data.noaa_coops import coops_api, coops_api_batch, coops_datum
+from coastlib.data.noaa_coops import nanfloat, coops_api, coops_api_batch, coops_datum
 import numpy as np
+
+
+def test_nanfloat():
+    assert nanfloat('abc') == 'abc'
+    assert np.isnan(nanfloat(np.nan))
+    assert nanfloat('2') == 2 and isinstance(nanfloat('2'), float)
+    assert nanfloat('-3.7') == -3.7 and isinstance(nanfloat('2'), float)
+    assert nanfloat(6) == 6 and isinstance(nanfloat(6), int)
+    assert nanfloat(6.0) == 6 and isinstance(nanfloat(6.0), float)
 
 
 def test_coops_api_basic():

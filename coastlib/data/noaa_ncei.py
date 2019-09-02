@@ -523,26 +523,3 @@ def ncei_api_batch(
         return df, logs
 
     return df
-
-
-if __name__ == '__main__':
-    nd_data = ncei_datasets()
-    for key, value in nd_data[-1].items():
-        print(f'{key} :\n    {", ".join(value.keys())}')
-
-    ns_data = ncei_search(dataset='local-climatological-data', stations='72503014732', limit=5)
-    for key, value in ns_data[-1].items():
-        print(f'{key} -> {value["name"]}\n')
-    for key, value in ns_data[-1]['72503014732']['datatypes'].items():
-        if 'dir' in key.lower() or 'speed' in key.lower():
-            print(f'{key} -> {value}')
-
-    na_data = ncei_api(
-        dataset='local-climatological-data', stations=['72503014732', '70219026615'],
-        start_date='2012-10-01', end_date='2012-11-01'
-    )
-
-    b_data = ncei_api_batch(
-        dataset='local-climatological-data', stations=['72503014732', '70219026615'],
-        start_date='2010-01-01', end_date='2011-01-01', echo_progress=True, time_delta='10D'
-    )
