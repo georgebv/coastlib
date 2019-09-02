@@ -22,6 +22,7 @@ Jupyter Notebooks
 =================
 - ``coastlib.data``
     - `noaa_coops`_ - NOAA CO-OPS data extraction
+    - `noaa_ncei`_ - NOAA NCEI data extraction
 
 Examples
 ========
@@ -41,6 +42,7 @@ Examples
     :target: https://badge.fury.io/py/coastlib
 
 .. _noaa_coops: https://nbviewer.jupyter.org/github/georgebv/coastlib-notebooks/blob/master/notebooks/data/noaa_coops.ipynb
+.. _noaa_ncei: https://nbviewer.jupyter.org/github/georgebv/coastlib-notebooks/blob/master/notebooks/data/noaa_ncei.ipynb
 
 .. |FentonWave Image| image:: ./docs/source/example_images/fentonwave.png
 .. |rose_plot_1 Image| image:: ./docs/source/example_images/rose_plot_1.png
