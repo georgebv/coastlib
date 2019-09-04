@@ -1,3 +1,9 @@
+.. role:: bash(code)
+   :language: bash
+
+.. role:: python(code)
+   :language: python
+
 |Build Status| |Coverage Status| |Documentation Status| |Requirements Status| |PyPI version|
 
 coastlib
@@ -20,9 +26,10 @@ Installation
 
 Jupyter Notebooks
 =================
-- ``coastlib.data`` - data extraction tools
-    - `noaa_coops`_ - NOAA `CO-OPS <https://co-ops.nos.noaa.gov/>`_
-    - `noaa_ncei`_ - NOAA `NCEI <https://www.ncei.noaa.gov/>`_
+- :python:`coastlib.data` - data extraction tools
+  
+  - `noaa_coops`_ - NOAA `CO-OPS <https://co-ops.nos.noaa.gov/>`_
+  - `noaa_ncei`_ - NOAA `NCEI <https://www.ncei.noaa.gov/>`_
 
 Examples
 ========
