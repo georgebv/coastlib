@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+import pickle
 import warnings
 
 import pandas as pd
@@ -25,11 +26,13 @@ class EVA:
 
     def __init__(self, data, block_size=365.2425):
         """
+        Initialize an EVA class instance.
 
         Parameters
         ----------
         data : pandas.Series
-
+            Pandas Series object containing data to be analyzed.
+            Data must be numeric and index must be of type pandas.DatetimeIndex.
         block_size : float, optional
             Block size in days. Used to determine number of blocks in data (default=365.2425, one Gregorian year).
             Block size is used to estimate probabilities (return periods for observed data) for all methods
@@ -40,15 +43,15 @@ class EVA:
         """
 
         if not isinstance(data, pd.Series):
-            raise TypeError(f'<data> must be a pandas.Series object, \'{type(data)}\' was received')
+            raise TypeError(f'<data> must be a {pd.Series} object, {type(data)} was received')
 
         if not isinstance(data.index, pd.DatetimeIndex):
-            raise TypeError(f'index of <data> must pandas.DatetimeIndex object, \'{type(data.index)}\' was received')
+            raise TypeError(f'index of <data> must be a {pd.DatetimeIndex} object, {type(data.index)} was received')
 
         if not is_numeric_dtype(data):
             raise TypeError(f'<data> must be of numeric dtype, \'{data.dtype}\' was received')
 
-        self.data = data
+        self.data = data.copy(deep=True)
         self.data.sort_index(ascending=True, inplace=True)
         nancount = self.data.isna().sum()
         if nancount > 0:
@@ -57,13 +60,22 @@ class EVA:
 
         self.__block_size = block_size
 
+        self.extremes = None
+
     @property
     def block_size(self):
+        return self.__block_size
+
+    @block_size.setter
+    def block_size(self, value):
         """
         See <block_size> paramter in the __init__ method.
         """
 
-        return self.__block_size
+        if not isinstance(value, (int, float)):
+            raise TypeError(f'<block_size> must be {int} or {float}, {type(value)} was received')
+
+        self.__block_size = value
 
     @property
     def number_of_blocks(self):
@@ -90,6 +102,18 @@ class EVA:
 
         return '\n'.join(summary)
 
+    def get_extremes(self, method='BM', plotting_position='Weibull', extremes_type='high'):
+        raise NotImplementedError
+
+    def to_pickle(self, fname):
+        with open(fname, 'wb') as output_stream:
+            pickle.dump(self, output_stream)
+
+    @classmethod
+    def from_pickle(cls, fname):
+        with open(fname, 'rb') as input_stream:
+            return pickle.load(input_stream)
+
 
 if __name__ == '__main__':
     import os
@@ -97,4 +121,4 @@ if __name__ == '__main__':
         os.path.join(os.getcwd(), 'tests', '_common_data', 'wind_speed.csv'),
         index_col=0, parse_dates=True
     )['s'].rename('Wind Speed [kn]')
-    self = EVA(data=ds)
+    self = EVA(data=ds.dropna())
