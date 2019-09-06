@@ -136,6 +136,11 @@ class EVA:
 
             self.__threshold = 0
 
+            extremes_func = {
+                'high': pd.Series.idxmax,
+                'low': pd.Series.idxmin
+            }[self.extremes_type]
+
             date_time_intervals = pd.interval_range(
                 start=self.data.index[0], freq=self.block_size,
                 periods=np.ceil(self.number_of_blocks), closed='left'
@@ -148,7 +153,7 @@ class EVA:
                     (self.data.index < interval.right)
                 ]
                 try:
-                    extreme_indices.append(interval_slice.idxmax())
+                    extreme_indices.append(extremes_func(interval_slice))
                     extreme_values.append(interval_slice.loc[extreme_indices[-1]])
                 except ValueError as error_message:
                     if errors == 'coerce':

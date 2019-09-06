@@ -20,6 +20,7 @@ def data():
     )['s'].rename('Wind Speed [kn]').dropna()
 
 
+# noinspection PyTypeChecker
 class TestEVA:
 
     def test_init(self, data_raw, data):
@@ -41,10 +42,10 @@ class TestEVA:
 
     def test_default_block_size(self, data):
         eva = EVA(data=data)
-        assert eva.block_size == 365.2425
+        assert eva.block_size == pd.to_timedelta('365.2425D')
         assert np.isclose(eva.number_of_blocks, 9.99883638952203)
 
     def test_custom_block_size(self, data):
-        eva = EVA(data=data, block_size=90)
-        assert eva.block_size == 90
+        eva = EVA(data=data, block_size='90D')
+        assert eva.block_size == pd.to_timedelta('90D')
         assert np.isclose(eva.number_of_blocks, 40.577777777777776)
