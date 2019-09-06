@@ -22,6 +22,30 @@ import numpy as np
 from pandas.api.types import is_numeric_dtype
 
 
+def get_extremes_pot(data, threshold, extremes_type, r):
+    if extremes_type == 'high':
+        exceedances = data.loc[data > threshold]
+        comparison_func = np.greater
+    else:
+        exceedances = data.loc[data < threshold]
+        comparison_func = np.less
+
+    r = pd.to_timedelta(r)
+    extreme_values, extreme_indices = [exceedances[0]], [exceedances.index[0]]
+    for i, (index, value) in enumerate(exceedances[1:].iteritems(), 1):
+        # new cluster
+        if (index - exceedances.index[i-1]) > r:
+            extreme_values.append(value)
+            extreme_indices.append(index)
+        # same cluster
+        else:
+            if comparison_func(value, extreme_values[-1]):
+                extreme_values[-1] = value
+                extreme_indices[-1] = index
+
+    return np.array(extreme_indices), np.array(extreme_values)
+
+
 class EVA:
 
     def __init__(self, data, block_size='1Y'):
@@ -162,8 +186,24 @@ class EVA:
                     else:
                         raise ValueError(error_message)
 
+        elif method == 'POT':
+            self.__threshold = kwargs.pop('threshold')
+            r = kwargs.pop('r', '24H')
+            adjust_threshold = kwargs.pop('adjust_threshold', True)
+            assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(", ".join(kwargs.keys()))
+
+            extreme_indices, extreme_values = get_extremes_pot(
+                data=self.data, threshold=self.threshold, extremes_type=extremes_type, r=r
+            )
+
+            if adjust_threshold:
+                if self.extremes_type == 'high':
+                    self.__threshold = extreme_values.min()
+                elif self.extremes_type == 'low':
+                    self.__threshold = extreme_values.max()
+
         else:
-            raise NotImplementedError
+            raise ValueError(f'\'{method}\' is not a valid <method> value')
 
         self.extremes = pd.DataFrame(
             data=extreme_values,
@@ -192,4 +232,7 @@ if __name__ == '__main__':
     )['s'].rename('Wind Speed [kn]')
     self = EVA(data=ds.dropna(), block_size='30D')
 
-    self.get_extremes(method='BM', plotting_position='Weibull', extremes_type='high', errors='coerce')
+    self.get_extremes(
+        method='POT', plotting_position='Weibull', extremes_type='high',
+        threshold=20, r='6H'
+    )
