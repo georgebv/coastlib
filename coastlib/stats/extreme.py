@@ -85,10 +85,37 @@ class EVA:
 
         self.__block_size = pd.to_timedelta(block_size)
 
+        self.__status = 0
+
         self.__extremes_method = None
         self.__extremes_type = None
         self.__threshold = None
         self.extremes = None
+        self.__plotting_position = None
+
+    @property
+    def status(self):
+        return {
+            0: 'initialized object',
+            1: 'extracted extreme values',
+            2: 'applied model',
+            3: 'generated results'
+        }[self.__status]
+
+    @status.setter
+    def status(self, value):
+        if value not in [0, 1, 2, 3]:
+            raise ValueError(f'\'{value}\' is not a valid value for <status>, valid values are 0, 1, or 2')
+
+        if value < 1:
+            self.__extremes_method = None
+            self.__extremes_type = None
+            self.__threshold = None
+            self.extremes = None
+        if value < 2:
+            pass
+
+        self.__status = value
 
     @property
     def block_size(self):
@@ -104,6 +131,7 @@ class EVA:
             raise TypeError(f'<block_size> must be {str}, {type(value)} was received')
 
         self.__block_size = pd.to_timedelta(value)
+        self.status = 0
 
     @property
     def number_of_blocks(self):
@@ -120,6 +148,22 @@ class EVA:
     @property
     def threshold(self):
         return self.__threshold
+
+    @property
+    def extremes_rate(self):
+        if self.extremes is None:
+            return None
+        else:
+            return len(self.extremes) / self.number_of_blocks
+
+    @property
+    def plotting_position(self):
+        return self.__plotting_position
+
+    @plotting_position.setter
+    def plotting_position(self, value):
+        # TODO : check if value is a valid plotting position and recalculate return periods in extremes
+        raise NotImplementedError
 
     def __repr__(self):
         series_length = (self.data.index[-1] - self.data.index[0]).total_seconds() / 60 / 60 / 24
@@ -143,6 +187,8 @@ class EVA:
         return '\n'.join(summary)
 
     def get_extremes(self, method='BM', plotting_position='Weibull', extremes_type='high', **kwargs):
+
+        self.status = 0
 
         if method not in ['BM', 'POT']:
             raise ValueError(f'\'{method}\' is not a valid <method> value')
@@ -214,12 +260,14 @@ class EVA:
 
         self.extremes.fillna(np.nanmean(extreme_values), inplace=True)
 
+        self.status = 1
+
     def to_pickle(self, fname):
         with open(fname, 'wb') as output_stream:
             pickle.dump(self, output_stream)
 
-    @classmethod
-    def from_pickle(cls, fname):
+    @staticmethod
+    def from_pickle(fname):
         with open(fname, 'rb') as input_stream:
             return pickle.load(input_stream)
 
