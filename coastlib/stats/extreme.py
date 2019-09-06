@@ -87,25 +87,45 @@ class EVA:
 
         self.__status = 0
 
+        # TODO : set parameters to None
+
+        # status level 1
         self.__extremes_method = None
         self.__extremes_type = None
         self.__threshold = None
         self.extremes = None
         self.__plotting_position = None
 
+        # status level 2
+        self.__distribution = None
+
+        # status level 3
+        self.results = None
+
     @property
     def status(self):
-        return {
-            0: 'initialized object',
-            1: 'extracted extreme values',
-            2: 'applied model',
-            3: 'generated results'
-        }[self.__status]
+        return self.__status
 
     @status.setter
     def status(self, value):
+        """
+        Update internal status and remove all properties
+        associated with higher status values.
+
+        Parameters
+        ----------
+        value : int
+            Valid status values:
+                0 : initialized object
+                1 : extracted extreme values
+                2 : applied a model
+                3 : generated results
+        """
+
         if value not in [0, 1, 2, 3]:
-            raise ValueError(f'\'{value}\' is not a valid value for <status>, valid values are 0, 1, or 2')
+            raise ValueError(f'\'{value}\' is not a valid value for <status>, valid values are (0, 1, 2)')
+
+        # TODO : update paramters for higher status values
 
         if value < 1:
             self.__extremes_method = None
@@ -113,7 +133,9 @@ class EVA:
             self.__threshold = None
             self.extremes = None
         if value < 2:
-            pass
+            self.__distribution = None
+        elif value < 3:
+            self.results = None
 
         self.__status = value
 
@@ -164,6 +186,10 @@ class EVA:
     def plotting_position(self, value):
         # TODO : check if value is a valid plotting position and recalculate return periods in extremes
         raise NotImplementedError
+
+    @property
+    def distribution(self):
+        return self.__distribution
 
     def __repr__(self):
         series_length = (self.data.index[-1] - self.data.index[0]).total_seconds() / 60 / 60 / 24
