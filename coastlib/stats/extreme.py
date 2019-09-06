@@ -24,7 +24,7 @@ from pandas.api.types import is_numeric_dtype
 
 class EVA:
 
-    def __init__(self, data, block_size=365.2425):
+    def __init__(self, data, block_size='1Y'):
         """
         Initialize an EVA class instance.
 
@@ -33,13 +33,14 @@ class EVA:
         data : pandas.Series
             Pandas Series object containing data to be analyzed.
             Data must be numeric and index must be of type pandas.DatetimeIndex.
-        block_size : float, optional
-            Block size in days. Used to determine number of blocks in data (default=365.2425, one Gregorian year).
+        block_size : str, optional
+            Block size, used to determine number of blocks in data (default='1Y', one Gregorian year).
+            See pandas.to_timedelta documentation for syntax.
             Block size is used to estimate probabilities (return periods for observed data) for all methods
             and to extract extreme events when using the 'Block Maxima' method.
-            Return periods have units of <block_size> - e.g. a for block_size=365.2425
+            Return periods have units of <block_size> - e.g. a for block_size='1Y'
             a return period of 100 is the same thing as a 100-year return period.
-            Weekly would be <block_size=7> and monthly would be <block_size=365.2425/12>.
+            Weekly would be <block_size='1W'> and monthly would be approximately <block_size='30D'>.
         """
 
         if not isinstance(data, pd.Series):
@@ -58,8 +59,11 @@ class EVA:
             self.data.dropna(inplace=True)
             warnings.warn(f'{nancount:d} no-data entries were dropped')
 
-        self.__block_size = block_size
+        self.__block_size = pd.to_timedelta(block_size)
 
+        self.__extremes_method = None
+        self.__extremes_type = None
+        self.__threshold = None
         self.extremes = None
 
     @property
@@ -72,14 +76,26 @@ class EVA:
         See <block_size> paramter in the __init__ method.
         """
 
-        if not isinstance(value, (int, float)):
-            raise TypeError(f'<block_size> must be {int} or {float}, {type(value)} was received')
+        if not isinstance(value, str):
+            raise TypeError(f'<block_size> must be {str}, {type(value)} was received')
 
-        self.__block_size = value
+        self.__block_size = pd.to_timedelta(value)
 
     @property
     def number_of_blocks(self):
         return (self.data.index[-1] - self.data.index[0]) / pd.to_timedelta(f'{self.block_size}D')
+
+    @property
+    def extremes_method(self):
+        return self.__extremes_method
+
+    @property
+    def extremes_type(self):
+        return self.__extremes_type
+
+    @property
+    def threshold(self):
+        return self.__threshold
 
     def __repr__(self):
         series_length = (self.data.index[-1] - self.data.index[0]).total_seconds() / 60 / 60 / 24
@@ -102,8 +118,56 @@ class EVA:
 
         return '\n'.join(summary)
 
-    def get_extremes(self, method='BM', plotting_position='Weibull', extremes_type='high'):
-        raise NotImplementedError
+    def get_extremes(self, method='BM', plotting_position='Weibull', extremes_type='high', **kwargs):
+
+        if method not in ['BM', 'POT']:
+            raise ValueError(f'\'{method}\' is not a valid <method> value')
+        self.__extremes_method = method
+
+        if extremes_type not in ['high', 'low']:
+            raise ValueError(f'\'{extremes_type}\' is not a valid <extremes_type> value')
+        self.__extremes_type = extremes_type
+
+        if method == 'BM':
+            errors = kwargs.pop('errors', 'raise')
+            if errors not in ['raise', 'coerce']:
+                raise ValueError(f'\'{errors}\' is not a valid <errors> value')
+            assert len(kwargs) == 0, 'unrecognized arguments passed in: {}'.format(", ".join(kwargs.keys()))
+
+            self.__threshold = 0
+
+            date_time_intervals = pd.interval_range(
+                start=self.data.index[0], freq=self.block_size,
+                periods=np.ceil(self.number_of_blocks), closed='left'
+            )
+
+            extreme_values, extreme_indices = [], []
+            for interval in date_time_intervals:
+                interval_slice = self.data.loc[
+                    (self.data.index >= interval.left) &
+                    (self.data.index < interval.right)
+                ]
+                try:
+                    extreme_indices.append(interval_slice.idxmax())
+                    extreme_values.append(interval_slice.loc[extreme_indices[-1]])
+                except ValueError as error_message:
+                    if errors == 'coerce':
+                        extreme_values.append(np.nan)
+                        extreme_indices.append(interval.mid)
+                    else:
+                        raise ValueError(error_message)
+
+        else:
+            raise NotImplementedError
+
+        self.extremes = pd.DataFrame(
+            data=extreme_values,
+            columns=['Return Value'],
+            index=extreme_indices
+        )
+        self.extremes.index.name = self.data.index.name
+
+        self.extremes.fillna(np.nanmean(extreme_values), inplace=True)
 
     def to_pickle(self, fname):
         with open(fname, 'wb') as output_stream:
@@ -121,4 +185,6 @@ if __name__ == '__main__':
         os.path.join(os.getcwd(), 'tests', '_common_data', 'wind_speed.csv'),
         index_col=0, parse_dates=True
     )['s'].rename('Wind Speed [kn]')
-    self = EVA(data=ds.dropna())
+    self = EVA(data=ds.dropna(), block_size='30D')
+
+    self.get_extremes(method='BM', plotting_position='Weibull', extremes_type='high', errors='coerce')
